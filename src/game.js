@@ -224,9 +224,9 @@ function neonPanel(x,y,w,h,accent=C.teal,radius=17){
  gradient.addColorStop(1,'#071a32');
  roundRect(x+4,y+5,w,h,radius,'#03152a');
  roundRect(x,y,w,h,radius,gradient,accent,2);
- ctx.fillStyle=accent;ctx.globalAlpha=.74;
+ ctx.save();ctx.globalAlpha*=.74;
  roundRect(x+16,y+9,Math.max(4,w-32),3,2,accent);
- ctx.globalAlpha=1;
+ ctx.restore();
  ctx.fillStyle='#ffffff12';ctx.fillRect(x+17,y+h-10,Math.max(0,w-34),2);
 }
 function panel(x,y,w,h){neonPanel(x,y,w,h,'#59f6e5');}
