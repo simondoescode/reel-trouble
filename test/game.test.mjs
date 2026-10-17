@@ -150,7 +150,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/colors:\['#17667a'/);
  assert.match(ocean,/colors:\['#205c67'/);
  assert.match(ocean,/colors:\['#263d71'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v13/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v15/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
@@ -237,4 +237,20 @@ test('gear shop offers persistent lines, distinct guns and one-use blast charges
  assert.match(game,/function buyCharge\(/);
  for(const name of ['QUICKSHOT','SCATTERGUN','TWIN SCATTER','NEON BLASTER','STORM CANNON'])
   assert.ok(guns.includes(name),name);
+});
+
+test('main game is a single valid script without duplicate or truncated trailing code',()=>{
+ const source=read('src/game.js');
+ const once=[
+  'function render(){','function frame(t){','function installScene(){',
+  'function settings(){','function fishDetail(){','function shop(){',
+  'function menu(){','\\n})();'
+ ];
+ for(const symbol of once){
+  const needle=symbol==='\\n})();'?'\\n})();':symbol;
+  assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
+ }
+ assert.match(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \$'\+costs\[level\],81,574,258,49,buyLight,C\.teal\)/);
+ assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
+ assert.doesNotMatch(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \n/);
 });

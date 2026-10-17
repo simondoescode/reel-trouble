@@ -175,3 +175,8 @@ The results screen has a count-up payout, stronger hierarchy, neon reward card, 
 Diving and reeling move at a more manageable pace, shooting gives you 16 seconds instead of 12, and the chiptune beat is slightly slower without losing its arcade rhythm. Full-screen transitions between dive/reel/shoot/results have been switched off in favour of uninterrupted play.
 
 Fish population has been thinned from approximately one per 43 depth units to one per 74, the first fish appear around 295 depth units instead of 155, large sardine schools are less common, and descending collisions have a smaller hit area. The first 360 units of a dive cannot abruptly reverse into reeling from fish contact. Deeper biome fish remain available to catch on the way back up.
+
+
+## Blank-screen recovery (October 2026)
+
+A faulty light-upgrade edit produced an unterminated JavaScript string and appended a duplicate tail after the game entry point. Browsers could display a blank canvas because the entire module failed parsing. The malformed gadget button was restored, the duplicated 16KB block was removed, and tests now detect duplicated lifecycle functions and incomplete game source. The PWA cache was incremented to v15; app progress stays in localStorage.
