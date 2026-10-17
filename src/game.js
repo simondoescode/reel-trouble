@@ -513,12 +513,16 @@ function jellyfish(h,y){
  }
  ctx.restore();
 }
-function meter(n){return `${Math.round(n/6)}m`;}
+const DEPTH_PIXELS_PER_METRE=3;
+const START_LINE_DEPTH=1050;
+const LINE_DEPTH_STEP=510;
+function maxLineDepth(level){return START_LINE_DEPTH+level*LINE_DEPTH_STEP;}
+function meter(n){return `${Math.round(n/DEPTH_PIXELS_PER_METRE)}m`;}
 function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=1200+save.upgrades.line*240;depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
@@ -624,7 +628,7 @@ function upgradeConfig(type){
  const base={line:65,net:90,gun:85},lvl=save.upgrades[type];
  return {title:{line:'FISHING LINES',net:'WIDER HOOK',gun:'GUN COLLECTION'}[type],
  level:lvl,cost:Math.round(base[type]*Math.pow(1.75,lvl)),
- desc:{line:'+40m of depth per level',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};
+ desc:{line:'+170m of depth per level',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};
 }
 function buyCharge(){
  if(save.charges>=3||save.cash<110)return;
@@ -716,8 +720,8 @@ function update(dt){
   sound.play('miss');rumble.play('sting');
  };
  if(state==='descent'){
- depth+= (122+save.upgrades.line*4)*dt;
- const collided=depth<360?null:fishes.find(f=>!f.caught&&!f.bypassed&&Math.abs(f.d+(f.swimY||0)-depth)<17&&Math.abs(f.x-hookX)<(12+species[f.kind].size*.52));
+ depth+= (91+save.upgrades.line*3)*dt;
+ const collided=depth<540?null:fishes.find(f=>!f.caught&&!f.bypassed&&Math.abs(f.d+(f.swimY||0)-depth)<17&&Math.abs(f.x-hookX)<(12+species[f.kind].size*.52));
  if(collided&&chargeArmed){
   chargeArmed=false;save.charges=Math.max(0,save.charges-1);persist();
   // Clear the fish from the collision path without adding it to the catch.
@@ -732,7 +736,7 @@ function update(dt){
  else if(touchingHazard){triggerHazard();startAscent(null,true);}
  else if(depth>=maxDepth){depth=maxDepth;startAscent(null);}
  }else{
- depth-=(hazardSlow>0?115:190)*dt;
+ depth-=(hazardSlow>0?125:205)*dt;
  if(touchingHazard){triggerHazard();hazardSlow=1.2;}
  const radius=24+save.upgrades.net*13;
  for(const f of fishes)if(!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<27&&Math.abs(f.x-hookX)<radius+species[f.kind].size*.5)catchFish(f);
@@ -825,21 +829,32 @@ function topBar(title,left,right){
 }
 function bottomHint(hint){roundRect(21,711,378,51,0,'#061d34fa','#6beedc',2);text(hint,210,737,16,C.white,'center',900,0,357);}
 function sideDepthGauge(){
- // Compact ruler: 50m major ticks, 25m minor ticks, no opaque side panel.
- const x=401,top=235,height=414,totalMetres=maxDepth/6;
- const progress=clamp(depth/maxDepth,0,1);
+ // Hairline ruler pinned to the extreme right edge. Metres are spaced by
+ // actual on-screen distance; don't cram every 50m tick into a short gauge.
+ const x=W-2,top=217,height=465,rangeMetres=200;
+ const currentMetres=depth/DEPTH_PIXELS_PER_METRE;
+ const windowStart=Math.max(0,Math.floor((currentMetres-40)/50)*50);
+ const windowEnd=windowStart+rangeMetres;
+ const yAt=metres=>top+(metres-windowStart)/rangeMetres*height;
  ctx.save();
- ctx.fillStyle='#041b2db0';ctx.fillRect(x-2,top,3,height);
- for(let metres=0;metres<=totalMetres;metres+=25){
-  const y=top+height*metres/totalMetres;
-  const major=metres%50===0;
-  line(x-(major?14:8),y,x+1,y,major?'#f2fff5':'#9ed5db',major?2:1);
-  if(major)text(metres+'m',x-17,y,16,C.white,'right',900,0,46);
+ ctx.fillStyle='#ffffffb0';ctx.fillRect(x,top,2,height);
+ ctx.shadowColor='#061525';ctx.shadowBlur=4;ctx.shadowOffsetY=1;
+ for(let metres=Math.ceil(windowStart/25)*25;metres<=windowEnd;metres+=25){
+  const y=yAt(metres),major=metres%50===0;
+  line(x-(major?9:5),y,x,y,'#ffffff',major?1.5:1);
+  if(major){
+   ctx.textAlign='right';ctx.textBaseline='middle';
+   ctx.font='900 12px Arial,Helvetica,sans-serif';
+   ctx.fillStyle='#ffffff';
+   ctx.fillText(metres+'m',x-13,y);
+  }
  }
- const y=top+height*progress;
- line(x-17,y,x+3,y,C.yellow,4);
- roundRect(345,665,70,32,8,'#061d34ef',C.yellow,2);
- text(meter(depth),380,681,16,C.white,'center',900,0,64);
+ const markerY=clamp(yAt(currentMetres),top,top+height);
+ line(x-13,markerY,x,markerY,'#ffffff',2.5);
+ ctx.font='900 16px Arial,Helvetica,sans-serif';
+ ctx.textAlign='right';ctx.textBaseline='middle';
+ ctx.fillStyle='#ffffff';
+ ctx.fillText(meter(depth),x-15,markerY-15);
  ctx.restore();
 }
 function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
@@ -1194,11 +1209,11 @@ function shop(){
   neonPanel(24,223,372,295,C.teal,18);
   text(type==='line'?'YOUR CURRENT REEL':'YOUR CURRENT WEAPON',210,254,17,C.white);
   text(names[cfg.level],210,302,27,C.white,'center',900,0,342);
-  text(type==='line'?meter(1200+cfg.level*240)+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
+  text(type==='line'?meter(maxLineDepth(cfg.level))+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
   arcadeRule(52,374,368,C.teal);
   if(cfg.level<MAXLVL){
    text('NEXT: '+names[cfg.level+1],210,413,22,C.white,'center',900,0,330);
-   text(type==='line'?'+40m REACH • NEW DEPTHS':'NEW SHOT PATTERN / AIM BOOST',210,446,16,C.white,'center',900,0,334);
+   text(type==='line'?'+170m REACH • NEW DEPTHS':'NEW SHOT PATTERN / AIM BOOST',210,446,16,C.white,'center',900,0,334);
    button('BUY $'+cfg.cost,75,538,270,66,()=>purchase(type),C.yellow);
   }else{
    text('MAX UPGRADE EQUIPPED',210,429,18,C.white);
