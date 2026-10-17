@@ -1055,6 +1055,19 @@ function titleActionGlow(t,x,y,w,h){
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
+ // Neon ocean art direction: a luminous horizon and electric wake behind the hero logo.
+ ctx.save();ctx.globalAlpha=lowFx?.28:.34+.14*Math.sin(t*1.9);
+ const horizon=ctx.createLinearGradient(0,245,0,390);
+ horizon.addColorStop(0,'#1d91d000');horizon.addColorStop(.62,'#25d3fc55');horizon.addColorStop(1,'#071b3200');
+ ctx.fillStyle=horizon;ctx.fillRect(0,238,W,170);
+ ctx.strokeStyle='#5cffff';ctx.lineWidth=3;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){
+  const y=305+Math.sin(x*.03+t*1.7)*5;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ }
+ ctx.stroke();
+ ctx.restore();
  // Crisp, neon-framed attract screen with an obvious single primary action.
  neonPanel(23,26,374,53,C.teal,15);
  text('REEL TROUBLE / ARCADE',42,51,18,C.white,'left',900,0,270);
@@ -1066,7 +1079,7 @@ function menu(){
   const height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
   const logoY=89+(211-height)/2+bob;
   ctx.save();
-  if(!lowFx){ctx.shadowColor='rgba(42,243,224,0.53)';ctx.shadowBlur=27;}
+  if(!lowFx){ctx.shadowColor='rgba(34,249,255,0.80)';ctx.shadowBlur=35;}
   ctx.drawImage(titleLogo,(W-width)/2,logoY,width,height);
   ctx.restore();
  }else{
@@ -1307,6 +1320,92 @@ function pausedScene(){
  button('RESUME',76,437,268,65,resumeGame,C.yellow);
  button('MAIN MENU',96,521,228,53,menuFromPause,C.cream);
 }
+function neonOceanArtwork(kind,t){
+ // Full-height hand-drawn vector/pixel arcade scene. The scene keeps its own
+ // artwork so stage cards no longer feel like a modal over the game.
+ const dark=ctx.createLinearGradient(0,0,0,H);
+ if(kind==='dive'){
+  dark.addColorStop(0,'#12254e');dark.addColorStop(.38,'#087aab');dark.addColorStop(1,'#03152f');
+ }else if(kind==='reel'){
+  dark.addColorStop(0,'#211c61');dark.addColorStop(.42,'#f47aa3');dark.addColorStop(.58,'#145b9d');dark.addColorStop(1,'#062746');
+ }else{
+  dark.addColorStop(0,'#18134a');dark.addColorStop(.48,'#642579');dark.addColorStop(1,'#07152e');
+ }
+ ctx.fillStyle=dark;ctx.fillRect(0,0,W,H);
+ const movement=lowFx?0:t;
+ // Animated aurora rays across the entire vertical artwork.
+ ctx.save();ctx.globalAlpha=.22;
+ for(let i=0;i<7;i++){
+  const x=45+i*68+Math.sin(movement*.7+i)*14;
+  const ray=ctx.createLinearGradient(x,80,x+80,H);
+  ray.addColorStop(0,i%2?'#a5ffec':'#ff8ce5');
+  ray.addColorStop(1,'#07152e00');
+  ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(x-18,0);
+  ctx.lineTo(x+27,0);ctx.lineTo(x+130,H);ctx.lineTo(x+43,H);ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ const horizon=kind==='dive'?173:kind==='reel'?356:535;
+ // Layered ocean silhouette and white/teal crests.
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,horizon);
+ for(let x=0;x<=W+12;x+=12)
+  ctx.lineTo(x,horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4);
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=kind==='shoot'?'#112e69':'#07547d';ctx.fill();
+ ctx.strokeStyle='#90faff';ctx.lineWidth=4;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){const y=horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+ ctx.stroke();
+ // Marine life moves behind the hero elements.
+ for(let i=0;i<12;i++){
+  const x=20+((i*79+movement*(i%2?18:-14)+W*10)%W);
+  const y=horizon+75+(i*61)%(H-horizon-105);
+  ctx.save();ctx.globalAlpha=.25;
+  fish(x,y,i%species.length,i%2?-1:1,.52+(i%3)*.11,movement*3+i);
+  ctx.restore();
+ }
+ for(let i=0;i<30;i++){
+  const x=(i*83+27)%W,y=H-((i*57+movement*(21+i%3*7))%(H+35));
+  ctx.strokeStyle=i%3?'#c6fbff65':'#ffccee70';ctx.lineWidth=i%6?2:3;
+  ctx.strokeRect(x,y,3+i%4*2,3+i%4*2);
+ }
+ if(kind==='dive'){
+  // Glowing hook plunging under a boat, with a luminous trail.
+  boat(210,166);
+  const hookY=308+Math.sin(movement*3)*17;
+  ctx.strokeStyle='#e1ffff9c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(210,155);ctx.lineTo(210,hookY-15);ctx.stroke();
+  ctx.save();ctx.shadowColor='#24ffe2';ctx.shadowBlur=23;hook(210,hookY);ctx.restore();
+  for(let i=0;i<18;i++){const x=210+Math.sin(i*8+movement)*((i%5)*8),y=hookY+35+i*14;
+   circle(x,y,2+i%3,'#80f3ff99');}
+ }else if(kind==='reel'){
+  // Hero trophy fish breaks the ocean horizon, trailing foam and droplets.
+  const lift=lowFx?0:Math.sin(movement*4)*17;
+  for(let i=0;i<19;i++){const x=210+Math.cos(i*2.4)*((i%7)*19);
+   const y=horizon+Math.sin(i*3)*32;
+   circle(x,y,4+i%4*2,i%2?'#e9ffff':'#5beaff');}
+  ctx.save();ctx.translate(210,319+lift);ctx.rotate(-.24);
+  ctx.shadowColor='#80f6ff';ctx.shadowBlur=21;
+  fish(0,0,10,1,3.2,movement*5);ctx.restore();
+  line(180,0,243,287,'#b8fcff',2);
+ }else{
+  // Electric crosshair, fish silhouettes, neon weapon bolts and gold coins.
+  const cx=210+Math.sin(movement*2)*6,cy=314;
+  ctx.save();ctx.shadowColor='#fc72e8';ctx.shadowBlur=24;
+  ctx.strokeStyle='#ffa0fc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,59,0,Math.PI*2);ctx.stroke();
+  line(cx-83,cy,cx-23,cy,'#ffffff',4);line(cx+23,cy,cx+83,cy,'#ffffff',4);
+  line(cx,cy-83,cx,cy-23,'#ffffff',4);line(cx,cy+23,cx,cy+83,'#ffffff',4);
+  circle(cx,cy,7,'#ffec7c');ctx.restore();
+  fish(105,215,10,1,2.1,movement*4);
+  fish(335,394,13,-1,1.5,movement*4);
+  for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8+movement*.4,dist=70+(i%4)*22;
+   const x=cx+Math.cos(angle)*dist,y=cy+Math.sin(angle)*dist;
+   ctx.fillStyle=i%3?'#ffe76a':'#ff8fed';
+   ctx.fillRect(x,y,6+i%3*3,6+i%3*3);
+  }
+  drawBulletTrail(80,670,cx,cy,.76,'#ff75da',2);
+  drawBulletTrail(345,670,cx,cy,.66,'#6efcf9',2);
+ }
+}
 function drawStageTransition(){
  if(!sceneTransition)return;
  const stage=ARCADE_STAGES[sceneTransition.kind];
@@ -1314,30 +1413,21 @@ function drawStageTransition(){
  const frame=stageFrame(sceneTransition.elapsed,sceneTransition.duration);
  if(frame.visibility<=0)return;
  ctx.save();
+ // Artwork fills the full screen, not the old small centred modal.
  ctx.globalAlpha=frame.visibility;
- ctx.fillStyle='#031326f2';ctx.fillRect(0,0,W,H);
- const glow=ctx.createRadialGradient(W/2,380,22,W/2,380,310);
- glow.addColorStop(0,stage.accent+'55');
- glow.addColorStop(1,'#03132600');
- ctx.fillStyle=glow;ctx.fillRect(0,65,W,H-125);
- ctx.fillStyle=stage.accent;
- for(let i=0;i<6;i++){
-  const x=-90+i*106+frame.accentProgress*42;
-  ctx.globalAlpha=frame.visibility*(.08+i%2*.055);
-  ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+23,0);
-  ctx.lineTo(x-150,H);ctx.lineTo(x-173,H);ctx.closePath();ctx.fill();
- }
- ctx.globalAlpha=frame.visibility;
- const panelY=270+frame.slide;
- neonPanel(25,panelY,370,234,stage.accent,22);
- arcadePill('STAGE '+stage.number,147,panelY+18,126,stage.accent);
- text(stage.title,210,panelY+104,42,C.white,'center',900,0,340);
- arcadeRule(80,panelY+141,340,stage.accent);
- text(stage.subtitle,210,panelY+171,18,C.white,'center',900,0,330);
- for(let i=0;i<3;i++){
-  const x=91+i*83,y=panelY+203;
-  roundRect(x,y,72,7,4,i+1<=Number(stage.number)?stage.accent:'#2d4a62');
- }
+ neonOceanArtwork(sceneTransition.kind,sceneTransition.elapsed);
+ // Gradient behind the bottom title for consistent white-text readability.
+ const shade=ctx.createLinearGradient(0,500,0,H);
+ shade.addColorStop(0,'#06122800');shade.addColorStop(.42,'#06152ad9');shade.addColorStop(1,'#030d23');
+ ctx.fillStyle=shade;ctx.fillRect(0,500,W,H-500);
+ const offset=frame.slide*.52;
+ arcadePill('STAGE '+stage.number,150,557+offset,120,stage.accent);
+ text(stage.title,210,634+offset,48,C.white,'center',900,0,392);
+ ctx.save();ctx.globalAlpha=.83*frame.visibility;
+ ctx.fillStyle=stage.accent;ctx.fillRect(40,673+offset,340,4);
+ ctx.restore();
+ text(stage.subtitle,210,707+offset,20,C.white,'center',900,0,372);
+ for(let i=0;i<3;i++)roundRect(104+i*73,740+offset,59,6,3,i+1<=Number(stage.number)?stage.accent:'#3f647d');
  ctx.restore();
 }
 function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
