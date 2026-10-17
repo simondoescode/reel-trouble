@@ -1,3 +1,4 @@
+import { tiltAxis, tiltVelocity } from './tilt.js';
 (() => {
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5, PIXEL=2;
@@ -21,7 +22,55 @@ const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0}};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
 return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL)}};
 }catch(_){return structuredClone(initial);}}
-let save=loadSave(), state='menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, ammo=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
+// Ask touch-screen players which steering method to use on first launch.
+const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+function loadInputChoice(){try{const value=localStorage.getItem('reel-trouble-input-v1');return value==='touch'||value==='tilt'?value:null;}catch(_){return null;}}
+let inputChoice=loadInputChoice();
+const permissionPrompt=typeof window.DeviceOrientationEvent?.requestPermission==='function';
+let inputMode=inputChoice==='tilt'&&!permissionPrompt?'tilt':'touch';
+let sensorStatus=inputChoice==='tilt'?'ENABLE TILT TO STEER':'CHOOSE HOW TO STEER';
+let tiltValue=0, tiltNeutral=null, tiltUpdatedAt=-1e6, tiltStartedAt=-1e6, lastRotation=null, requestSerial=0;
+function persistInput(){try{localStorage.setItem('reel-trouble-input-v1',inputChoice);}catch(_){}}
+function sensorFresh(){return inputMode==='tilt'&&clock-tiltUpdatedAt<1.4;}
+function useTouch(){requestSerial++;inputMode='touch';inputChoice='touch';sensorStatus='TOUCH STEERING SELECTED';persistInput();}
+function activateTilt(){
+  inputMode='tilt';inputChoice='tilt';persistInput();
+  tiltNeutral=null;tiltUpdatedAt=-1e6;tiltStartedAt=clock;
+  sensorStatus='WAITING FOR MOTION SENSOR';
+}
+function enableTilt(){
+  const serial=++requestSerial;
+  if(!window.isSecureContext || typeof window.DeviceOrientationEvent==='undefined'){
+    sensorStatus='TILT NEEDS HTTPS + A SENSOR';return;
+  }
+  const permission=window.DeviceOrientationEvent.requestPermission;
+  if(typeof permission==='function'){
+    sensorStatus='REQUESTING MOTION PERMISSION';
+    // Calling this synchronously within pointerdown preserves iOS's user gesture.
+    try{Promise.resolve(permission.call(window.DeviceOrientationEvent)).then(result=>{
+      if(serial!==requestSerial)return;
+      if(result==='granted')activateTilt();
+      else sensorStatus='MOTION PERMISSION DENIED - USE TOUCH';
+    }).catch(()=>{if(serial===requestSerial)sensorStatus='PERMISSION FAILED - USE TOUCH';});}
+    catch(_){sensorStatus='PERMISSION FAILED - USE TOUCH';}
+  }else activateTilt();
+}
+function recenterTilt(){
+  if(inputMode!=='tilt')return;
+  if(sensorFresh()){tiltNeutral=tiltValue;targetX=W/2;sensorStatus='TILT RECENTERED';}
+  else sensorStatus='MOVE PHONE TO CONNECT SENSOR';
+}
+window.addEventListener('deviceorientation', event=>{
+  if(inputMode!=='tilt')return;
+  const rotation=Number(window.screen?.orientation?.angle ?? window.orientation ?? 0);
+  const value=tiltAxis(event.beta,event.gamma,rotation);
+  if(value===null)return;
+  if(lastRotation!==rotation){tiltNeutral=null;lastRotation=rotation;}
+  tiltValue=value;tiltUpdatedAt=clock;
+  if(tiltNeutral===null)tiltNeutral=value;
+  if(sensorStatus==='WAITING FOR MOTION SENSOR'||sensorStatus==='NO SENSOR DATA - DRAG TO STEER'||sensorStatus==='ENABLE TILT TO STEER')sensorStatus='TILT READY';
+});
+let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, ammo=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -186,7 +235,11 @@ function floatLabel(value,x,y,color){labels.push({value,x,y,color,life:1.1});}
 let audio=null;function blip(freq=400,duration=.07,type='sine'){
  try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.62,audio.currentTime+duration);g.gain.setValueAtTime(.035,audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+duration);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+duration);}catch(_){}}
 function update(dt){clock+=dt;waveT+=dt;age+=dt;shake=Math.max(0,shake-dt*20);if(messageTimer>0)messageTimer-=dt;
+ if(inputMode==='tilt'&&tiltStartedAt>-1e5&&clock-tiltStartedAt>3&&clock-tiltUpdatedAt>2&&sensorStatus==='WAITING FOR MOTION SENSOR')sensorStatus='NO SENSOR DATA - DRAG TO STEER';
  if(state==='descent'||state==='ascent'){
+ // Hold the phone level for neutral, tilt sideways for acceleration.
+ // Drag always overrides tilt while a finger is on the screen.
+ if(!pointerDown&&sensorFresh())targetX+=tiltVelocity(tiltValue,tiltNeutral)*dt;
  if(keys.has('ArrowLeft')||keys.has('a'))targetX-=270*dt;
  if(keys.has('ArrowRight')||keys.has('d'))targetX+=270*dt;
  targetX=clamp(targetX,24,W-24);hookX+=(targetX-hookX)*clamp(9*dt,0,1);
@@ -230,7 +283,7 @@ function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
  roundRect(28,85,364,9,5,'#052e3c','#32758b');roundRect(30,87,Math.max(3,360*depth/maxDepth),5,3,state==='descent'?C.yellow:C.teal);
  if(state==='ascent'){roundRect(139,110,142,40,11,'#092d3edc');text('HOOKED  '+caught.length,210,130,16,C.yellow);}
  if(messageTimer>0){roundRect(82,166,256,37,12,'#061d2cf0');text(message,210,184,15,C.cream,'center',950,.5);}
- bottomHint(state==='descent'?'DRAG TO STEER • AVOID FISH':'DRAG TO STEER • CATCH FISH');
+ bottomHint((sensorFresh()?'TILT TO STEER':'DRAG TO STEER')+' • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
 }
 function shootScene(){
  const sky=['#1e3554','#273d60','#334869','#4e6074','#987a82','#cc9184','#e8aa88','#f0be91'];
@@ -269,9 +322,10 @@ function menu(){ambient(clock);decoFish();
  text('03  SHOOT THE FLYING CATCH',210,431,13,C.cream,'center',900,.2);
  roundRect(33,607,354,85,14,'#082637de','#4c828e');
  text(`WALLET  $${save.cash}`,104,636,16,C.yellow,'center',930);text(`BEST  $${save.best}`,308,636,16,C.mint,'center',930);
- text('DRAG OR USE ARROW KEYS TO STEER',210,665,11,C.muted,'center',700);
+ text(inputChoice==='tilt'?'TILT TO STEER • TOUCH ALSO WORKS':'DRAG OR USE ARROW KEYS TO STEER',210,665,11,C.muted,'center',700);
  button('CAST LINE',75,493,270,64,beginCast,C.yellow);
- button('UPGRADE GEAR',102,712,216,45,()=>{state='shop';age=0;},C.cream);
+ button('UPGRADES',37,712,170,45,()=>{state='shop';age=0;},C.cream);
+ button('SETTINGS',217,712,166,45,()=>{state='settings';age=0;},C.cream);
 }
 function results(){ambient(clock);
  text('NICE CATCH!',210,123,43,C.yellow,'center',1000,-.8);
@@ -301,9 +355,26 @@ function shop(){ambient(clock);text('GEAR SHOP',210,95,46,C.cream,'center',1000,
  button('← BACK',108,673,204,58,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.cream);
  text('PROGRESS IS SAVED ON THIS DEVICE',210,755,10,C.muted,'center',700);
 }
+function settings(){
+ ambient(clock);
+ text('SETTINGS',210,99,43,C.cream,'center',1000);
+ text('CHOOSE YOUR INPUT',210,144,13,C.mint,'center',900,1.5);
+ panel(24,187,372,396);
+ text('STEERING',210,223,19,C.yellow,'center',950);
+ button('TOUCH',43,260,161,55,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
+ button('TILT',215,260,161,55,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
+ text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,346,17,C.cream,'center',950);
+ text(sensorStatus,210,382,11,C.mint,'center',800);
+ text('TILT YOUR PHONE LEFT OR RIGHT',210,425,12,C.muted,'center',800);
+ text('DRAG IS ALWAYS AVAILABLE',210,456,12,C.muted,'center',800);
+ if(inputMode==='tilt')button('RECENTER TILT',89,495,242,54,recenterTilt,C.cream);
+ else text('TAP TILT TO ALLOW MOTION ACCESS',210,521,11,C.yellow,'center',800);
+ text('TAP FISH TO SHOOT - NO TILT AIMING',210,615,12,C.muted,'center',800);
+ button('← BACK TO GAME',62,680,296,65,()=>{state='menu';age=0;},C.yellow);
+}
 function render(){hits=[];ctx.setTransform(pixelCanvas.width/W,0,0,pixelCanvas.height/H,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
- if(state==='menu')menu();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();
+ if(state==='menu')menu();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='settings')settings();
  overlayParticles();ctx.restore();
  display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=false;
  display.drawImage(pixelCanvas,0,0,canvas.width,canvas.height);}

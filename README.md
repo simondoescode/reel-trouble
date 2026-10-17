@@ -41,12 +41,22 @@ The workflow `.github/workflows/deploy.yml` builds and deploys `dist/` whenever 
 4. Tap airborne fish to shoot them and collect money.
 5. Visit **UPGRADE GEAR** to buy longer line, wider hook, and extra shots.
 
-Desktop: arrow keys / A-D to steer; Space or Enter to cast. Portrait orientation is recommended on mobile.
+### Controls and input settings
+
+On first launch on a touch-screen phone, the game opens **Settings** to ask whether to use **Touch** or **Tilt** steering. You can change this later using **Settings** on the main menu.
+
+- **Tilt:** Select **Tilt** and allow motion access if requested (iOS Safari requires a tap to grant permission). Hold the phone comfortably to set neutral; tilt sideways to steer during descent/ascent. Tap **Recenter Tilt** to reset the neutral position. Only works where device orientation events are supported and permitted.
+- **Touch:** Drag horizontally on the screen while fishing. Dragging remains available as a fallback even when tilt is selected.
+- **Shooting:** Tap the flying fish; tilt does not aim.
+- **Desktop:** Left/right arrow keys or A/D to steer; Space or Enter to cast.
+
+Input preference is stored locally as `reel-trouble-input-v1`. HTTPS is required for orientation events (GitHub Pages serves HTTPS). Portrait orientation is recommended on mobile.
 
 ## Code
 
 - `index.html` — HTML canvas and Vite entry; direct-source fallback for branch publishing
-- `src/game.js` — gameplay, animations, input, upgrades, audio, saved progress
+- `src/game.js` — gameplay, animations, touch/tilt input, settings, upgrades, audio, saved progress
+- `src/tilt.js` — tested tilt axis and speed mapping
 - `src/styles.css` — responsive mobile layout
 - `vite.config.js` — GitHub Pages base path
 - `test/` — static smoke tests

@@ -14,7 +14,7 @@ test('HTML loads the game from relative source paths in both Vite and Pages bran
 
 test('core fishing phases and player progress remain in the game', () => {
   const game = read('src/game.js');
-  for (const phase of ["'menu'", "'descent'", "'ascent'", "'shoot'", "'results'", "'shop'"]) {
+  for (const phase of ["'menu'", "'descent'", "'ascent'", "'shoot'", "'results'", "'shop'", "'settings'"]) {
     assert.ok(game.includes(phase), `Missing phase: ${phase}`);
   }
   assert.match(game, /reel-trouble-save-v1/);
