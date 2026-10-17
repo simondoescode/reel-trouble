@@ -57,11 +57,14 @@ test('shooting UI and gun rendering remain wired into gameplay',()=>{
  assert.match(game,/gun:'AIM BOOST \| NEW GUNS L2\/L4'/);
 });
 
-test('shooting has unlimited ammunition and ends when caught fish are shot or time expires',()=>{
+test('shooting has unlimited ammunition and ends when fish are shot, fall in the water or time expires',()=>{
  const game=read('src/game.js');
  assert.match(game,/topBar\('SHOOT THE CATCH',Math\.ceil\(shootTime\)\+'s','AMMO ∞'\)/);
  assert.doesNotMatch(game,/ammo\s*--|ammo\s*<=\s*0|ammo\s*=\s*9/);
- assert.match(game,/if\(airborne\.every\(f=>f\.shot\)\)setTimeoutSafe\(endRound,380\)/);
+ assert.match(game,/stepAirborneCatch\(f,dt\)/);
+ assert.match(game,/allCatchResolved\(airborne\)/);
+ assert.match(game,/emitSplash\(f\.x,SHOOT_WATERLINE/);
+ assert.match(game,/if\(endDelay>0\)/);
  assert.match(game,/else if\(shootTime<=0\)endRound\(\)/);
  assert.match(game,/fired\+\+/);
 });
@@ -97,7 +100,7 @@ test('PWA assets have the right scope, icons and worker',()=>{
 test('music, ambience and expressive animation remain integrated',()=>{
  const game=read('src/game.js');
  assert.match(game,/createArcadeAudio\(/);
- assert.match(game,/sound\.update\(dt,state,document\.hidden\)/);
+ assert.match(game,/sound\.update\(realDt,state,document\.hidden\)/);
  assert.match(game,/function toggleMusic\(/);
  assert.match(game,/sound\.pause\(true\)/);
  assert.match(game,/function emitSplash\(/);
@@ -147,7 +150,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/colors:\['#17667a'/);
  assert.match(ocean,/colors:\['#205c67'/);
  assert.match(ocean,/colors:\['#263d71'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v10/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v11/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
