@@ -46,3 +46,13 @@ test('vibrant pixel colours and visual effects stay available', () => {
  assert.match(css, /image-rendering: pixelated/);
  assert.match(css, /radial-gradient/);
 });
+
+test('shooting UI and gun rendering remain wired into gameplay',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/function drawGun\(/);
+ assert.match(game,/function drawBulletTrail\(/);
+ assert.match(game,/pickShotTargets\(/);
+ assert.match(game,/nextCombo\(/);
+ assert.match(game,/bestRoundCombo/);
+ assert.match(game,/gun:'\+5 SHOTS \| NEW GUNS AT L2 \/ L4'/);
+});
