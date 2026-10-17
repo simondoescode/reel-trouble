@@ -143,6 +143,7 @@ let shopTab='lines',chargeArmed=false;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
+let deepestCast=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function awardBonus(value){
@@ -517,11 +518,12 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
 function startAscent(hitFish,stung=false){if(state!=='descent')return;
+ deepestCast=Math.max(deepestCast,depth);
  state='ascent';age=0;message='REEL THEM IN!';messageTimer=1.9;if(hitFish)catchFish(hitFish);
  else if(!caught.length&&!stung){const nearest=fishes.filter(f=>!f.caught).sort((a,b)=>Math.abs(a.d-depth)-Math.abs(b.d-depth))[0];if(nearest)catchFish(nearest);}
  sound.play('reel');sceneFlash=.16;stageCue('reel');}
@@ -822,6 +824,27 @@ function topBar(title,left,right){
  if(left)text(left,244,47,16,C.white,'center',900,0,66);
 }
 function bottomHint(hint){roundRect(21,711,378,51,0,'#061d34fa','#6beedc',2);text(hint,210,737,16,C.white,'center',900,0,357);}
+function sideDepthGauge(){
+ // Slim right-hand depth scale, outside the hook's primary travel lane.
+ const x=379, top=238, height=405, progress=clamp(depth/maxDepth,0,1);
+ ctx.save();
+ roundRect(346,214,60,455,12,'#061d34dd','#62e8e3',2);
+ text('DEPTH',376,231,16,C.white,'center',900,0,55);
+ roundRect(x-7,top,14,height,6,'#051729','#528b9c',2);
+ // The scale reads top-to-bottom, just like the descent.
+ for(let i=0;i<=4;i++){
+  const y=top+height*i/4;
+  line(x-26,y,x-10,y,'#b6fff0',2);
+  text(meter(maxDepth*i/4),x-28,y,16,C.white,'right',900,0,48);
+ }
+ const filled=Math.max(0,Math.round(height*progress));
+ if(filled>0)roundRect(x-4,top,8,filled,3,state==='descent'?C.yellow:C.teal);
+ const markerY=top+height*progress;
+ roundRect(x-12,markerY-5,24,10,3,C.yellow,'#071a32',2);
+ roundRect(350,672,54,34,8,'#061d34ed',C.yellow,2);
+ text(meter(depth),377,689,16,C.white,'center',900,0,52);
+ ctx.restore();
+}
 function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
  bgUndersea(camera);const surf=SEA-camera;
  if(surf>45&&surf<H+60){boat(W/2,surf-7);}
@@ -838,6 +861,7 @@ for(const h of hazards){
 }
  caught.forEach((f,i)=>{fish(hookX+Math.sin(clock*3+i)*12,hy+35+i*20,f.kind,i%2?-1:1,.6,clock*4+i);});
  hook(hookX,hy);
+ sideDepthGauge();
  topBar(state==='descent'?'DIVING ↓':'REELING ↑','',`${meter(depth)} / ${meter(maxDepth)}`);
  if(chargeArmed&&state==='descent')arcadePill('BLAST READY',242,154,162,C.yellow);
  const biome=biomeAtDepth(depth);
@@ -1167,19 +1191,701 @@ function results(){
  text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
  if(newFishThisCast||newBadgesThisCast)
   text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
- neonPanel(35,217,350,264,C.yellow,21);
+ neonPanel(35,217,350,291,C.yellow,21);
  text('YOUR ARCADE PAYOUT',210,259,18,C.white,'center',900,0,310);
  const reveal=lowFx?1:easeOutCubic(Math.min(1,age/.95));
  const counted=Math.round(roundEarnings*reveal);
- text('+$'+counted,210,327,68,C.white,'center',1000,-3,320);
+ text('+function shop(){
+ ambient(clock);
+ text('GEAR SHOP',210,66,42,C.white,'center',1000);
+ arcadePill('WALLET $'+save.cash,103,98,214,C.yellow);
+ const tabs=[['lines','LINES'],['guns','GUNS'],['gadgets','GADGETS']];
+ for(let i=0;i<tabs.length;i++){
+  const [id,label]=tabs[i];
+  button(label,15+i*132,151,126,48,()=>{shopTab=id;},shopTab===id?C.yellow:'#6c97a6');
+ }
+ if(shopTab==='lines'||shopTab==='guns'){
+  const type=shopTab==='lines'?'line':'gun',cfg=upgradeConfig(type);
+  const names=type==='line'?LINE_NAMES:GUN_NAMES;
+  neonPanel(24,223,372,295,C.teal,18);
+  text(type==='line'?'YOUR CURRENT REEL':'YOUR CURRENT WEAPON',210,254,17,C.white);
+  text(names[cfg.level],210,302,27,C.white,'center',900,0,342);
+  text(type==='line'?meter(720+cfg.level*240)+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
+  arcadeRule(52,374,368,C.teal);
+  if(cfg.level<MAXLVL){
+   text('NEXT: '+names[cfg.level+1],210,413,22,C.white,'center',900,0,330);
+   text(type==='line'?'+40m REACH • NEW DEPTHS':'NEW SHOT PATTERN / AIM BOOST',210,446,16,C.white,'center',900,0,334);
+   button('BUY $'+cfg.cost,75,538,270,66,()=>purchase(type),C.yellow);
+  }else{
+   text('MAX UPGRADE EQUIPPED',210,429,18,C.white);
+   arcadePill('OWNED',119,541,182,C.teal);
+  }
+ }else{
+  neonPanel(24,220,372,235,C.coral,18);
+  text('EXPLOSIVE CHARGE',210,255,26,C.white,'center',900,0,344);
+  text('SURVIVE YOUR FIRST FISH HIT',210,304,17,C.white);
+  text('AUTO-TRIGGERS ON COLLISION',210,336,17,C.white);
+  text('STOCK: '+save.charges+' / 3',210,387,21,C.white);
+  button(save.charges>=3?'STOCK FULL':'BUY $110',78,477,264,66,buyCharge,C.yellow);
+  neonPanel(24,571,372,68,C.teal,14);
+  text('CONSUMED ONLY ON FISH IMPACT',210,605,16,C.white);
+ }
+ if(shopTab!=='gadgets'){
+  neonPanel(33,641,354,57,C.coral,12);
+  text('BONUS: '+save.charges+' BLAST CHARGES',210,668,17,C.white);
+ }
+ button('← BACK',107,705,206,53,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.white);
+}
+
+function bookCard(kind,x,y){
+ const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
+ const width=370,height=99;
+ roundRect(x+3,y+4,width,height,0,'#041328');
+ roundRect(x,y,width,height,0,'#072940',found?'#69ffe5':'#658a9e',2);
+ ctx.fillStyle=found?'#29dfce':'#68899e';
+ ctx.fillRect(x+4,y+5,6,height-10);
+ ctx.save();
+ if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.62;}
+ fish(x+64,y+49,kind,1,1.15,clock*1.3);
+ ctx.restore();
+ // One column provides actual room for long names and readable 17–21px labels.
+ text(found?meta.name:'UNKNOWN SPECIES',x+122,y+23,21,C.white,'left',900,0,232);
+ text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,17,C.white,'left',900,0,232);
+ text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,17,C.white,'left',900,0,232);
+ hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+}
+function collection(){
+ ambient(clock);
+ text('FISH ENCYCLOPEDIA',210,76,30,C.cream,'center',1000,0,390);
+ const p=collectionProgress(save.collection);
+ text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,17,C.white,'center',900,0,365);
+ roundRect(49,138,322,8,0,'#071828');
+ roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
+ button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
+ button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
+ const pageSize=4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
+ const pages=Math.ceil(total/pageSize);
+ collectionPage=clamp(collectionPage,0,pages-1);
+ if(collectionTab==='fish'){
+  for(let i=0;i<pageSize;i++){
+   const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
+   bookCard(kind,25,227+i*105);
+  }
+ }else{
+  for(let i=0;i<4;i++){
+   const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
+   const unlocked=save.collection.achievements[badge.id]===true;
+   const y=227+i*105;
+   roundRect(29,y,362,97,0,unlocked?'#135369':'#123e55',unlocked?C.yellow:'#75adbc',2);
+   text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
+   text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
+   text(badge.description,80,y+45,16,C.white,'left',900,0,291);
+   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,17,C.white,'left',900,0,291);
+  }
+ }
+ if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
+ text((collectionPage+1)+' / '+pages,210,682,15,C.cream);
+ if(collectionPage<pages-1)button('NEXT →',279,659,111,42,()=>collectionPage++,C.cream);
+ button('← BACK',90,717,240,48,()=>{state='menu';age=0;},C.yellow);
+}
+function fishDetail(){
+ ambient(clock);
+ const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
+ text('FISH FILE',210,78,32,C.cream,'center',1000);
+ text('#'+String(selectedFish+1).padStart(2,'0')+' / '+species.length,210,121,14,C.mint,'center',800);
+ panel(31,155,358,453);
+ ctx.save();if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
+ fish(210,252,selectedFish,1,3.2,clock*2);
+ ctx.restore();
+ text(found?meta.name:'UNDISCOVERED',210,354,found?27:22,C.yellow,'center',1000);
+ if(found){
+  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,17,C.white,'center',900,0,339);
+  text('BASE VALUE $'+meta.value,210,425,16,C.cream,'center',900);
+  line(58,452,361,452,'#4d8797');
+  text('CAUGHT',65,487,13,C.muted,'left',850);text(entry.caught,351,487,17,C.cream,'right',950);
+  text('SHOT',65,522,13,C.muted,'left',850);text(entry.shot,351,522,17,C.cream,'right',950);
+  text('EARNED',65,557,13,C.muted,'left',850);text('$'+entry.earned,351,557,17,C.yellow,'right',950);
+  text('BEST COMBO',65,587,13,C.muted,'left',850);text('x'+entry.bestCombo,351,587,17,C.cream,'right',950);
+ }else{
+  text('CATCH TO REVEAL THIS FISH',210,416,18,C.white,'center',900,0,330);
+  text('STATS AND HABITAT ARE HIDDEN',210,455,17,C.white,'center',900,0,330);
+ }
+ button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
+ button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
+}
+function installScene(){
+ titleBackdrop(lowFx?0:clock);
+ text('INSTALL THE GAME',210,91,33,C.white,'center',900,0,380);
+ text('PLAY FULLSCREEN • WORKS OFFLINE',210,130,16,C.white,'center',900,0,380);
+ panel(24,157,372,405);
+ const guide=installGuide();
+ text('FOR '+guide.platform.toUpperCase(),210,197,21,C.white,'center',900,0,343);
+ text('BROWSER INSTALL STEPS',210,240,17,C.white,'center',900,0,339);
+ for(let i=0;i<guide.steps.length;i++){
+  const y=278+i*66;
+  roundRect(39,y-19,40,40,0,'#0b4260','#3cf0e1',2);
+  text('0'+(i+1),59,y+2,19,C.white,'center',900,0,37);
+  text(guide.steps[i],89,y+2,16,C.white,'left',900,0,279);
+ }
+ roundRect(28,577,364,49,0,'#08243ef4','#64eade',2);
+ const status=serviceWorkerStatus();
+ const hint=canInstall()?'READY FOR INSTALL PROMPT':
+  status==='ready'?'OFFLINE SERVICE READY':
+  status==='failed'?'OFFLINE SETUP FAILED • TRY RELOAD':
+  'OPEN IN YOUR REGULAR BROWSER';
+ text(hint,210,601,16,C.white,'center',900,0,340);
+ if(canInstall())button('INSTALL NOW',62,640,296,52,installGame,C.yellow);
+ else button('COPY GAME LINK',62,640,296,52,copyGameLink,C.teal);
+ text(installMessage,210,710,16,C.white,'center',900,0,360);
+ button('← BACK',100,733,220,41,()=>{state='menu';age=0;},C.cream);
+}
+function settings(){
+ ambient(clock);
+ text('SETTINGS',210,85,42,C.cream,'center',1000);
+ text('PHONE & INPUT',210,127,13,C.mint,'center',900,1.5);
+ panel(23,151,374,488);
+ text('STEERING',210,181,18,C.yellow,'center',950);
+ button('TOUCH',43,206,161,48,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
+ button('TILT',215,206,161,48,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
+ text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,278,14,C.cream,'center',900);
+ text(sensorStatus,210,305,13,C.mint,'center',900,0,345);
+ if(inputMode==='tilt')button('RECENTER',122,326,176,41,recenterTilt,C.cream);
+ else text('DRAG TO STEER DURING A CAST',210,350,17,C.white,'center',900,0,350);
+ text('AUDIO',210,376,16,C.yellow,'center',950);
+ button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
+ button(musicEnabled?'CHIPTUNE: ON':'CHIPTUNE: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
+ text('FEEDBACK',210,495,16,C.yellow,'center',950);
+ button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
+ if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
+ else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
+ if(!isInstalled())button('INSTALL / HELP',104,566,212,48,installGame,C.yellow);
+ else text('INSTALLED APP',210,587,15,C.yellow);
+ text('INSTALL FROM BROWSER • NOT IN-APP VIEWER',210,648,16,C.white,'center',900,0,357);
+ button('← BACK',62,682,296,59,()=>{state='menu';age=0;},C.yellow);
+ text('TAP FISH • DRAG TO STEER',210,761,16,C.white,'center',900,0,370);
+}
+function pausedScene(){
+ ctx.fillStyle='#031225ee';ctx.fillRect(0,0,W,H);
+ const glow=ctx.createRadialGradient(210,380,20,210,380,290);
+ glow.addColorStop(0,'#19aaa929');glow.addColorStop(1,'#071a3200');
+ ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
+ neonPanel(35,219,350,368,C.teal,23);
+ arcadePill('BREAK TIME',133,239,154,C.teal);
+ text('PAUSED',210,313,52,C.white,'center',1000);
+ text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'PAUSED AUTOMATICALLY',210,356,17,C.white,'center',900,0,309);
+ arcadeRule(85,382,335,C.teal);
+ text('YOUR CATCH WILL NOT MOVE',210,399,17,C.white,'center',900,0,320);
+ button('RESUME',76,437,268,65,resumeGame,C.yellow);
+ button('MAIN MENU',96,521,228,53,menuFromPause,C.cream);
+}
+function neonOceanArtwork(kind,t){
+ // Full-height hand-drawn vector/pixel arcade scene. The scene keeps its own
+ // artwork so stage cards no longer feel like a modal over the game.
+ const dark=ctx.createLinearGradient(0,0,0,H);
+ if(kind==='dive'){
+  dark.addColorStop(0,'#12254e');dark.addColorStop(.38,'#087aab');dark.addColorStop(1,'#03152f');
+ }else if(kind==='reel'){
+  dark.addColorStop(0,'#211c61');dark.addColorStop(.42,'#f47aa3');dark.addColorStop(.58,'#145b9d');dark.addColorStop(1,'#062746');
+ }else{
+  dark.addColorStop(0,'#18134a');dark.addColorStop(.48,'#642579');dark.addColorStop(1,'#07152e');
+ }
+ ctx.fillStyle=dark;ctx.fillRect(0,0,W,H);
+ const movement=lowFx?0:t;
+ // Animated aurora rays across the entire vertical artwork.
+ ctx.save();ctx.globalAlpha=.22;
+ for(let i=0;i<7;i++){
+  const x=45+i*68+Math.sin(movement*.7+i)*14;
+  const ray=ctx.createLinearGradient(x,80,x+80,H);
+  ray.addColorStop(0,i%2?'#a5ffec':'#ff8ce5');
+  ray.addColorStop(1,'#07152e00');
+  ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(x-18,0);
+  ctx.lineTo(x+27,0);ctx.lineTo(x+130,H);ctx.lineTo(x+43,H);ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ const horizon=kind==='dive'?173:kind==='reel'?356:535;
+ // Layered ocean silhouette and white/teal crests.
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,horizon);
+ for(let x=0;x<=W+12;x+=12)
+  ctx.lineTo(x,horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4);
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=kind==='shoot'?'#112e69':'#07547d';ctx.fill();
+ ctx.strokeStyle='#90faff';ctx.lineWidth=4;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){const y=horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+ ctx.stroke();
+ // Marine life moves behind the hero elements.
+ for(let i=0;i<12;i++){
+  const x=20+((i*79+movement*(i%2?18:-14)+W*10)%W);
+  const y=horizon+75+(i*61)%(H-horizon-105);
+  ctx.save();ctx.globalAlpha=.25;
+  fish(x,y,i%species.length,i%2?-1:1,.52+(i%3)*.11,movement*3+i);
+  ctx.restore();
+ }
+ for(let i=0;i<30;i++){
+  const x=(i*83+27)%W,y=H-((i*57+movement*(21+i%3*7))%(H+35));
+  ctx.strokeStyle=i%3?'#c6fbff65':'#ffccee70';ctx.lineWidth=i%6?2:3;
+  ctx.strokeRect(x,y,3+i%4*2,3+i%4*2);
+ }
+ if(kind==='dive'){
+  // Glowing hook plunging under a boat, with a luminous trail.
+  boat(210,166);
+  const hookY=308+Math.sin(movement*3)*17;
+  ctx.strokeStyle='#e1ffff9c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(210,155);ctx.lineTo(210,hookY-15);ctx.stroke();
+  ctx.save();ctx.shadowColor='#24ffe2';ctx.shadowBlur=23;hook(210,hookY);ctx.restore();
+  for(let i=0;i<18;i++){const x=210+Math.sin(i*8+movement)*((i%5)*8),y=hookY+35+i*14;
+   circle(x,y,2+i%3,'#80f3ff99');}
+ }else if(kind==='reel'){
+  // Hero trophy fish breaks the ocean horizon, trailing foam and droplets.
+  const lift=lowFx?0:Math.sin(movement*4)*17;
+  for(let i=0;i<19;i++){const x=210+Math.cos(i*2.4)*((i%7)*19);
+   const y=horizon+Math.sin(i*3)*32;
+   circle(x,y,4+i%4*2,i%2?'#e9ffff':'#5beaff');}
+  ctx.save();ctx.translate(210,319+lift);ctx.rotate(-.24);
+  ctx.shadowColor='#80f6ff';ctx.shadowBlur=21;
+  fish(0,0,10,1,3.2,movement*5);ctx.restore();
+  line(180,0,243,287,'#b8fcff',2);
+ }else{
+  // Electric crosshair, fish silhouettes, neon weapon bolts and gold coins.
+  const cx=210+Math.sin(movement*2)*6,cy=314;
+  ctx.save();ctx.shadowColor='#fc72e8';ctx.shadowBlur=24;
+  ctx.strokeStyle='#ffa0fc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,59,0,Math.PI*2);ctx.stroke();
+  line(cx-83,cy,cx-23,cy,'#ffffff',4);line(cx+23,cy,cx+83,cy,'#ffffff',4);
+  line(cx,cy-83,cx,cy-23,'#ffffff',4);line(cx,cy+23,cx,cy+83,'#ffffff',4);
+  circle(cx,cy,7,'#ffec7c');ctx.restore();
+  fish(105,215,10,1,2.1,movement*4);
+  fish(335,394,13,-1,1.5,movement*4);
+  for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8+movement*.4,dist=70+(i%4)*22;
+   const x=cx+Math.cos(angle)*dist,y=cy+Math.sin(angle)*dist;
+   ctx.fillStyle=i%3?'#ffe76a':'#ff8fed';
+   ctx.fillRect(x,y,6+i%3*3,6+i%3*3);
+  }
+  drawBulletTrail(80,670,cx,cy,.76,'#ff75da',2);
+  drawBulletTrail(345,670,cx,cy,.66,'#6efcf9',2);
+ }
+}
+function drawStageTransition(){
+ if(!sceneTransition)return;
+ const stage=ARCADE_STAGES[sceneTransition.kind];
+ if(!stage)return;
+ const frame=stageFrame(sceneTransition.elapsed,sceneTransition.duration);
+ if(frame.visibility<=0)return;
+ ctx.save();
+ // Artwork fills the full screen, not the old small centred modal.
+ ctx.globalAlpha=frame.visibility;
+ neonOceanArtwork(sceneTransition.kind,sceneTransition.elapsed);
+ // Gradient behind the bottom title for consistent white-text readability.
+ const shade=ctx.createLinearGradient(0,500,0,H);
+ shade.addColorStop(0,'#06122800');shade.addColorStop(.42,'#06152ad9');shade.addColorStop(1,'#030d23');
+ ctx.fillStyle=shade;ctx.fillRect(0,500,W,H-500);
+ const offset=frame.slide*.52;
+ arcadePill('STAGE '+stage.number,150,557+offset,120,stage.accent);
+ text(stage.title,210,634+offset,48,C.white,'center',900,0,392);
+ ctx.save();ctx.globalAlpha=.83*frame.visibility;
+ ctx.fillStyle=stage.accent;ctx.fillRect(40,673+offset,340,4);
+ ctx.restore();
+ text(stage.subtitle,210,707+offset,20,C.white,'center',900,0,372);
+ for(let i=0;i<3;i++)roundRect(104+i*73,740+offset,59,6,3,i+1<=Number(stage.number)?stage.accent:'#3f647d');
+ ctx.restore();
+}
+function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
+ ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ overlayParticles();drawSplashEffects(lastFrameDt);
+ if(sceneFlash>0&&!lowFx){
+   ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
+   ctx.fillRect(0,0,W,H);
+ }
+ drawStageTransition();
+ ctx.restore();
+ if(paused){hits=[];pausedScene();}
+ display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
+ display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);}
+let last=0,lastFrameDt=0;
+function frame(t){
+ const frameGap=lowFx?1000/30:1000/60;
+ if(last&&t-last<frameGap-1){requestAnimationFrame(frame);return;}
+ const dt=Math.min((t-last)/1000||.016,.05);
+ last=t;lastFrameDt=paused?0:dt;
+ if(!paused&&!document.hidden)update(dt);
+ if(!document.hidden)render();
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
+function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+ sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
+canvas.addEventListener('pointerup',()=>pointerDown=false);canvas.addEventListener('pointercancel',()=>pointerDown=false);
+window.addEventListener('keydown',e=>{
+ sound.unlock();
+ if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(e.code==='Escape'||e.key.toLowerCase()==='p'){
+  if(paused)resumeGame();else pauseGame('MANUAL');return;
+ }
+ if(paused)return;
+ keys.add(e.key);
+ if(e.repeat)return;if(e.code==='Space'||e.code==='Enter'){
+ if(state==='menu'||state==='results')beginCast();else if(state==='shoot')shootAt(pointer.x,pointer.y);
+ }});window.addEventListener('keyup',e=>keys.delete(e.key));
+window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);rumble.stop();}
+ last=0;
+});
+})();
++counted,210,327,68,C.white,'center',1000,-3,320);
  arcadeRule(64,373,356,C.yellow);
- text('HITS / SHOTS',77,414,17,C.white,'left',900);
- text(landed+' / '+fired,343,414,19,C.white,'right',900);
- text('BEST COMBO',77,452,17,C.white,'left',900);
- text('x'+Math.max(1,bestRoundCombo),343,452,19,C.white,'right',900);
- if(escaped)text(escaped+' FISH SPLASHED BACK',210,499,16,C.white,'center',900);
+ text('HITS / SHOTS',77,405,17,C.white,'left',900);
+ text(landed+' / '+fired,343,405,19,C.white,'right',900);
+ text('BEST COMBO',77,439,17,C.white,'left',900);
+ text('x'+Math.max(1,bestRoundCombo),343,439,19,C.white,'right',900);
+ text('DEEPEST DIVE',77,479,17,C.white,'left',900);
+ text(meter(deepestCast),343,479,21,C.white,'right',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
  neonPanel(91,508,238,43,'#47e5d7',13);
- text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
+ text('WALLET  function shop(){
+ ambient(clock);
+ text('GEAR SHOP',210,66,42,C.white,'center',1000);
+ arcadePill('WALLET $'+save.cash,103,98,214,C.yellow);
+ const tabs=[['lines','LINES'],['guns','GUNS'],['gadgets','GADGETS']];
+ for(let i=0;i<tabs.length;i++){
+  const [id,label]=tabs[i];
+  button(label,15+i*132,151,126,48,()=>{shopTab=id;},shopTab===id?C.yellow:'#6c97a6');
+ }
+ if(shopTab==='lines'||shopTab==='guns'){
+  const type=shopTab==='lines'?'line':'gun',cfg=upgradeConfig(type);
+  const names=type==='line'?LINE_NAMES:GUN_NAMES;
+  neonPanel(24,223,372,295,C.teal,18);
+  text(type==='line'?'YOUR CURRENT REEL':'YOUR CURRENT WEAPON',210,254,17,C.white);
+  text(names[cfg.level],210,302,27,C.white,'center',900,0,342);
+  text(type==='line'?meter(720+cfg.level*240)+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
+  arcadeRule(52,374,368,C.teal);
+  if(cfg.level<MAXLVL){
+   text('NEXT: '+names[cfg.level+1],210,413,22,C.white,'center',900,0,330);
+   text(type==='line'?'+40m REACH • NEW DEPTHS':'NEW SHOT PATTERN / AIM BOOST',210,446,16,C.white,'center',900,0,334);
+   button('BUY $'+cfg.cost,75,538,270,66,()=>purchase(type),C.yellow);
+  }else{
+   text('MAX UPGRADE EQUIPPED',210,429,18,C.white);
+   arcadePill('OWNED',119,541,182,C.teal);
+  }
+ }else{
+  neonPanel(24,220,372,235,C.coral,18);
+  text('EXPLOSIVE CHARGE',210,255,26,C.white,'center',900,0,344);
+  text('SURVIVE YOUR FIRST FISH HIT',210,304,17,C.white);
+  text('AUTO-TRIGGERS ON COLLISION',210,336,17,C.white);
+  text('STOCK: '+save.charges+' / 3',210,387,21,C.white);
+  button(save.charges>=3?'STOCK FULL':'BUY $110',78,477,264,66,buyCharge,C.yellow);
+  neonPanel(24,571,372,68,C.teal,14);
+  text('CONSUMED ONLY ON FISH IMPACT',210,605,16,C.white);
+ }
+ if(shopTab!=='gadgets'){
+  neonPanel(33,641,354,57,C.coral,12);
+  text('BONUS: '+save.charges+' BLAST CHARGES',210,668,17,C.white);
+ }
+ button('← BACK',107,705,206,53,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.white);
+}
+
+function bookCard(kind,x,y){
+ const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
+ const width=370,height=99;
+ roundRect(x+3,y+4,width,height,0,'#041328');
+ roundRect(x,y,width,height,0,'#072940',found?'#69ffe5':'#658a9e',2);
+ ctx.fillStyle=found?'#29dfce':'#68899e';
+ ctx.fillRect(x+4,y+5,6,height-10);
+ ctx.save();
+ if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.62;}
+ fish(x+64,y+49,kind,1,1.15,clock*1.3);
+ ctx.restore();
+ // One column provides actual room for long names and readable 17–21px labels.
+ text(found?meta.name:'UNKNOWN SPECIES',x+122,y+23,21,C.white,'left',900,0,232);
+ text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,17,C.white,'left',900,0,232);
+ text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,17,C.white,'left',900,0,232);
+ hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+}
+function collection(){
+ ambient(clock);
+ text('FISH ENCYCLOPEDIA',210,76,30,C.cream,'center',1000,0,390);
+ const p=collectionProgress(save.collection);
+ text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,17,C.white,'center',900,0,365);
+ roundRect(49,138,322,8,0,'#071828');
+ roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
+ button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
+ button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
+ const pageSize=4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
+ const pages=Math.ceil(total/pageSize);
+ collectionPage=clamp(collectionPage,0,pages-1);
+ if(collectionTab==='fish'){
+  for(let i=0;i<pageSize;i++){
+   const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
+   bookCard(kind,25,227+i*105);
+  }
+ }else{
+  for(let i=0;i<4;i++){
+   const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
+   const unlocked=save.collection.achievements[badge.id]===true;
+   const y=227+i*105;
+   roundRect(29,y,362,97,0,unlocked?'#135369':'#123e55',unlocked?C.yellow:'#75adbc',2);
+   text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
+   text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
+   text(badge.description,80,y+45,16,C.white,'left',900,0,291);
+   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,17,C.white,'left',900,0,291);
+  }
+ }
+ if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
+ text((collectionPage+1)+' / '+pages,210,682,15,C.cream);
+ if(collectionPage<pages-1)button('NEXT →',279,659,111,42,()=>collectionPage++,C.cream);
+ button('← BACK',90,717,240,48,()=>{state='menu';age=0;},C.yellow);
+}
+function fishDetail(){
+ ambient(clock);
+ const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
+ text('FISH FILE',210,78,32,C.cream,'center',1000);
+ text('#'+String(selectedFish+1).padStart(2,'0')+' / '+species.length,210,121,14,C.mint,'center',800);
+ panel(31,155,358,453);
+ ctx.save();if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
+ fish(210,252,selectedFish,1,3.2,clock*2);
+ ctx.restore();
+ text(found?meta.name:'UNDISCOVERED',210,354,found?27:22,C.yellow,'center',1000);
+ if(found){
+  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,17,C.white,'center',900,0,339);
+  text('BASE VALUE $'+meta.value,210,425,16,C.cream,'center',900);
+  line(58,452,361,452,'#4d8797');
+  text('CAUGHT',65,487,13,C.muted,'left',850);text(entry.caught,351,487,17,C.cream,'right',950);
+  text('SHOT',65,522,13,C.muted,'left',850);text(entry.shot,351,522,17,C.cream,'right',950);
+  text('EARNED',65,557,13,C.muted,'left',850);text('$'+entry.earned,351,557,17,C.yellow,'right',950);
+  text('BEST COMBO',65,587,13,C.muted,'left',850);text('x'+entry.bestCombo,351,587,17,C.cream,'right',950);
+ }else{
+  text('CATCH TO REVEAL THIS FISH',210,416,18,C.white,'center',900,0,330);
+  text('STATS AND HABITAT ARE HIDDEN',210,455,17,C.white,'center',900,0,330);
+ }
+ button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
+ button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
+}
+function installScene(){
+ titleBackdrop(lowFx?0:clock);
+ text('INSTALL THE GAME',210,91,33,C.white,'center',900,0,380);
+ text('PLAY FULLSCREEN • WORKS OFFLINE',210,130,16,C.white,'center',900,0,380);
+ panel(24,157,372,405);
+ const guide=installGuide();
+ text('FOR '+guide.platform.toUpperCase(),210,197,21,C.white,'center',900,0,343);
+ text('BROWSER INSTALL STEPS',210,240,17,C.white,'center',900,0,339);
+ for(let i=0;i<guide.steps.length;i++){
+  const y=278+i*66;
+  roundRect(39,y-19,40,40,0,'#0b4260','#3cf0e1',2);
+  text('0'+(i+1),59,y+2,19,C.white,'center',900,0,37);
+  text(guide.steps[i],89,y+2,16,C.white,'left',900,0,279);
+ }
+ roundRect(28,577,364,49,0,'#08243ef4','#64eade',2);
+ const status=serviceWorkerStatus();
+ const hint=canInstall()?'READY FOR INSTALL PROMPT':
+  status==='ready'?'OFFLINE SERVICE READY':
+  status==='failed'?'OFFLINE SETUP FAILED • TRY RELOAD':
+  'OPEN IN YOUR REGULAR BROWSER';
+ text(hint,210,601,16,C.white,'center',900,0,340);
+ if(canInstall())button('INSTALL NOW',62,640,296,52,installGame,C.yellow);
+ else button('COPY GAME LINK',62,640,296,52,copyGameLink,C.teal);
+ text(installMessage,210,710,16,C.white,'center',900,0,360);
+ button('← BACK',100,733,220,41,()=>{state='menu';age=0;},C.cream);
+}
+function settings(){
+ ambient(clock);
+ text('SETTINGS',210,85,42,C.cream,'center',1000);
+ text('PHONE & INPUT',210,127,13,C.mint,'center',900,1.5);
+ panel(23,151,374,488);
+ text('STEERING',210,181,18,C.yellow,'center',950);
+ button('TOUCH',43,206,161,48,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
+ button('TILT',215,206,161,48,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
+ text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,278,14,C.cream,'center',900);
+ text(sensorStatus,210,305,13,C.mint,'center',900,0,345);
+ if(inputMode==='tilt')button('RECENTER',122,326,176,41,recenterTilt,C.cream);
+ else text('DRAG TO STEER DURING A CAST',210,350,17,C.white,'center',900,0,350);
+ text('AUDIO',210,376,16,C.yellow,'center',950);
+ button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
+ button(musicEnabled?'CHIPTUNE: ON':'CHIPTUNE: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
+ text('FEEDBACK',210,495,16,C.yellow,'center',950);
+ button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
+ if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
+ else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
+ if(!isInstalled())button('INSTALL / HELP',104,566,212,48,installGame,C.yellow);
+ else text('INSTALLED APP',210,587,15,C.yellow);
+ text('INSTALL FROM BROWSER • NOT IN-APP VIEWER',210,648,16,C.white,'center',900,0,357);
+ button('← BACK',62,682,296,59,()=>{state='menu';age=0;},C.yellow);
+ text('TAP FISH • DRAG TO STEER',210,761,16,C.white,'center',900,0,370);
+}
+function pausedScene(){
+ ctx.fillStyle='#031225ee';ctx.fillRect(0,0,W,H);
+ const glow=ctx.createRadialGradient(210,380,20,210,380,290);
+ glow.addColorStop(0,'#19aaa929');glow.addColorStop(1,'#071a3200');
+ ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
+ neonPanel(35,219,350,368,C.teal,23);
+ arcadePill('BREAK TIME',133,239,154,C.teal);
+ text('PAUSED',210,313,52,C.white,'center',1000);
+ text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'PAUSED AUTOMATICALLY',210,356,17,C.white,'center',900,0,309);
+ arcadeRule(85,382,335,C.teal);
+ text('YOUR CATCH WILL NOT MOVE',210,399,17,C.white,'center',900,0,320);
+ button('RESUME',76,437,268,65,resumeGame,C.yellow);
+ button('MAIN MENU',96,521,228,53,menuFromPause,C.cream);
+}
+function neonOceanArtwork(kind,t){
+ // Full-height hand-drawn vector/pixel arcade scene. The scene keeps its own
+ // artwork so stage cards no longer feel like a modal over the game.
+ const dark=ctx.createLinearGradient(0,0,0,H);
+ if(kind==='dive'){
+  dark.addColorStop(0,'#12254e');dark.addColorStop(.38,'#087aab');dark.addColorStop(1,'#03152f');
+ }else if(kind==='reel'){
+  dark.addColorStop(0,'#211c61');dark.addColorStop(.42,'#f47aa3');dark.addColorStop(.58,'#145b9d');dark.addColorStop(1,'#062746');
+ }else{
+  dark.addColorStop(0,'#18134a');dark.addColorStop(.48,'#642579');dark.addColorStop(1,'#07152e');
+ }
+ ctx.fillStyle=dark;ctx.fillRect(0,0,W,H);
+ const movement=lowFx?0:t;
+ // Animated aurora rays across the entire vertical artwork.
+ ctx.save();ctx.globalAlpha=.22;
+ for(let i=0;i<7;i++){
+  const x=45+i*68+Math.sin(movement*.7+i)*14;
+  const ray=ctx.createLinearGradient(x,80,x+80,H);
+  ray.addColorStop(0,i%2?'#a5ffec':'#ff8ce5');
+  ray.addColorStop(1,'#07152e00');
+  ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(x-18,0);
+  ctx.lineTo(x+27,0);ctx.lineTo(x+130,H);ctx.lineTo(x+43,H);ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ const horizon=kind==='dive'?173:kind==='reel'?356:535;
+ // Layered ocean silhouette and white/teal crests.
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,horizon);
+ for(let x=0;x<=W+12;x+=12)
+  ctx.lineTo(x,horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4);
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=kind==='shoot'?'#112e69':'#07547d';ctx.fill();
+ ctx.strokeStyle='#90faff';ctx.lineWidth=4;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){const y=horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+ ctx.stroke();
+ // Marine life moves behind the hero elements.
+ for(let i=0;i<12;i++){
+  const x=20+((i*79+movement*(i%2?18:-14)+W*10)%W);
+  const y=horizon+75+(i*61)%(H-horizon-105);
+  ctx.save();ctx.globalAlpha=.25;
+  fish(x,y,i%species.length,i%2?-1:1,.52+(i%3)*.11,movement*3+i);
+  ctx.restore();
+ }
+ for(let i=0;i<30;i++){
+  const x=(i*83+27)%W,y=H-((i*57+movement*(21+i%3*7))%(H+35));
+  ctx.strokeStyle=i%3?'#c6fbff65':'#ffccee70';ctx.lineWidth=i%6?2:3;
+  ctx.strokeRect(x,y,3+i%4*2,3+i%4*2);
+ }
+ if(kind==='dive'){
+  // Glowing hook plunging under a boat, with a luminous trail.
+  boat(210,166);
+  const hookY=308+Math.sin(movement*3)*17;
+  ctx.strokeStyle='#e1ffff9c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(210,155);ctx.lineTo(210,hookY-15);ctx.stroke();
+  ctx.save();ctx.shadowColor='#24ffe2';ctx.shadowBlur=23;hook(210,hookY);ctx.restore();
+  for(let i=0;i<18;i++){const x=210+Math.sin(i*8+movement)*((i%5)*8),y=hookY+35+i*14;
+   circle(x,y,2+i%3,'#80f3ff99');}
+ }else if(kind==='reel'){
+  // Hero trophy fish breaks the ocean horizon, trailing foam and droplets.
+  const lift=lowFx?0:Math.sin(movement*4)*17;
+  for(let i=0;i<19;i++){const x=210+Math.cos(i*2.4)*((i%7)*19);
+   const y=horizon+Math.sin(i*3)*32;
+   circle(x,y,4+i%4*2,i%2?'#e9ffff':'#5beaff');}
+  ctx.save();ctx.translate(210,319+lift);ctx.rotate(-.24);
+  ctx.shadowColor='#80f6ff';ctx.shadowBlur=21;
+  fish(0,0,10,1,3.2,movement*5);ctx.restore();
+  line(180,0,243,287,'#b8fcff',2);
+ }else{
+  // Electric crosshair, fish silhouettes, neon weapon bolts and gold coins.
+  const cx=210+Math.sin(movement*2)*6,cy=314;
+  ctx.save();ctx.shadowColor='#fc72e8';ctx.shadowBlur=24;
+  ctx.strokeStyle='#ffa0fc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,59,0,Math.PI*2);ctx.stroke();
+  line(cx-83,cy,cx-23,cy,'#ffffff',4);line(cx+23,cy,cx+83,cy,'#ffffff',4);
+  line(cx,cy-83,cx,cy-23,'#ffffff',4);line(cx,cy+23,cx,cy+83,'#ffffff',4);
+  circle(cx,cy,7,'#ffec7c');ctx.restore();
+  fish(105,215,10,1,2.1,movement*4);
+  fish(335,394,13,-1,1.5,movement*4);
+  for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8+movement*.4,dist=70+(i%4)*22;
+   const x=cx+Math.cos(angle)*dist,y=cy+Math.sin(angle)*dist;
+   ctx.fillStyle=i%3?'#ffe76a':'#ff8fed';
+   ctx.fillRect(x,y,6+i%3*3,6+i%3*3);
+  }
+  drawBulletTrail(80,670,cx,cy,.76,'#ff75da',2);
+  drawBulletTrail(345,670,cx,cy,.66,'#6efcf9',2);
+ }
+}
+function drawStageTransition(){
+ if(!sceneTransition)return;
+ const stage=ARCADE_STAGES[sceneTransition.kind];
+ if(!stage)return;
+ const frame=stageFrame(sceneTransition.elapsed,sceneTransition.duration);
+ if(frame.visibility<=0)return;
+ ctx.save();
+ // Artwork fills the full screen, not the old small centred modal.
+ ctx.globalAlpha=frame.visibility;
+ neonOceanArtwork(sceneTransition.kind,sceneTransition.elapsed);
+ // Gradient behind the bottom title for consistent white-text readability.
+ const shade=ctx.createLinearGradient(0,500,0,H);
+ shade.addColorStop(0,'#06122800');shade.addColorStop(.42,'#06152ad9');shade.addColorStop(1,'#030d23');
+ ctx.fillStyle=shade;ctx.fillRect(0,500,W,H-500);
+ const offset=frame.slide*.52;
+ arcadePill('STAGE '+stage.number,150,557+offset,120,stage.accent);
+ text(stage.title,210,634+offset,48,C.white,'center',900,0,392);
+ ctx.save();ctx.globalAlpha=.83*frame.visibility;
+ ctx.fillStyle=stage.accent;ctx.fillRect(40,673+offset,340,4);
+ ctx.restore();
+ text(stage.subtitle,210,707+offset,20,C.white,'center',900,0,372);
+ for(let i=0;i<3;i++)roundRect(104+i*73,740+offset,59,6,3,i+1<=Number(stage.number)?stage.accent:'#3f647d');
+ ctx.restore();
+}
+function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
+ ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ overlayParticles();drawSplashEffects(lastFrameDt);
+ if(sceneFlash>0&&!lowFx){
+   ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
+   ctx.fillRect(0,0,W,H);
+ }
+ drawStageTransition();
+ ctx.restore();
+ if(paused){hits=[];pausedScene();}
+ display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
+ display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);}
+let last=0,lastFrameDt=0;
+function frame(t){
+ const frameGap=lowFx?1000/30:1000/60;
+ if(last&&t-last<frameGap-1){requestAnimationFrame(frame);return;}
+ const dt=Math.min((t-last)/1000||.016,.05);
+ last=t;lastFrameDt=paused?0:dt;
+ if(!paused&&!document.hidden)update(dt);
+ if(!document.hidden)render();
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
+function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+ sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
+canvas.addEventListener('pointerup',()=>pointerDown=false);canvas.addEventListener('pointercancel',()=>pointerDown=false);
+window.addEventListener('keydown',e=>{
+ sound.unlock();
+ if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(e.code==='Escape'||e.key.toLowerCase()==='p'){
+  if(paused)resumeGame();else pauseGame('MANUAL');return;
+ }
+ if(paused)return;
+ keys.add(e.key);
+ if(e.repeat)return;if(e.code==='Space'||e.code==='Enter'){
+ if(state==='menu'||state==='results')beginCast();else if(state==='shoot')shootAt(pointer.x,pointer.y);
+ }});window.addEventListener('keyup',e=>keys.delete(e.key));
+window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);rumble.stop();}
+ last=0;
+});
+})();
++save.cash,210,530,19,C.white,'center',900,0,219);
  titleActionGlow(clock,64,567,292,62);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
  button('GEAR SHOP',25,647,178,53,()=>{state='shop';age=0;},C.cream);
