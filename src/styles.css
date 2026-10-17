@@ -7,20 +7,20 @@ html, body {
 body {
   display: flex; justify-content: center; align-items: center;
   width: 100%; height: 100dvh;
-  padding: max(3px, env(safe-area-inset-top)) max(3px, env(safe-area-inset-right)) max(3px, env(safe-area-inset-bottom)) max(3px, env(safe-area-inset-left));
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   font-family: Arial, Helvetica, sans-serif;
   background: radial-gradient(ellipse at 50% 35%, #258eaa 0%, #146688 46%, #092c50 100%);
 }
 #game {
   display: block;
-  width: min(100%, calc((100dvh - 18px) * 420 / 780));
+  width: min(100%, calc(100dvh * 420 / 780));
   height: auto;
   aspect-ratio: 420 / 780;
   max-width: 100%;
   max-height: 100%;
   touch-action: none; outline: none; cursor: crosshair;
   image-rendering: auto;
-  box-shadow: 0 0 0 3px #6dffe8, 0 0 0 6px #12516d, 0 10px 70px #21c7e080;
+  border: 0; box-shadow: none;
 }
 @media (display-mode: standalone) { body { background: #092c50; } }
 
