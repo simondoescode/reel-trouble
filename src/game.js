@@ -14,6 +14,9 @@ const canvas=document.getElementById('game'), display=canvas.getContext('2d',{al
 const sceneCanvas=document.createElement('canvas');
 sceneCanvas.width=W;sceneCanvas.height=H;
 const ctx=sceneCanvas.getContext('2d',{alpha:false});
+const titleLogo=new Image();
+titleLogo.decoding='async';
+titleLogo.src='./assets/title-logo.webp';
 ctx.imageSmoothingEnabled=false; // Original blocky fish sprites remain pixel art.
 display.imageSmoothingEnabled=true; // Smooth final presentation, not font rasterisation.
 // Saturated colours remain in the art and outlines. UI labels are solid white.
@@ -769,16 +772,21 @@ function decoFish(){const float=clock;
  for(let i=0;i<20;i++){ctx.fillStyle='#9bfff47a';ctx.fillRect(Math.floor(((i*57+30)%W)/4)*4,Math.floor(((i*86+float*18)%H)/4)*4,4,4);}
 }
 function menu(){ambient(clock);decoFish();
- roundRect(85,62,250,35,0,'#0c496b','#80fff0',2);text('AN ORIGINAL ARCADE GAME',210,80,13,C.cream,'center',950,0,235);
- // One sharp title rather than two shifted copies that make the lettering look fuzzy.
- text('REEL',210,168,68,C.white,'center',900,0,370);
- text('TROUBLE!',210,240,51,C.white,'center',900,0,397);
- roundRect(35,265,350,45,0,'#071b35e8','#19bedd',2);
- text('GO DEEP. GET FISH. GET RICH.',210,287,17,C.white,'center',900,0,337);
- panel(32,320,356,144);
- text('01  DODGE ON THE WAY DOWN',210,346,15,C.cream,'center',900,0,325);
- text('02  CATCH ON THE WAY UP',210,389,15,C.cream,'center',900,0,325);
- text('03  SHOOT THE FLYING CATCH',210,431,15,C.cream,'center',900,0,325);
+ roundRect(85,49,250,34,0,'#0c496b','#80fff0',2);
+ text('AN ORIGINAL ARCADE GAME',210,66,16,C.white,'center',900,0,236);
+ if(titleLogo.complete&&titleLogo.naturalWidth>0){
+  const width=305,height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
+  ctx.drawImage(titleLogo,(W-width)/2,91,width,height);
+ }else{
+  // The game remains playable if the logo is still loading or unavailable.
+  text('REEL',210,175,68,C.white,'center',900,0,370);
+  text('TROUBLE!',210,248,51,C.white,'center',900,0,397);
+ }
+ roundRect(35,323,350,36,0,'#061c35f5','#19bedd',2);
+ text('GO DEEP. GET FISH. GET RICH.',210,341,17,C.white,'center',900,0,330);
+ panel(32,367,356,93);
+ text('DODGE ON THE WAY DOWN',210,393,19,C.white,'center',900,0,326);
+ text('CATCH UP • SHOOT FOR CASH',210,430,19,C.white,'center',900,0,326);
  roundRect(33,607,354,85,0,'#0b3048fa','#64eade',2);
  text(`WALLET  $${save.cash}`,104,636,16,C.yellow,'center',930);text(`BEST  $${save.best}`,308,636,16,C.mint,'center',930);
  text(inputChoice==='tilt'?'TILT TO STEER • TOUCH ALSO WORKS':'DRAG OR USE ARROW KEYS TO STEER',210,665,13,C.cream,'center',850,0,334);

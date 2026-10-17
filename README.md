@@ -134,3 +134,8 @@ The PWA cache version is incremented to ensure installed copies load the haptic 
 ## White text and sharp rendering overhaul
 
 All game UI labels and controls now use solid white, bold 900-weight lettering on dark navy surfaces. The core problem was a 210×390 intermediate buffer that reduced a 12px label to six raster pixels before enlarging it. The game now renders its UI and retro fish art together at the full 420×780 logical resolution, then presents at the original high-DPI canvas resolution; the old half-resolution rendering has been removed. Bright colours remain as button borders, fish colours and background accents, not text. The fish encyclopedia uses one wide card per row, four entries per page instead of two cramped columns, with larger 17–21px labels. Menus, HUD, results, shop, badges, fish details and settings have higher minimum font sizes, shortened hints and outlined white text.
+
+
+## Brand assets
+
+The title screen now displays an original transparent **Reel Trouble** illustrated wordmark with fish, hook, and waves, replacing the plain canvas lettering. A fallback title remains available until the asset has loaded. The favicon uses a simplified fish-and-hook badge in ICO/PNG; the home-screen PWA icon has 192px/512px square versions, a separate padded 512px maskable icon for Android, and a 180px Apple touch icon. All assets are optimized, bundled with Vite, and precached for offline use. The PWA cache version has been bumped so installed devices receive the new branding.

@@ -11,7 +11,11 @@ export default defineConfig({
     name:'copy-mobile-assets',
     apply:'build',
     generateBundle(){
-      for(const name of ['sw.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png']){
+      for(const name of [
+        'sw.js','manifest.webmanifest','assets/title-logo.webp',
+        'icons/favicon.ico','icons/favicon.png','icons/apple-touch-icon.png',
+        'icons/icon-192.png','icons/icon-512.png','icons/icon-maskable-512.png'
+      ]){
         this.emitFile({type:'asset',fileName:name,source:readFileSync(resolve(root,name))});
       }
     }

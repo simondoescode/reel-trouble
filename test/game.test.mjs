@@ -85,7 +85,7 @@ test('PWA assets have the right scope, icons and worker',()=>{
  assert.equal(manifest.scope,'./');
  assert.equal(manifest.start_url,'./');
  assert.equal(manifest.display,'standalone');
- assert.deepEqual(manifest.icons.map(icon=>icon.sizes),['192x192','512x512']);
+ assert.deepEqual(manifest.icons.map(icon=>icon.sizes),['192x192','512x512','512x512']);
  const worker=read('sw.js');
  assert.match(worker,/self\.addEventListener\('install'/);
  assert.match(worker,/self\.addEventListener\('fetch'/);
