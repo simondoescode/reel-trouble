@@ -162,7 +162,7 @@ test('readable high-contrast cards and typography across screens',()=>{
  assert.match(game,/const width=370,height=99/);
  assert.match(game,/text\(badge\.description,80,y\+45,16/);
  assert.match(game,/neonPanel\(24,223,372,295,C\.teal,18\)/);
- assert.match(game,/text\('HITS \/ SHOTS',77,414,17/);
+ assert.match(game,/text\('HITS \/ SHOTS',77,405,17/);
  assert.match(game,/text\(p\.discovered\+'\/'\+p\.total\+' SPECIES/);
  assert.doesNotMatch(game,/PIXEL=2|pixelCanvas\.width=W\/PIXEL/);
 });
