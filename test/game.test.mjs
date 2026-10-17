@@ -161,7 +161,9 @@ test('readable high-contrast cards and typography across screens',()=>{
  assert.match(game,/const pageSize=4/);
  assert.match(game,/const width=370,height=99/);
  assert.match(game,/text\(badge\.description,80,y\+45,16/);
- assert.match(game,/neonPanel\(24,223,372,295,C\.teal,18\)/);
+ assert.match(game,/function shopInterior\(/);
+ assert.match(game,/function skipperPortrait\(/);
+ assert.match(game,/function skipperBubble\(/);
  assert.match(game,/text\('HITS \/ SHOTS',77,405,17/);
  assert.match(game,/text\(p\.discovered\+'\/'\+p\.total\+' SPECIES/);
  assert.doesNotMatch(game,/PIXEL=2|pixelCanvas\.width=W\/PIXEL/);
@@ -226,9 +228,12 @@ test('pacing is gentler and phase transitions do not interrupt the round',()=>{
 test('gear shop offers persistent lines, distinct guns and one-use blast charges',()=>{
  const game=read('src/game.js'), guns=read('src/shooting.js');
  assert.match(game,/shopTab='lines'/);
- assert.match(game,/\['lines','LINES'\]/);
- assert.match(game,/\['guns','GUNS'\]/);
- assert.match(game,/\['gadgets','GADGETS'\]/);
+ assert.match(game,/\['lines','REELS'\]/);
+ assert.match(game,/\['guns','WEAPONS'\]/);
+ assert.match(game,/\['gadgets','SUPPLIES'\]/);
+ assert.match(game,/function skipperGreeting\(/);
+ assert.match(game,/function skipperReply\(/);
+ assert.match(game,/skipperSpeak\(/);
  assert.match(game,/charges:clamp\(Number\(d.charges\)\|\|0,0,3\)/);
  assert.match(game,/chargeArmed=save.charges>0/);
  assert.match(game,/save.charges=Math.max\(0,save.charges-1\)/);
@@ -250,7 +255,26 @@ test('main game is a single valid script without duplicate or truncated trailing
   const needle=symbol;
   assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
  }
- assert.match(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \$'\+costs\[level\],81,574,258,49,buyLight,C\.teal\)/);
+ assert.match(source,/button\(lvl>=3\?'MAX LIGHT':'LIGHT  \
+ assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
+ assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
+ assert.doesNotMatch(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \n/);
+});
+
+
+test('canvas bootstrap shows refresh controls if JavaScript fails',()=>{
+ const html=read('index.html'),css=read('src/styles.css'),game=read('src/game.js');
+ assert.match(html,/id="game-boot"/);
+ assert.match(html,/id="recover-game"/);
+ assert.match(html,/navigator\.serviceWorker\.getRegistrations\(\)/);
+ assert.match(html,/k\.startsWith\('reel-trouble-offline-'\)/);
+ assert.match(html,/window\.addEventListener\('error'/);
+ assert.match(html,/location\.replace\(fresh\.href\)/);
+ assert.match(css,/body\.game-ready #game-boot\{display:none\}/);
+ assert.match(game,/document\.body\.classList\.add\('game-ready'\)/);
+});
+\+costs\[lvl\]/);
+ assert.match(source,/function buyLight\(\)/);
  assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
  assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
  assert.doesNotMatch(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \n/);
