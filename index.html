@@ -24,8 +24,50 @@
     <button type="button" id="play-landscape">Play anyway</button>
   </div>
 </div>
+<div id="game-boot" role="status" aria-live="polite">
+  <div class="boot-panel">
+    <h1>REEL TROUBLE</h1>
+    <p id="boot-message">Loading the game…</p>
+    <button id="recover-game" type="button" hidden>REFRESH GAME FILES</button>
+    <small>Your coins, catches and upgrades will be kept.</small>
+  </div>
+</div>
 <canvas id="game" width="840" height="1560" tabindex="0" role="application" aria-label="Reel Trouble fishing game. Choose tilt or touch steering in Settings, then tap flying fish to shoot them."></canvas>
 <link rel="stylesheet" href="./src/styles.css">
+<script>
+(() => {
+ const panel=document.getElementById('game-boot');
+ const message=document.getElementById('boot-message');
+ const recovery=document.getElementById('recover-game');
+ const loadingFailed=(text)=>{
+  if(document.body.classList.contains('game-ready'))return;
+  message.textContent=text;
+  recovery.hidden=false;
+  panel.classList.add('failed');
+ };
+ window.addEventListener('error',()=>loadingFailed('The game failed to start. Refresh game files to retry.'));
+ window.addEventListener('unhandledrejection',()=>loadingFailed('The game failed to start. Refresh game files to retry.'));
+ window.setTimeout(()=>loadingFailed('Still loading? Refresh the game files to try again.'),6500);
+ recovery.addEventListener('click',async()=>{
+  recovery.disabled=true;
+  message.textContent='Refreshing game files…';
+  try{
+   const scope=new URL('./',document.baseURI).href;
+   if('serviceWorker' in navigator){
+    const registrations=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.filter(r=>r.scope===scope).map(r=>r.unregister()));
+   }
+   if('caches' in window){
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(k=>k.startsWith('reel-trouble-offline-')).map(k=>caches.delete(k)));
+   }
+  }catch(_){/* Reload even if this browser restricts cache access. */}
+  const fresh=new URL('./',document.baseURI);
+  fresh.searchParams.set('reload',String(Date.now()));
+  location.replace(fresh.href);
+ });
+})();
+</script>
 <script type="module" src="./src/game.js"></script>
 </body>
 </html>

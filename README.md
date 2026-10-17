@@ -180,3 +180,8 @@ Fish population has been thinned from approximately one per 43 depth units to on
 ## Blank-screen recovery (October 2026)
 
 A faulty light-upgrade edit produced an unterminated JavaScript string and appended a duplicate tail after the game entry point. Browsers could display a blank canvas because the entire module failed parsing. The malformed gadget button was restored, the duplicated 16KB block was removed, and tests now detect duplicated lifecycle functions and incomplete game source. The PWA cache was incremented to v15; app progress stays in localStorage.
+
+
+### First-frame and offline-cache recovery
+
+A lightweight loading overlay is visible until the canvas completes its first render. If the game fails to start or remains blank for over six seconds, a **Refresh game files** button appears. This unregisters the Reel Trouble service worker, deletes only game-specific offline caches, and reloads the page without deleting your saved coins, upgrades or collection. Offline cache v16 fetches the repaired game shell.

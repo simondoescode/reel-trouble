@@ -1528,7 +1528,9 @@ function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
  ctx.restore();
  if(paused){hits=[];pausedScene();}
  display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
- display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);}
+ display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);
+ if(!document.body.classList.contains('game-ready'))document.body.classList.add('game-ready');
+}
 let last=0,lastFrameDt=0;
 function frame(t){
  const frameGap=lowFx?1000/30:1000/60;

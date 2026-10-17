@@ -47,3 +47,29 @@ body {
     background: #06182cf5;
   }
 }
+
+/* Show a real loading state and cache-recovery action if the game cannot boot. */
+#game-boot {
+ position:fixed;z-index:20;inset:0;
+ display:flex;align-items:center;justify-content:center;
+ padding:24px;
+ background:radial-gradient(circle at 50% 25%,#155a76,#06182f 70%);
+ color:#fff;font-family:Arial,Helvetica,sans-serif;
+}
+body.game-ready #game-boot{display:none}
+#game-boot .boot-panel{
+ width:min(100%,370px);padding:28px 23px;text-align:center;
+ border:3px solid #49e9dc;background:#061c35;
+ box-shadow:7px 8px 0 #030d1e;
+}
+#game-boot h1{margin:0 0 18px;font-size:35px;font-weight:900}
+#game-boot p{font-size:18px;font-weight:850;line-height:1.4}
+#game-boot small{display:block;margin-top:16px;font-size:14px;font-weight:700}
+#recover-game{
+ display:block;width:100%;margin:18px 0 0;
+ padding:16px 12px;min-height:52px;
+ border:3px solid #ffd861;background:#083149;color:#fff;
+ font:900 17px Arial,Helvetica,sans-serif;cursor:pointer;
+}
+#recover-game[hidden]{display:none}
+#recover-game:disabled{opacity:.6;cursor:wait}
