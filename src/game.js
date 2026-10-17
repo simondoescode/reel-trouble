@@ -621,8 +621,8 @@ function shootAt(x,y){
 }
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
 function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');stageCue('results');}
-function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost)return;
- save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
+function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost){skipperReply(type,false);return;}
+ save.cash-=cfg.cost;save.upgrades[type]++;skipperReply(type,true);persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 const LINE_NAMES=['STARTER REEL','REEF RUNNER','BLUEWATER','TRENCH CRAWLER','ABYSS EXPLORER','BOTTOMLESS PRO'];
 const GUN_NAMES=['POP GUN','QUICKSHOT','SCATTERGUN','TWIN SCATTER','NEON BLASTER','STORM CANNON'];
 function upgradeConfig(type){
@@ -633,8 +633,8 @@ function upgradeConfig(type){
 }
 function buyLight(){
  const level=save.upgrades.light,costs=[180,350,650];
- if(level>=3||save.cash<costs[level])return;
- save.cash-=costs[level];save.upgrades.light++;persist();sound.play('upgrade');rumble.play('upgrade');
+ if(level>=3||save.cash<costs[level]){skipperReply('light',false);return;}
+ save.cash-=costs[level];save.upgrades.light++;skipperReply('light',true);persist();sound.play('upgrade');rumble.play('upgrade');
 }
 function deepDarkness(y){
  const opacity=clamp((depth/DEPTH_PIXELS_PER_METRE-120)/200,0,.985);
@@ -1162,7 +1162,7 @@ function menu(){
  text('YOUR NEXT BIG CATCH AWAITS',210,511,18,C.white,'center',900,0,365);
  titleActionGlow(t,50,544,320,83);
  button('CAST LINE',50,544,320,83,beginCast,C.yellow,'DIVE INTO THE DEEP');
- button('GEAR SHOP',50,649,210,59,()=>{state='shop';age=0;},C.teal);
+ button('GEAR SHOP',50,649,210,59,()=>{enterShop();},C.teal);
  button('MORE',272,649,98,59,()=>{state='more';age=0;},C.cream);
  text('BEST $'+save.best+'  •  '+progress.discovered+'/'+progress.total+' FISH FOUND',210,743,16,C.white,'center',900,0,372);
 }
@@ -1212,56 +1212,154 @@ function results(){
  text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
  titleActionGlow(clock,64,567,292,62);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
- button('GEAR SHOP',25,647,178,53,()=>{state='shop';age=0;},C.cream);
+ button('GEAR SHOP',25,647,178,53,()=>{enterShop();},C.cream);
  button('FISH BOOK',217,647,178,53,()=>openCollection('fish'),C.teal);
  button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
 }
+
+let skipperLine='',skipperLineTime=0,skipperVisits=0;
+function skipperSpeak(line){skipperLine=line;skipperLineTime=clock;}
+function enterShop(){state='shop';age=0;skipperVisits++;skipperSpeak(skipperGreeting());}
+function skipperGreeting(){
+ const dives=save.total||0,deep=save.best||0;
+ if(save.upgrades.light===0&&save.upgrades.line>=2)return "Past the reef? Buy a lamp. The deep don't forgive.";
+ if(dives>5000)return "Back again, legend? Something down there remembers ye.";
+ if(dives>500)return "You're hauling serious coin. But the trench takes its toll.";
+ return skipperVisits===1?"Welcome aboard! Name's Skipper. Don't touch the eel.":"Back for more trouble? Heh. My kind of customer.";
+}
+function skipperReply(category,success){
+ if(!success){skipperSpeak("Not enough coin, matey. The sea ain't a charity.");return;}
+ const lines={
+  line:["More line? Keep going. The seabed's got secrets.","That'll take ye deeper. Just mind what follows.","Good rope. Bad decisions. My favourite pair."],
+  gun:["She kicks like a mule. Point away from me beard.","Unlimited shots. Limited common sense.","You didn't get that from me. Understood?"],
+  light:["Dark water hides things, matey.","Let there be light! Or at least fewer surprises.","Ye can see it now. Trouble is, it can see ye."],
+  charge:["One bang to save your skin. Use it wisely.","The fish won't appreciate that. Nor will the harbourmaster.","Explosives? I never sold ye explosives."]
+ };
+ const arr=lines[category]||lines.line;
+ skipperSpeak(arr[(save.upgrades.line+save.upgrades.gun+save.charges)%arr.length]);
+}
+function skipperPortrait(x,y){
+ // Canvas-drawn original character: cap, salty beard, hook, expressive eyes.
+ const bob=Math.sin(clock*2)*1.4;
+ ctx.save();ctx.translate(x,y+bob);
+ roundRect(-46,60,92,76,21,'#245d63','#10303b',4);
+ polygon([[-39,89],[-59,118],[-45,131],[-20,109]],'#d6965c');
+ polygon([[36,91],[58,106],[54,119],[33,120]],'#d6965c');
+ roundRect(-13,55,26,25,5,'#d5965f');
+ circle(0,23,43,'#d9a475');
+ circle(-40,27,10,'#d49a68');circle(40,27,10,'#d49a68');
+ polygon([[-32,40],[-28,75],[-8,99],[10,100],[31,71],[30,40]],'#e8e4cb');
+ for(let i=0;i<5;i++)line(-19+i*9,59,-14+i*7,86,'#a9ad9b',2);
+ polygon([[-24,30],[-5,37],[4,31],[26,33],[20,44],[0,40],[-21,43]],'#e4e4d1');
+ circle(-17,23,5,'#132735');circle(17,23,5,'#132735');
+ circle(-15,21,1.5,'#fff');circle(19,21,1.5,'#fff');
+ line(-28,11,-9,13,'#5d4231',4);line(8,12,29,10,'#5d4231',4);
+ polygon([[-5,29],[5,29],[12,39],[-7,38]],'#b77650');
+ line(13,41,30,44,'#65412b',3);
+ // Weather-beaten skipper hat, insignia and brim.
+ roundRect(-38,-19,76,24,7,'#214858','#0d2834',3);
+ polygon([[-35,-16],[-27,-38],[26,-38],[35,-16]],'#2d6272');
+ roundRect(-45,-17,90,10,4,'#102f3a','#e0b668',2);
+ circle(0,-21,7,'#eccb6f');line(-5,-21,5,-21,'#173f4d',2);
+ roundRect(-11,94,22,34,3,'#e6ae51');
+ text('S',0,111,18,C.white);
+ ctx.restore();
+}
+function shopInterior(){
+ const g=ctx.createLinearGradient(0,0,0,780);
+ g.addColorStop(0,'#234d53');g.addColorStop(.48,'#183b42');g.addColorStop(1,'#38271e');
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ // Planked bulkhead and riveted beams.
+ for(let y=12;y<780;y+=49){
+  line(0,y,W,y,'#5e5341',3);line(0,y+4,W,y+4,'#0f262e',2);
+  for(let x=25+(y%3)*23;x<420;x+=105){circle(x,y-2,2,'#b99a68');}
+ }
+ for(let x of [12,403]){roundRect(x-8,0,18,780,2,'#6d4c35','#bd9662',2);}
+ // Porthole onto a rolling, moonlit sea.
+ circle(315,147,74,'#a27e49');circle(315,147,64,'#082f47');
+ circle(315,144,56,'#176b83');
+ polygon([[260,164],[273,158],[290,164],[309,158],[330,164],[352,157],[370,162],[370,195],[258,195]],'#0a3f62');
+ circle(345,112,13,'#ffd88c');
+ for(let a=0;a<8;a++){let t=a*Math.PI/4;circle(315+69*Math.cos(t),147+69*Math.sin(t),3,'#e4c77e');}
+ // Tackle shop shelves with carefully drawn fishing supplies.
+ roundRect(12,254,392,13,3,'#a46c3d','#e3b26a',2);
+ roundRect(15,347,390,12,2,'#a46c3d','#e3b26a',2);
+ for(let i=0;i<4;i++){
+  const x=35+i*55;
+  roundRect(x,208,32,44,5,['#d35942','#3e9f91','#db9e43','#5676a8'][i],'#ffd79e',2);
+  line(x+6,225,x+26,225,'#fff0b0',2);
+  circle(x+16,214,5,'#f9d06e');
+ }
+ for(let i=0;i<5;i++){
+  const x=22+i*53;
+  circle(x+17,307,20,'#b58d57');circle(x+17,307,13,'#233f45');circle(x+17,307,5,'#cbb58c');
+  line(x+17,287,x+37,272,'#d3c1a4',3);
+ }
+ // Suspended rods and tackle on the bulkhead.
+ for(let i=0;i<3;i++){
+  const x=24+i*29;
+  line(x,24,x+14,175,'#dec69b',3);
+  line(x+14,175,x+37,193,'#b1c4bd',1);
+  circle(x+10,140,8,'#d8aa54');
+ }
+ // Timber counter and glow of a hanging lantern.
+ roundRect(0,413,420,70,4,'#8b5735','#d8a360',4);
+ for(let x=22;x<420;x+=72)circle(x,437,4,'#d6bd7d');
+ roundRect(0,474,420,306,0,'#583923');
+ for(let y=495;y<780;y+=53)line(0,y,420,y,'#8d6645',3);
+ line(128,0,128,51,'#c5a57e',2);circle(128,64,17,'#ffd077');
+ const glow=ctx.createRadialGradient(128,65,5,128,65,110);glow.addColorStop(0,'#ffe69a66');glow.addColorStop(1,'#ffe69a00');
+ ctx.fillStyle=glow;ctx.fillRect(18,0,220,180);
+}
+function skipperBubble(){
+ roundRect(13,361,394,91,12,'#0a2230','#f1c97a',3);
+ polygon([[89,360],[112,349],[120,360]],'#0a2230');
+ text('OLD SKIPPER',28,376,17,C.white,'left',900,0,345);
+ const sentence=skipperLine||skipperGreeting();
+ const words=sentence.split(' '),lines=[''];
+ for(const word of words){let i=lines.length-1;let candidate=(lines[i]+' '+word).trim();if(candidate.length>49&&i<1)lines.push(word);else lines[i]=candidate;}
+ text(lines[0],24,404,16,C.white,'left',900,0,372);
+ if(lines[1])text(lines[1],24,430,16,C.white,'left',900,0,372);
+}
 function shop(){
- ambient(clock);
- text('GEAR SHOP',210,66,42,C.white,'center',1000);
- arcadePill('WALLET $'+save.cash,103,98,214,C.yellow);
- const tabs=[['lines','LINES'],['guns','GUNS'],['gadgets','GADGETS']];
- for(let i=0;i<tabs.length;i++){
-  const [id,label]=tabs[i];
-  button(label,15+i*132,151,126,48,()=>{shopTab=id;},shopTab===id?C.yellow:'#6c97a6');
+ shopInterior();
+ text("SKIPPER'S BAIT & TACKLE",210,40,26,C.white,'center',900,0,395);
+ arcadePill('YOUR COINS  $'+save.cash,92,74,236,C.yellow);
+ skipperPortrait(106,225);
+ text('TAP SKIPPER',104,328,16,C.white,'center',900,0,160);
+ hits.push({x:24,y:150,w:168,h:192,action:()=>skipperSpeak([
+  "They say the bottom's full of gold. Funny, nobody comes back with it.",
+  "I've fished these waters forty years. The waters have fished back.",
+  "First rule o' fishing: trust no fish with too many teeth.",
+  "Every reel has a story. Mine's mostly unpaid debts."
+ ][Math.floor(clock*7)%4])});
+ skipperBubble();
+ const tabs=[['lines','REELS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
+ for(let i=0;i<3;i++){
+  const [id,label]=tabs[i];button(label,9+i*138,487,126,43,()=>{shopTab=id;skipperSpeak(id==='lines'?"Strong line's worth more than a strong arm.":id==='guns'?"I call these pest-control equipment.": "Only the essentials. Mostly legal.");},shopTab===id?C.yellow:'#87a8a0');
  }
+ roundRect(12,539,396,156,12,'#102f38','#c69b5a',3);
  if(shopTab==='lines'||shopTab==='guns'){
-  const type=shopTab==='lines'?'line':'gun',cfg=upgradeConfig(type);
-  const names=type==='line'?LINE_NAMES:GUN_NAMES;
-  neonPanel(24,223,372,295,C.teal,18);
-  text(type==='line'?'YOUR CURRENT REEL':'YOUR CURRENT WEAPON',210,254,17,C.white);
-  text(names[cfg.level],210,302,27,C.white,'center',900,0,342);
-  text(type==='line'?meter(maxLineDepth(cfg.level))+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
-  arcadeRule(52,374,368,C.teal);
+  const type=shopTab==='lines'?'line':'gun',cfg=upgradeConfig(type),names=type==='line'?LINE_NAMES:GUN_NAMES;
+  // Display a tackle spool or a brightly painted weapon silhouette.
+  circle(65,596,34,'#cd9c55');circle(65,596,24,'#1e4d58');circle(65,596,12,'#d3bb88');
+  if(type==='gun'){roundRect(34,581,69,14,3,'#db6959','#f9cd79',2);roundRect(61,596,17,32,3,'#d49b5b');}
+  text(names[cfg.level],114,561,20,C.white,'left',900,0,281);
+  text(type==='line'?meter(maxLineDepth(cfg.level))+' MAX DEPTH':'UNLIMITED AMMO',115,592,16,C.white,'left',900,0,281);
   if(cfg.level<MAXLVL){
-   text('NEXT: '+names[cfg.level+1],210,413,22,C.white,'center',900,0,330);
-   text(type==='line'?'+170m REACH • NEW DEPTHS':'NEW SHOT PATTERN / AIM BOOST',210,446,16,C.white,'center',900,0,334);
-   button('BUY $'+cfg.cost,75,538,270,66,()=>purchase(type),C.yellow);
-  }else{
-   text('MAX UPGRADE EQUIPPED',210,429,18,C.white);
-   arcadePill('OWNED',119,541,182,C.teal);
-  }
+   text('NEXT: '+names[cfg.level+1],115,618,17,C.white,'left',900,0,277);
+   button('BUY $'+cfg.cost,117,644,275,42,()=>purchase(type),C.yellow);
+  }else{text('TOP-OF-THE-LINE. OWNED!',115,652,16,C.white,'left',900,0,275);}
  }else{
-  neonPanel(24,220,372,205,C.coral,18);
-  text('EXPLOSIVE CHARGE',210,255,26,C.white,'center',900,0,344);
-  text('SURVIVE YOUR FIRST FISH HIT',210,304,17,C.white);
-  text('AUTO-TRIGGERS ON COLLISION',210,336,17,C.white);
-  text('STOCK: '+save.charges+' / 3',210,387,21,C.white);
-  button(save.charges>=3?'STOCK FULL':'BUY $110',92,432,236,48,buyCharge,C.yellow);
-  neonPanel(24,497,372,143,C.teal,14);
-   const level=save.upgrades.light;
-   const lamps=['NO LIGHT','GLOW LAMP','DEEP BEAM','ABYSS FLOODLIGHT'];
-   const costs=[180,350,650];
-   text(lamps[level],210,521,21,C.white);
-   text('PERMANENT DEPTH LIGHT UPGRADE',210,550,16,C.white,'center',900,0,345);
-   button(level===3?'MAX LIGHT':'BUY LIGHT $'+costs[level],81,574,258,49,buyLight,C.teal);
-   text('LIGHT HELPS YOU SEE DEEPER',210,605,16,C.white);
+  const lvl=save.upgrades.light,costs=[180,350,650],lamps=['NO LANTERN','GLOW LANTERN','DEEP BEAM','ABYSS FLOODLIGHT'];
+  text('BLAST CHARGES '+save.charges+'/3',23,559,17,C.white,'left',900,0,365);
+  button(save.charges>=3?'STOCK FULL':'CHARGE  $110',19,577,183,46,()=>{const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);},C.coral);
+  text(lamps[lvl],224,559,16,C.white,'left',900,0,182);
+  button(lvl>=3?'MAX LIGHT':'LIGHT  $'+costs[lvl],216,577,184,46,()=>buyLight(),C.teal);
+  text('THE DEEP GETS DARK. COME PREPARED.',210,654,16,C.white,'center',900,0,373);
  }
- if(shopTab!=='gadgets'){
-  neonPanel(33,641,354,57,C.coral,12);
-  text('BONUS: '+save.charges+' BLAST CHARGES',210,668,17,C.white);
- }
- button('← BACK',107,705,206,53,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.white);
+ text('EST. 1978  •  NO REFUNDS  •  NO QUESTIONS',210,710,16,C.white,'center',900,0,393);
+ button('← LEAVE THE SHOP',78,724,264,46,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.white);
 }
 
 function bookCard(kind,x,y){
