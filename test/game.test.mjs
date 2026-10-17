@@ -222,3 +222,19 @@ test('pacing is gentler and phase transitions do not interrupt the round',()=>{
  assert.match(game,/shootTime=16/);
  assert.match(game,/hazardSlow>0\?115:190/);
 });
+
+test('gear shop offers persistent lines, distinct guns and one-use blast charges',()=>{
+ const game=read('src/game.js'), guns=read('src/shooting.js');
+ assert.match(game,/shopTab='lines'/);
+ assert.match(game,/\['lines','LINES'\]/);
+ assert.match(game,/\['guns','GUNS'\]/);
+ assert.match(game,/\['gadgets','GADGETS'\]/);
+ assert.match(game,/charges:clamp\(Number\(d.charges\)\|\|0,0,3\)/);
+ assert.match(game,/chargeArmed=save.charges>0/);
+ assert.match(game,/save.charges=Math.max\(0,save.charges-1\)/);
+ assert.match(game,/collided.bypassed=true/);
+ assert.match(game,/!f.bypassed/);
+ assert.match(game,/function buyCharge\(/);
+ for(const name of ['QUICKSHOT','SCATTERGUN','TWIN SCATTER','NEON BLASTER','STORM CANNON'])
+  assert.ok(guns.includes(name),name);
+});
