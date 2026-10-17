@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 const file=(name)=>readFileSync(new URL('../'+name,import.meta.url));
 function pngSize(name){
  const data=file(name);
@@ -40,4 +40,14 @@ test('every image is referenced, included in production build, and offline',()=>
  assert.match(html,/rel="preload".*title-logo\.webp/);
  assert.match(html,/rel="apple-touch-icon".*apple-touch-icon\.png/);
  assert.match(html,/rel="icon".*favicon\.ico/);
+});
+
+test('branding files have one canonical destination without redundant duplicates',()=>{
+ assert.ok(existsSync(new URL('../assets/title-logo.webp',import.meta.url)));
+ for(const name of ['icon-192.png','icon-512.png','icon-maskable-512.png',
+   'favicon.ico','favicon.png','apple-touch-icon.png']){
+  assert.ok(existsSync(new URL('../icons/'+name,import.meta.url)),'missing icons/'+name);
+  assert.equal(existsSync(new URL('../assets/'+name,import.meta.url)),false,
+    'remove redundant assets/'+name);
+ }
 });
