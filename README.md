@@ -53,7 +53,7 @@ Desktop: arrow keys / A-D to steer; Space or Enter to cast. Portrait orientation
 - `test/` — static smoke tests
 - `.github/workflows/deploy.yml` — test, build and Pages deployment
 
-Six fish types are drawn procedurally on canvas. No third-party runtime libraries, ads, analytics or external API calls. Player progress is saved locally under `reel-trouble-save-v1` and falls back to existing `deep-end-save-v1` data from the same browser origin.
+Six fish types use original, hand-authored pixel sprites and limited colour palettes. The ocean, boat, hook, UI and shooting sky use blocky geometry, with nearest-neighbour scaling from a low-resolution canvas. This is original retro arcade art, not assets extracted from another game. No third-party runtime libraries, ads, analytics or external API calls. Player progress is saved locally under `reel-trouble-save-v1` and falls back to existing `deep-end-save-v1` data from the same browser origin.
 
 ## Status
 
