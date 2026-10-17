@@ -120,3 +120,12 @@ Collection data is embedded inside the existing `reel-trouble-save-v1` save, and
 ## Bright palette and mobile readability
 
 The ocean environments, menu background and shooting sunset use brighter cyan, teal, sapphire and violet colours. High-contrast dark UI panels carry light cream, mint and yellow text. Buttons use consistently dark labels on brighter surfaces. Canvas text now has a 12px minimum, bold sans-serif letters, dark outlines for light text and width-constrained truncation to avoid tiny overflowing labels. The biome and gameplay HUD has larger labels. The offline PWA cache is versioned to update installed devices.
+
+
+## Haptic rumble
+
+Phones with browser vibration support now provide short, distinctive tactile feedback for casting, catches, legendary fish, jellyfish stings, hits, combos, misses and equipment upgrades. This uses the standard browser `navigator.vibrate()` API; no external assets, native application or extra permission prompt is required. The game must have been interacted with before vibration can start. A minimum delay between pulses avoids excessive buzzing.
+
+**Settings → Feedback → Rumble** lets you turn haptics on or off independently of sound and music. The preference is saved on the device, and the default respects your reduced-motion system preference. Pausing or putting the app in the background cancels active vibrations. Where vibration is unavailable, Settings displays **Rumble N/A** and gameplay continues as normal. Browser support varies: Android browsers commonly support vibration, while iOS Safari generally does not expose the standard Vibration API. Device silent/vibration settings may also override it.
+
+The PWA cache version is incremented to ensure installed copies load the haptic module.

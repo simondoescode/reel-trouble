@@ -159,3 +159,20 @@ test('primary UI screens have legible text sizes and book cards',()=>{
  assert.match(game,/text\('HITS \/ SHOTS',77,414,15/);
  assert.match(game,/text\(gun\.name,204,98,15/);
 });
+
+
+test('optional haptic rumble is integrated without changing fishing rules',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/import \{ createRumble \} from '\.\/haptics\.js'/);
+ assert.match(game,/rumble:typeof saved\.rumble==='boolean'/);
+ assert.match(game,/function toggleRumble\(\)/);
+ assert.match(game,/rumble\.play\('cast'\)/);
+ assert.match(game,/rumble\.play\(species\[f\.kind\]\.rare\?'legendary':'catch'\)/);
+ assert.match(game,/rumble\.play\('sting'\)/);
+ assert.match(game,/rumble\.play\(combo>=2\?'combo':'hit'\)/);
+ assert.match(game,/rumble\.play\('shot'\)/);
+ assert.match(game,/rumble\.play\('upgrade'\)/);
+ assert.match(game,/rumble\.stop\(\)/);
+ assert.match(game,/RUMBLE N\/A/);
+ assert.match(read('sw.js'),/src\/haptics\.js/);
+});

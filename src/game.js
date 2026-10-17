@@ -1,5 +1,6 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
 import { createArcadeAudio } from './audio.js';
+import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall } from './pwa.js';
@@ -28,18 +29,27 @@ const reducedMotionPreference = window.matchMedia?.('(prefers-reduced-motion: re
 function readPreferences(){
  try{
   const saved=JSON.parse(localStorage.getItem('reel-trouble-mobile-settings-v1') || '{}');
-  return {sound:saved.sound!==false,music:saved.music!==false,lowFx:typeof saved.lowFx==='boolean'?saved.lowFx:reducedMotionPreference};
- }catch(_){return {sound:true,music:true,lowFx:reducedMotionPreference};}
+  return {sound:saved.sound!==false,music:saved.music!==false,rumble:typeof saved.rumble==='boolean'?saved.rumble:!reducedMotionPreference,lowFx:typeof saved.lowFx==='boolean'?saved.lowFx:reducedMotionPreference};
+ }catch(_){return {sound:true,music:true,rumble:!reducedMotionPreference,lowFx:reducedMotionPreference};}
 }
 const preferences=readPreferences();
-let soundEnabled=preferences.sound, musicEnabled=preferences.music, lowFx=preferences.lowFx;
+let soundEnabled=preferences.sound, musicEnabled=preferences.music, lowFx=preferences.lowFx, rumbleEnabled=preferences.rumble;
 const sound=createArcadeAudio();
+const rumble=createRumble({suppressed:()=>document.hidden||paused});
+rumble.setEnabled(rumbleEnabled);
 sound.setOptions({sound:soundEnabled,music:musicEnabled});
 let installMessage='INSTALL AS AN APP FOR OFFLINE PLAY';
-function savePreferences(){try{localStorage.setItem('reel-trouble-mobile-settings-v1',JSON.stringify({sound:soundEnabled,music:musicEnabled,lowFx}));}catch(_){}}
+function savePreferences(){try{localStorage.setItem('reel-trouble-mobile-settings-v1',JSON.stringify({sound:soundEnabled,music:musicEnabled,rumble:rumbleEnabled,lowFx}));}catch(_){}}
 function toggleSound(){soundEnabled=!soundEnabled;savePreferences();sound.setOptions({sound:soundEnabled,music:musicEnabled});sound.unlock();}
 function toggleMusic(){musicEnabled=!musicEnabled;savePreferences();sound.setOptions({sound:soundEnabled,music:musicEnabled});sound.unlock();}
 function toggleEffects(){lowFx=!lowFx;savePreferences();shake=0;}
+function toggleRumble(){
+ if(!rumble.supported())return;
+ rumbleEnabled=!rumbleEnabled;
+ rumble.setEnabled(rumbleEnabled);
+ savePreferences();
+ if(rumbleEnabled)rumble.play('preview');
+}
 function installGame(){
  if(isInstalled()){installMessage='ALREADY INSTALLED';return;}
  if(canInstall()){
@@ -109,10 +119,10 @@ let paused=false,pauseReason='';
 function liveRound(){return state==='descent'||state==='ascent'||state==='shoot';}
 function pauseGame(reason='MANUAL'){
  if(!liveRound()||paused)return;
- paused=true;pauseReason=reason;pointerDown=false;keys.clear();sound.pause(true);
+ paused=true;pauseReason=reason;pointerDown=false;keys.clear();sound.pause(true);rumble.stop();
 }
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
-function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sound.pause(false);}
+function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sound.pause(false);rumble.stop();}
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
@@ -426,7 +436,7 @@ function meter(n){return `${Math.round(n/6)}m`;}
 function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
- sound.play('splash');
+ sound.play('splash');rumble.play('cast');
  castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
@@ -451,7 +461,7 @@ function catchFish(f){
  }
  const camera=clamp(depth-230,0,maxDepth+100),hy=SEA+depth-camera;
  burst(hookX,hy,C.yellow,12);emitSplash(hookX,hy,species[f.kind].color,.55);
- sound.play('catch',{pitch:f.kind});
+ sound.play('catch',{pitch:f.kind});rumble.play(species[f.kind].rare?'legendary':'catch');
 }
 function beginShoot(){
  state='shoot';age=0;shootTime=12;
@@ -494,21 +504,21 @@ function shootAt(x,y){
    floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,f.y-22,C.yellow);
   }
   shake=clamp(shake+2+actual.length*1.4,0,7);
-  sceneFlash=Math.max(sceneFlash,.09);sound.play('hit',{pitch:gun.tier});
+  sceneFlash=Math.max(sceneFlash,.09);sound.play('hit',{pitch:gun.tier});rumble.play(combo>=2?'combo':'hit');
   updateAchievements();
   if(combo>=2){floatLabel('COMBO x'+streak.multiplier,210,177,C.mint);sound.play('combo');}
   persist();
  }else{
   // A miss breaks the streak; ammunition stays unlimited.
   burst(x,y,'#e8f6e7',5);floatLabel('MISS',x,y-18,C.cream);
-  shake=clamp(shake+1.4,0,7);sound.play('miss');
+  shake=clamp(shake+1.4,0,7);sound.play('miss');rumble.play('shot');
  }
  if(airborne.every(f=>f.shot))setTimeoutSafe(endRound,380);
 }
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
 function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost)return;
- save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);sound.play('upgrade');}
+ save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 function upgradeConfig(type){const titles={line:'LONGER LINE',net:'WIDER HOOK',gun:'GUN UPGRADES'},base={line:65,net:90,gun:85};const lvl=save.upgrades[type];
  return {title:titles[type],level:lvl,cost:Math.round(base[type]*Math.pow(1.75,lvl)),desc:{line:'+40m of depth per level',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};}
 function burst(x,y,color,count){
@@ -550,7 +560,7 @@ function update(dt){
   burst(touchingHazard.x,y,'#d7b3ff',14);
   floatLabel('JELLYFISH!',touchingHazard.x,y-27,C.pink);
   sceneFlash=.17;shake=lowFx?0:3;
-  sound.play('miss');
+  sound.play('miss');rumble.play('sting');
  };
  if(state==='descent'){
  depth+= (162+save.upgrades.line*6)*dt;
@@ -886,8 +896,10 @@ function settings(){
  text('AUDIO',210,376,16,C.yellow,'center',950);
  button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
  button(musicEnabled?'CHIPTUNE: ON':'CHIPTUNE: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
- text('ANIMATION',210,500,16,C.yellow,'center',950);
- button(lowFx?'EFFECTS: LOW':'EFFECTS: FULL',94,514,232,38,toggleEffects,lowFx?C.cream:C.teal);
+ text('FEEDBACK',210,495,16,C.yellow,'center',950);
+ button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
+ if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
+ else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
  if(!isInstalled())button('INSTALL APP',104,566,212,48,installGame,C.yellow);
  else text('INSTALLED APP',210,587,15,C.yellow);
  text(installMessage,210,648,13,C.cream,'center',850,0,356);
@@ -944,7 +956,7 @@ window.addEventListener('keydown',e=>{
  }});window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
 document.addEventListener('visibilitychange',()=>{
- if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);}
+ if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);rumble.stop();}
  last=0;
 });
 })();
