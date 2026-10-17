@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from '../src/shooting.js';
 
-test('upgrade levels unlock three different weapons', () => {
+test('upgrade levels unlock six increasingly powerful weapons', () => {
  assert.equal(weaponForLevel(0).name,'POP GUN');
  assert.equal(weaponForLevel(1).maxHits,1);
  assert.equal(weaponForLevel(2).name,'SCATTERGUN');
- assert.equal(weaponForLevel(3).maxHits,2);
+ assert.equal(weaponForLevel(3).maxHits,3);
  assert.equal(weaponForLevel(4).name,'NEON BLASTER');
- assert.equal(weaponForLevel(5).maxHits,3);
+ assert.equal(weaponForLevel(5).maxHits,5);
  assert.equal(weaponForLevel(100).tier,2);
 });
 test('shots need to hit fish rather than the nearest fish across the screen', () => {

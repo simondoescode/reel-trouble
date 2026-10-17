@@ -10,7 +10,7 @@ function pngSize(name){
 test('title screen draws the original logo and retains a safe fallback',()=>{
  const game=file('src/game.js').toString('utf8');
  assert.match(game,/titleLogo\.src='\.\x2fassets\x2ftitle-logo\.webp'/);
- assert.match(game,/titleLogo\.naturalWidth>0/);
+ assert.match(game,/titleLogo\.complete&&titleLogo\.naturalWidth/);
  assert.match(game,/ctx\.drawImage\(titleLogo/);
  assert.match(game,/text\('REEL'/);
  const logo=file('assets/title-logo.webp');

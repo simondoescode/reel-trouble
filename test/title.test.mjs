@@ -21,10 +21,10 @@ test('parallax fish and bubbles live behind all white menu controls',()=>{
  assert.match(life,/fish\(x,y,s\.kind/);
  assert.match(life,/lowFx\?9:20/);
  assert.ok(menu.indexOf('titleBackdrop(t);titleSeaLife(t);')<menu.indexOf("button('CAST LINE'"));
- assert.match(menu,/titleActionGlow\(t,68,511,284,60\)/);
+ assert.match(menu,/titleActionGlow\(t,50,544,320,83\)/);
  assert.match(menu,/button\('INSTALL APP'/);
  assert.match(menu,/ctx\.drawImage\(titleLogo/);
- assert.match(menu,/text\('WALLET'/);
+ assert.match(menu,/text\('BEST \$'/);
 });
 test('reduced-effects mode freezes title animations',()=>{
  const backdrop=code('function titleBackdrop(','function titleSeaLife(');

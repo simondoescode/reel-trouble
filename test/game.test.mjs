@@ -161,7 +161,7 @@ test('readable high-contrast cards and typography across screens',()=>{
  assert.match(game,/const pageSize=4/);
  assert.match(game,/const width=370,height=99/);
  assert.match(game,/text\(badge\.description,80,y\+45,16/);
- assert.match(game,/text\(cfg\.desc,41,y\+54,17/);
+ assert.match(game,/neonPanel\(24,223,372,295,C\.teal,18\)/);
  assert.match(game,/text\('HITS \/ SHOTS',77,414,17/);
  assert.match(game,/text\(p\.discovered\+'\/'\+p\.total\+' SPECIES/);
  assert.doesNotMatch(game,/PIXEL=2|pixelCanvas\.width=W\/PIXEL/);
@@ -217,10 +217,10 @@ test('modern arcade title and phase transitions remain hooked to actual gameplay
 test('pacing is gentler and phase transitions do not interrupt the round',()=>{
  const game=read('src/game.js');
  assert.match(game,/function stageCue\(_kind\)\{sceneTransition=null/);
- assert.match(game,/depth\+= \(122\+save\.upgrades\.line\*4\)\*dt/);
- assert.match(game,/depth<360\?null/);
+ assert.match(game,/depth\+= \(91\+save\.upgrades\.line\*3\)\*dt/);
+ assert.match(game,/depth<540\?null/);
  assert.match(game,/shootTime=16/);
- assert.match(game,/hazardSlow>0\?115:190/);
+ assert.match(game,/hazardSlow>0\?125:205/);
 });
 
 test('gear shop offers persistent lines, distinct guns and one-use blast charges',()=>{
@@ -244,13 +244,14 @@ test('main game is a single valid script without duplicate or truncated trailing
  const once=[
   'function render(){','function frame(t){','function installScene(){',
   'function settings(){','function fishDetail(){','function shop(){',
-  'function menu(){','\\n})();'
+  'function menu(){'
  ];
  for(const symbol of once){
-  const needle=symbol==='\\n})();'?'\\n})();':symbol;
+  const needle=symbol;
   assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
  }
  assert.match(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \$'\+costs\[level\],81,574,258,49,buyLight,C\.teal\)/);
+ assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
  assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
  assert.doesNotMatch(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \n/);
 });
