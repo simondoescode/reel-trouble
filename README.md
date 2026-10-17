@@ -8,7 +8,7 @@ The prototype was previously named **Deep End**. The game code and procedural gr
 
 **https://simondoescode.github.io/reel-trouble/**
 
-The GitHub Pages site becomes available once Pages has been enabled with **Settings → Pages → Build and deployment → Source: GitHub Actions** and the deployment has succeeded.
+For the optimised Vite build, set **Settings → Pages → Build and deployment → Source: GitHub Actions**. Pages also supports a legacy "Deploy from a branch" source: `index.html` intentionally references the plain JavaScript and CSS with relative paths so the game can run in that mode too. Pick **GitHub Actions** to avoid competing deployments.
 
 ## Develop locally
 
@@ -31,7 +31,7 @@ npm run preview
 
 Vite bundles the JavaScript and CSS into `dist/`. The configured base path (`/reel-trouble/`) ensures assets load properly when hosted at GitHub Pages.
 
-**Do not deploy raw source files directly from `main`**: this is now a Vite project and requires a build. The workflow `.github/workflows/deploy.yml` builds and deploys `dist/` whenever a commit lands on `main`. You can also run it manually from the Actions tab. No pull requests are required.
+The workflow `.github/workflows/deploy.yml` builds and deploys `dist/` whenever a commit lands on `main`. You can also run it manually from the Actions tab. No pull requests are required. The source HTML works as a fallback for legacy branch-based Pages, but the supported deployment setting is **GitHub Actions** so the production bundle is what visitors receive.
 
 ## Play
 
@@ -45,8 +45,7 @@ Desktop: arrow keys / A-D to steer; Space or Enter to cast. Portrait orientation
 
 ## Code
 
-- `index.html` — HTML and canvas entry
-- `src/main.js` — Vite module entry, imports CSS and gameplay code
+- `index.html` — HTML canvas and Vite entry; direct-source fallback for branch publishing
 - `src/game.js` — gameplay, animations, input, upgrades, audio, saved progress
 - `src/styles.css` — responsive mobile layout
 - `vite.config.js` — GitHub Pages base path

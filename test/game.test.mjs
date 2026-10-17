@@ -4,11 +4,12 @@ import test from 'node:test';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('Vite entry loads CSS and the game module', () => {
-  assert.match(read('index.html'), /type="module" src="\/src\/main\.js"/);
-  assert.match(read('src/main.js'), /import '\.?\/styles\.css'/);
-  assert.match(read('src/main.js'), /import '\.?\/game\.js'/);
-  assert.match(read('index.html'), /<canvas id="game"/);
+test('HTML loads the game from relative source paths in both Vite and Pages branch hosting', () => {
+  const html = read('index.html');
+  assert.match(html, /type="module" src="\.\/src\/game\.js"/);
+  assert.match(html, /rel="stylesheet" href="\.\/src\/styles\.css"/);
+  assert.doesNotMatch(html, /src="\/src\/main\.js"/);
+  assert.match(html, /<canvas id="game"/);
 });
 
 test('core fishing phases and player progress remain in the game', () => {
