@@ -36,7 +36,7 @@ test('every image is referenced, included in production build, and offline',()=>
   assert.ok(vite.includes(path),'Missing Vite asset: '+path);
   assert.ok(worker.includes(path),'Missing offline asset: '+path);
  }
- assert.match(worker,/reel-trouble-offline-v17/);
+ assert.match(worker,/reel-trouble-offline-v18/);
  assert.match(html,/rel="preload".*title-logo\.webp/);
  assert.match(html,/rel="apple-touch-icon".*apple-touch-icon\.png/);
  assert.match(html,/rel="icon".*favicon\.ico/);
