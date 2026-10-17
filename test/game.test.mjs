@@ -147,7 +147,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/colors:\['#2bd0e2'/);
  assert.match(ocean,/colors:\['#28aeb5'/);
  assert.match(ocean,/colors:\['#3a69a8'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v5/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v6/);
 });
 
 test('primary UI screens have legible text sizes and book cards',()=>{
