@@ -156,7 +156,7 @@ function updateAchievements(){
  sound.play('upgrade');
 }
 function openCollection(tab='fish'){collectionTab=tab;collectionPage=0;sceneTransition=null;state='collection';age=0;}
-function stageCue(kind){sceneTransition=startStage(kind,lowFx);}
+function stageCue(_kind){sceneTransition=null;} // Go straight into each phase: no full-screen interruptions.
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
 const irand=(a,b)=>Math.floor(rand(a,b+1));
@@ -519,7 +519,7 @@ function beginCast(){
  castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
- message='DODGE THE FISH!';messageTimer=2.1;stageCue('dive');}
+ message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
 function startAscent(hitFish,stung=false){if(state!=='descent')return;
  state='ascent';age=0;message='REEL THEM IN!';messageTimer=1.9;if(hitFish)catchFish(hitFish);
  else if(!caught.length&&!stung){const nearest=fishes.filter(f=>!f.caught).sort((a,b)=>Math.abs(a.d-depth)-Math.abs(b.d-depth))[0];if(nearest)catchFish(nearest);}
@@ -543,7 +543,7 @@ function catchFish(f){
  sound.play('catch',{pitch:f.kind});rumble.play(species[f.kind].rare?'legendary':'catch');
 }
 function beginShoot(){
- state='shoot';age=0;shootTime=12;endDelay=0;
+ state='shoot';age=0;shootTime=16;endDelay=0;
  combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;
  shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];
  finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;
@@ -703,13 +703,13 @@ function update(dt){
   sound.play('miss');rumble.play('sting');
  };
  if(state==='descent'){
- depth+= (162+save.upgrades.line*6)*dt;
- const collided=depth<225?null:fishes.find(f=>!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<20&&Math.abs(f.x-hookX)<(18+species[f.kind].size*.75));
+ depth+= (122+save.upgrades.line*4)*dt;
+ const collided=depth<360?null:fishes.find(f=>!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<17&&Math.abs(f.x-hookX)<(12+species[f.kind].size*.52));
  if(collided)startAscent(collided);
  else if(touchingHazard){triggerHazard();startAscent(null,true);}
  else if(depth>=maxDepth){depth=maxDepth;startAscent(null);}
  }else{
- depth-=(hazardSlow>0?140:240)*dt;
+ depth-=(hazardSlow>0?115:190)*dt;
  if(touchingHazard){triggerHazard();hazardSlow=1.2;}
  const radius=24+save.upgrades.net*13;
  for(const f of fishes)if(!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<27&&Math.abs(f.x-hookX)<radius+species[f.kind].size*.5)catchFish(f);
