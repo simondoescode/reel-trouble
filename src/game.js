@@ -1,4 +1,5 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
+import { paintShopBackdrop, paintSkipper } from './shop-art.js';
 import { createArcadeAudio } from './audio.js';
 import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
@@ -1230,78 +1231,15 @@ function skipperReply(category,success){
  skipperSpeak(arr[(save.upgrades.line+save.upgrades.gun+save.charges)%arr.length]);
 }
 function skipperPortrait(x,y){
- // Canvas-drawn original character: cap, salty beard, hook, expressive eyes.
- const bob=Math.sin(clock*2)*1.4;
- ctx.save();ctx.translate(x,y+bob);
- roundRect(-46,60,92,76,21,'#245d63','#10303b',4);
- polygon([[-39,89],[-59,118],[-45,131],[-20,109]],'#d6965c');
- polygon([[36,91],[58,106],[54,119],[33,120]],'#d6965c');
- roundRect(-13,55,26,25,5,'#d5965f');
- circle(0,23,43,'#d9a475');
- circle(-40,27,10,'#d49a68');circle(40,27,10,'#d49a68');
- polygon([[-32,40],[-28,75],[-8,99],[10,100],[31,71],[30,40]],'#e8e4cb');
- for(let i=0;i<5;i++)line(-19+i*9,59,-14+i*7,86,'#a9ad9b',2);
- polygon([[-24,30],[-5,37],[4,31],[26,33],[20,44],[0,40],[-21,43]],'#e4e4d1');
- circle(-17,23,5,'#132735');circle(17,23,5,'#132735');
- circle(-15,21,1.5,'#fff');circle(19,21,1.5,'#fff');
- line(-28,11,-9,13,'#5d4231',4);line(8,12,29,10,'#5d4231',4);
- polygon([[-5,29],[5,29],[12,39],[-7,38]],'#b77650');
- line(13,41,30,44,'#65412b',3);
- // Weather-beaten skipper hat, insignia and brim.
- roundRect(-38,-19,76,24,7,'#214858','#0d2834',3);
- polygon([[-35,-16],[-27,-38],[26,-38],[35,-16]],'#2d6272');
- roundRect(-45,-17,90,10,4,'#102f3a','#e0b668',2);
- circle(0,-21,7,'#eccb6f');line(-5,-21,5,-21,'#173f4d',2);
- roundRect(-11,94,22,34,3,'#e6ae51');
- text('S',0,111,18,C.white);
+ ctx.save();
+ ctx.beginPath();ctx.rect(8,104,251,245);ctx.clip();
+ if(!paintSkipper(ctx,clock,x,y)){
+  roundRect(42,156,136,176,16,'#23435b','#e0ad5b',4);
+  text('SKIPPER',110,244,20,C.white,'center',900);
+ }
  ctx.restore();
 }
-function shopInterior(){
- const g=ctx.createLinearGradient(0,0,0,780);
- g.addColorStop(0,'#234d53');g.addColorStop(.48,'#183b42');g.addColorStop(1,'#38271e');
- ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
- // Planked bulkhead and riveted beams.
- for(let y=12;y<780;y+=49){
-  line(0,y,W,y,'#5e5341',3);line(0,y+4,W,y+4,'#0f262e',2);
-  for(let x=25+(y%3)*23;x<420;x+=105){circle(x,y-2,2,'#b99a68');}
- }
- for(let x of [12,403]){roundRect(x-8,0,18,780,2,'#6d4c35','#bd9662',2);}
- // Porthole onto a rolling, moonlit sea.
- circle(315,147,74,'#a27e49');circle(315,147,64,'#082f47');
- circle(315,144,56,'#176b83');
- polygon([[260,164],[273,158],[290,164],[309,158],[330,164],[352,157],[370,162],[370,195],[258,195]],'#0a3f62');
- circle(345,112,13,'#ffd88c');
- for(let a=0;a<8;a++){let t=a*Math.PI/4;circle(315+69*Math.cos(t),147+69*Math.sin(t),3,'#e4c77e');}
- // Tackle shop shelves with carefully drawn fishing supplies.
- roundRect(12,254,392,13,3,'#a46c3d','#e3b26a',2);
- roundRect(15,347,390,12,2,'#a46c3d','#e3b26a',2);
- for(let i=0;i<4;i++){
-  const x=35+i*55;
-  roundRect(x,208,32,44,5,['#d35942','#3e9f91','#db9e43','#5676a8'][i],'#ffd79e',2);
-  line(x+6,225,x+26,225,'#fff0b0',2);
-  circle(x+16,214,5,'#f9d06e');
- }
- for(let i=0;i<5;i++){
-  const x=22+i*53;
-  circle(x+17,307,20,'#b58d57');circle(x+17,307,13,'#233f45');circle(x+17,307,5,'#cbb58c');
-  line(x+17,287,x+37,272,'#d3c1a4',3);
- }
- // Suspended rods and tackle on the bulkhead.
- for(let i=0;i<3;i++){
-  const x=24+i*29;
-  line(x,24,x+14,175,'#dec69b',3);
-  line(x+14,175,x+37,193,'#b1c4bd',1);
-  circle(x+10,140,8,'#d8aa54');
- }
- // Timber counter and glow of a hanging lantern.
- roundRect(0,413,420,70,4,'#8b5735','#d8a360',4);
- for(let x=22;x<420;x+=72)circle(x,437,4,'#d6bd7d');
- roundRect(0,474,420,306,0,'#583923');
- for(let y=495;y<780;y+=53)line(0,y,420,y,'#8d6645',3);
- line(128,0,128,51,'#c5a57e',2);circle(128,64,17,'#ffd077');
- const glow=ctx.createRadialGradient(128,65,5,128,65,110);glow.addColorStop(0,'#ffe69a66');glow.addColorStop(1,'#ffe69a00');
- ctx.fillStyle=glow;ctx.fillRect(18,0,220,180);
-}
+function shopInterior(){paintShopBackdrop(ctx);}
 function skipperBubble(){
  roundRect(13,361,394,91,12,'#0a2230','#f1c97a',3);
  polygon([[89,360],[112,349],[120,360]],'#0a2230');
@@ -1317,8 +1255,8 @@ function shop(){
  text("SKIPPER'S BAIT & TACKLE",210,40,26,C.white,'center',900,0,395);
  arcadePill('YOUR COINS  $'+save.cash,92,74,236,C.yellow);
  skipperPortrait(106,225);
- text('TAP SKIPPER',104,328,16,C.white,'center',900,0,160);
- hits.push({x:24,y:150,w:168,h:192,action:()=>skipperSpeak([
+ text('TAP SKIPPER TO CHAT',110,340,14,C.white,'center',900,0,194);
+ hits.push({x:24,y:150,w:215,h:192,action:()=>skipperSpeak([
   "They say the bottom's full of gold. Funny, nobody comes back with it.",
   "I've fished these waters forty years. The waters have fished back.",
   "First rule o' fishing: trust no fish with too many teeth.",
