@@ -7,16 +7,17 @@ import { setupPwa, canInstall, isInstalled, requestInstall } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
 (() => {
 'use strict';
-const W=420,H=780,SEA=192, MAXLVL=5, PIXEL=2;
+const W=420,H=780,SEA=192, MAXLVL=5;
 const canvas=document.getElementById('game'), display=canvas.getContext('2d',{alpha:false});
-// Original game art is rasterised on a fixed, low-resolution pixel canvas.
-const pixelCanvas=document.createElement('canvas');
-pixelCanvas.width=W/PIXEL;pixelCanvas.height=H/PIXEL;
-const ctx=pixelCanvas.getContext('2d',{alpha:false});
-ctx.imageSmoothingEnabled=false;
-display.imageSmoothingEnabled=false;
-// Bright highlights, high-contrast cream lettering, and dark readable panels.
-const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#fff9e9',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#e0f6ff',ink:'#071b31'};
+// Render glyphs at their real logical size: the old 210x390 buffer rasterised
+// 12-16px labels at only 6-8 physical pixels before blowing them back up.
+const sceneCanvas=document.createElement('canvas');
+sceneCanvas.width=W;sceneCanvas.height=H;
+const ctx=sceneCanvas.getContext('2d',{alpha:false});
+ctx.imageSmoothingEnabled=false; // Original blocky fish sprites remain pixel art.
+display.imageSmoothingEnabled=true; // Smooth final presentation, not font rasterisation.
+// Saturated colours remain in the art and outlines. UI labels are solid white.
+const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#ffffff',white:'#ffffff',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#ffffff',ink:'#071b31'};
 
 const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0},collection:createCollection()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
@@ -148,36 +149,41 @@ function roundRect(x,y,w,h,_r,fill,stroke,lw=2){
  if(fill){ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);}
  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.strokeRect(x+lw/2,y+lw/2,w-lw,h-lw);}
 }
-function text(s,x,y,size=20,color=C.cream,align='center',weight=800,letter=0,maxWidth=null){
- // On a 210px-wide internal canvas, 9px captions are too small to read on phones.
- ctx.save();ctx.textAlign=align;ctx.textBaseline='middle';
- const fontSize=Math.max(12,size),label=String(s);
- ctx.font=Math.max(750,weight)+' '+fontSize+'px Arial,Helvetica,sans-serif';
- if(letter)ctx.letterSpacing=letter+'px';
- const available=maxWidth??(align==='left'?W-x-14:align==='right'?x-14:Math.min(W-28,2*x-16,2*(W-x)-16));
- const width=Math.max(16,available);
- let fit=label;
- if(ctx.measureText(fit).width>width){
-  while(fit.length>1&&ctx.measureText(fit+'…').width>width)fit=fit.slice(0,-1);
-  fit=fit.replace(/\s+$/,'')+'…';
+function text(s,x,y,size=20,_color=C.white,align='center',_weight=900,_letter=0,maxWidth=null){
+ // One highly readable type treatment everywhere: full-resolution, heavy white
+ // lettering with dark edge separation on vibrant water and dark UI panels.
+ const label=String(s),fontSize=Math.max(16,size);
+ ctx.save();
+ ctx.textAlign=align;ctx.textBaseline='middle';
+ ctx.font='900 '+fontSize+'px Arial,Helvetica,sans-serif';
+ const available=maxWidth??(align==='left'?W-x-16:align==='right'?x-16:Math.min(W-32,2*x-16,2*(W-x)-16));
+ const width=Math.max(20,available);
+ let fitted=label;
+ // Never compress or distort a font. Truncate an overlong label only as a last resort.
+ if(ctx.measureText(fitted).width>width){
+  while(fitted.length>1&&ctx.measureText(fitted+'…').width>width)fitted=fitted.slice(0,-1);
+  fitted=fitted.replace(/\s+$/,'')+'…';
  }
- ctx.fillStyle=color;
- const dark=color===C.navy||color===C.ink;
- if(!dark){ctx.lineJoin='round';ctx.strokeStyle='#061c33c9';ctx.lineWidth=fontSize>=28?2.4:1.4;ctx.strokeText(fit,x,y,width);}
- ctx.fillText(fit,x,y,width);ctx.restore();
+ ctx.lineJoin='round';
+ ctx.strokeStyle='#031523';
+ ctx.lineWidth=fontSize>=32?3:2;
+ ctx.strokeText(fitted,x,y,width);
+ ctx.fillStyle='#ffffff';
+ ctx.fillText(fitted,x,y,width);
+ ctx.restore();
 }
 function line(x1,y1,x2,y2,color,width=2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}
 function circle(x,y,r,color){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();}
 function polygon(points,fill){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle=fill;ctx.fill();}
-function button(title,x,y,w,h,action,color=C.coral,secondary=''){
- // Pixel bevel, accent shine and offset shadow rather than soft vector glow.
- roundRect(x+5,y+6,w,h,0,'#06172d');
- roundRect(x,y,w,h,0,color,'#071b31',3);
- ctx.fillStyle='#ffffff8c';ctx.fillRect(x+6,y+5,w-12,5);
- ctx.fillStyle='#061a2c38';ctx.fillRect(x+7,y+h-11,w-14,5);
- ctx.fillStyle='#fffaf6a8';ctx.fillRect(x+10,y+13,7,7);ctx.fillRect(x+w-18,y+13,7,7);
- text(title,x+w/2,y+h/2-(secondary?7:0),secondary?15:Math.min(19,h<41?16:19),C.ink,'center',950,0,w-24);
- if(secondary)text(secondary,x+w/2,y+h/2+14,12,C.ink,'center',850,0,w-18);
+function button(title,x,y,w,h,action,accent=C.coral,secondary=''){
+ // Always put WHITE labels over a DARK button. Bright accent is a border only.
+ roundRect(x+4,y+5,w,h,0,'#041123');
+ roundRect(x,y,w,h,0,'#082841',accent,3);
+ ctx.fillStyle=accent;ctx.fillRect(x+5,y+4,w-10,5);
+ ctx.fillStyle='#ffffff25';ctx.fillRect(x+7,y+h-10,w-14,3);
+ const labelY=y+h/2-(secondary?8:0);
+ text(title,x+w/2,labelY,secondary?16:(h<41?17:19),C.white,'center',900,0,w-20);
+ if(secondary)text(secondary,x+w/2,y+h/2+15,16,C.white,'center',900,0,w-22);
  hits.push({x,y,w,h,action});
 }
 function panel(x,y,w,h){
@@ -635,8 +641,13 @@ function overlayParticles(){
  for(const l of labels){ctx.globalAlpha=clamp(l.life,0,1);text(l.value,l.x,l.y,22,l.color,'center',950);}
  ctx.globalAlpha=1;
 }
-function topBar(title,left,right){roundRect(14,19,W-28,54,0,'#08253bf3','#72ffe7',2);text(title,28,46,17,C.cream,'left',950,0,205);text(right,392,46,16,C.yellow,'right',950,0,150);if(left)text(left,225,46,13,C.muted,'center',850,0,68);}
-function bottomHint(hint){roundRect(21,714,378,48,0,'#08253bf2','#6beedc',2);text(hint,210,738,14,C.cream,'center',850,0,358);}
+function topBar(title,left,right){
+ roundRect(14,19,W-28,55,0,'#061d34f7','#72ffe7',2);
+ text(title,27,47,18,C.white,'left',900,0,left?175:230);
+ text(right,392,47,17,C.white,'right',900,0,130);
+ if(left)text(left,244,47,16,C.white,'center',900,0,66);
+}
+function bottomHint(hint){roundRect(21,711,378,51,0,'#061d34fa','#6beedc',2);text(hint,210,737,16,C.white,'center',900,0,357);}
 function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
  bgUndersea(camera);const surf=SEA-camera;
  if(surf>45&&surf<H+60){boat(W/2,surf-7);}
@@ -660,7 +671,7 @@ for(const h of hazards){
  roundRect(28,85,364,9,5,'#052e3c','#32758b');roundRect(30,87,Math.max(3,360*depth/maxDepth),5,3,state==='descent'?C.yellow:C.teal);
  if(state==='ascent'){roundRect(191,112,162,37,0,'#08253bf0','#ffed76',2);text('HOOKED '+caught.length,272,130,16,C.yellow,'center',950,0,148);}
  if(messageTimer>0){roundRect(67,164,286,42,0,'#07243df5','#86fff2',2);text(message,210,185,16,C.cream,'center',950,0,269);}
- bottomHint(hazardSlow>0?'JELLYFISH STING! RECOVERING...':(sensorFresh()?'TILT TO STEER':'DRAG TO STEER')+' • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
+ bottomHint(hazardSlow>0?'JELLYFISH! SLOW REEL':(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
  button('II',362,117,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
 function drawBulletTrail(x1,y1,x2,y2,alpha,color){
@@ -750,7 +761,7 @@ function shootScene(){
  ctx.strokeStyle='#fff6cd';ctx.lineWidth=3;ctx.strokeRect(px-12,py-12,24,24);
  ctx.fillStyle='#fff6cd';ctx.fillRect(px-23,py-2,8,4);ctx.fillRect(px+15,py-2,8,4);
  ctx.fillRect(px-2,py-23,4,8);ctx.fillRect(px-2,py+15,4,8);
- bottomHint('TAP FISH TO SHOOT  |  CHAIN HITS FOR x4');
+ bottomHint('TAP FISH • CHAIN HITS FOR x4');
  button('II',362,124,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
 function decoFish(){const float=clock;
@@ -759,9 +770,11 @@ function decoFish(){const float=clock;
 }
 function menu(){ambient(clock);decoFish();
  roundRect(85,62,250,35,0,'#0c496b','#80fff0',2);text('AN ORIGINAL ARCADE GAME',210,80,13,C.cream,'center',950,0,235);
- text('REEL',214,172,68,'#093652','center',1000,-2);text('TROUBLE!',214,244,51,'#093652','center',1000,-2);
- text('REEL',210,168,68,C.cream,'center',1000,-2);text('TROUBLE!',210,240,51,C.coral,'center',1000,-2);
- text('GO DEEP. GET FISH. GET RICH.',210,286,14,C.yellow,'center',950,1.25);
+ // One sharp title rather than two shifted copies that make the lettering look fuzzy.
+ text('REEL',210,168,68,C.white,'center',900,0,370);
+ text('TROUBLE!',210,240,51,C.white,'center',900,0,397);
+ roundRect(35,265,350,45,0,'#071b35e8','#19bedd',2);
+ text('GO DEEP. GET FISH. GET RICH.',210,287,17,C.white,'center',900,0,337);
  panel(32,320,356,144);
  text('01  DODGE ON THE WAY DOWN',210,346,15,C.cream,'center',900,0,325);
  text('02  CATCH ON THE WAY UP',210,389,15,C.cream,'center',900,0,325);
@@ -778,66 +791,68 @@ function menu(){ambient(clock);decoFish();
 }
 function results(){ambient(clock);
  text('NICE CATCH!',210,123,43,C.yellow,'center',1000,-.8);
- text('BACK ON DRY LAND',210,167,15,C.cream,'center',900,0,343);
+ text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
  if(newFishThisCast||newBadgesThisCast)text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,13,C.yellow,'center',900);
  panel(35,217,350,264);
  text('THIS CAST',210,255,15,C.mint,'center',900,1.8);
  text('+$'+roundEarnings,210,327,73,C.cream,'center',1000,-3);
  line(64,373,356,373,'#397587');
- text('HITS / SHOTS',77,414,15,C.cream,'left',900);text(landed+' / '+fired,343,414,19,C.cream,'right',900);
- text('BEST COMBO',77,452,15,C.cream,'left',900);text('x'+Math.max(1,bestRoundCombo),343,452,19,C.yellow,'right',900);
+ text('HITS / SHOTS',77,414,17,C.white,'left',900);text(landed+' / '+fired,343,414,19,C.cream,'right',900);
+ text('BEST COMBO',77,452,17,C.white,'left',900);text('x'+Math.max(1,bestRoundCombo),343,452,19,C.yellow,'right',900);
  text(`WALLET: $${save.cash}`,210,520,19,C.yellow,'center',900);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow);
  button('GEAR SHOP',25,647,178,53,()=>{state='shop';age=0;},C.cream);
  button('FISH BOOK',217,647,178,53,()=>openCollection('fish'),C.teal);
  button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
 }
-function shop(){ambient(clock);text('GEAR SHOP',210,95,46,C.cream,'center',1000,-1.5);text('MAKE THE NEXT CAST COUNT',210,135,12,C.muted,'center',850,1.3);
+function shop(){ambient(clock);text('GEAR SHOP',210,95,46,C.cream,'center',1000,-1.5);text('MAKE THE NEXT CAST COUNT',210,135,17,C.white,'center',900,0,354);
  roundRect(127,159,166,41,14,'#144457','#42818b');text(`YOUR CASH  $${save.cash}`,210,179,17,C.yellow);
  const types=['line','net','gun'];for(let i=0;i<3;i++){
  const type=types[i],cfg=upgradeConfig(type),y=220+i*143;
  panel(22,y,376,127);text(cfg.title,41,y+25,18,C.cream,'left',950);
  text('LVL '+cfg.level+'/'+MAXLVL,378,y+25,15,C.mint,'right',950,0,102);
- text(cfg.desc,41,y+54,14,C.cream,'left',850,0,328);
+ text(cfg.desc,41,y+54,17,C.white,'left',900,0,326);
  for(let k=0;k<MAXLVL;k++)roundRect(40+k*23,y+75,17,8,3,k<cfg.level?C.yellow:'#305567');
  if(cfg.level===MAXLVL){roundRect(263,y+70,115,42,12,'#346071');text('MAXED',320,y+91,16,C.cream);}
  else {const affordable=save.cash>=cfg.cost;button('$'+cfg.cost,267,y+69,110,43,()=>purchase(type),affordable?C.yellow:'#65818a');}
  }
  button('← BACK',108,673,204,58,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.cream);
- text('PROGRESS SAVED ON THIS DEVICE',210,755,13,C.cream,'center',850,0,372);
+ text('PROGRESS SAVED ON THIS DEVICE',210,755,16,C.white,'center',900,0,372);
 }
 
 function bookCard(kind,x,y){
  const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
- roundRect(x+3,y+4,180,96,0,'#071828');
- roundRect(x,y,180,96,0,found?'#11516c':'#153a52',found?'#86ffe8':'#9cc4d0',2);
- ctx.fillStyle='#1b718b';ctx.fillRect(x+4,y+4,172,5);
+ const width=370,height=99;
+ roundRect(x+3,y+4,width,height,0,'#041328');
+ roundRect(x,y,width,height,0,'#072940',found?'#69ffe5':'#658a9e',2);
+ ctx.fillStyle=found?'#29dfce':'#68899e';
+ ctx.fillRect(x+4,y+5,6,height-10);
  ctx.save();
- if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
- fish(x+45,y+47,kind,1,.85,clock*1.3);
+ if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.62;}
+ fish(x+64,y+49,kind,1,1.15,clock*1.3);
  ctx.restore();
- text(found?meta.name:'???',x+82,y+19,found?14:17,C.cream,'left',950,0,90);
- text(found?fishRarity(kind):'UNKNOWN',x+82,y+44,12,found?C.yellow:C.muted,'left',900,0,89);
- if(found)text('CAUGHT '+entry.caught,x+82,y+68,13,C.mint,'left',900,0,91);
- else text('NOT CAUGHT',x+82,y+68,12,C.cream,'left',850,0,91);
- hits.push({x,y,w:180,h:96,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+ // One column provides actual room for long names and readable 17–21px labels.
+ text(found?meta.name:'UNKNOWN SPECIES',x+122,y+23,21,C.white,'left',900,0,232);
+ text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,17,C.white,'left',900,0,232);
+ text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,17,C.white,'left',900,0,232);
+ hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
 }
 function collection(){
  ambient(clock);
  text('FISH ENCYCLOPEDIA',210,76,30,C.cream,'center',1000,0,390);
  const p=collectionProgress(save.collection);
- text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,14,C.mint,'center',900);
+ text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,17,C.white,'center',900,0,365);
  roundRect(49,138,322,8,0,'#071828');
  roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
  button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
  button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
- const pageSize=collectionTab==='fish'?8:4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
+ const pageSize=4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
  const pages=Math.ceil(total/pageSize);
  collectionPage=clamp(collectionPage,0,pages-1);
  if(collectionTab==='fish'){
   for(let i=0;i<pageSize;i++){
    const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
-   bookCard(kind,25+(i%2)*190,227+Math.floor(i/2)*105);
+   bookCard(kind,25,227+i*105);
   }
  }else{
   for(let i=0;i<4;i++){
@@ -847,8 +862,8 @@ function collection(){
    roundRect(29,y,362,97,0,unlocked?'#135369':'#123e55',unlocked?C.yellow:'#75adbc',2);
    text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
    text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
-   text(badge.description,80,y+45,14,C.muted,'left',850,0,294);
-   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,15,unlocked?C.mint:C.yellow,'left',950,0,293);
+   text(badge.description,80,y+45,16,C.white,'left',900,0,291);
+   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,17,C.white,'left',900,0,291);
   }
  }
  if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
@@ -867,7 +882,7 @@ function fishDetail(){
  ctx.restore();
  text(found?meta.name:'UNDISCOVERED',210,354,found?27:22,C.yellow,'center',1000);
  if(found){
-  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,12,C.mint,'center',800);
+  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,17,C.white,'center',900,0,339);
   text('BASE VALUE $'+meta.value,210,425,16,C.cream,'center',900);
   line(58,452,361,452,'#4d8797');
   text('CAUGHT',65,487,13,C.muted,'left',850);text(entry.caught,351,487,17,C.cream,'right',950);
@@ -875,8 +890,8 @@ function fishDetail(){
   text('EARNED',65,557,13,C.muted,'left',850);text('$'+entry.earned,351,557,17,C.yellow,'right',950);
   text('BEST COMBO',65,587,13,C.muted,'left',850);text('x'+entry.bestCombo,351,587,17,C.cream,'right',950);
  }else{
-  text('CATCH THIS FISH TO REVEAL IT',210,416,14,C.muted,'center',750);
-  text('ITS STATS AND HABITAT ARE SECRET',210,455,11,C.muted,'center',800);
+  text('CATCH TO REVEAL THIS FISH',210,416,18,C.white,'center',900,0,330);
+  text('STATS AND HABITAT ARE HIDDEN',210,455,17,C.white,'center',900,0,330);
  }
  button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
  button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
@@ -892,7 +907,7 @@ function settings(){
  text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,278,14,C.cream,'center',900);
  text(sensorStatus,210,305,13,C.mint,'center',900,0,345);
  if(inputMode==='tilt')button('RECENTER',122,326,176,41,recenterTilt,C.cream);
- else text('DRAG THE SCREEN DURING A CAST',210,350,11,C.muted,'center',800);
+ else text('DRAG TO STEER DURING A CAST',210,350,17,C.white,'center',900,0,350);
  text('AUDIO',210,376,16,C.yellow,'center',950);
  button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
  button(musicEnabled?'CHIPTUNE: ON':'CHIPTUNE: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
@@ -904,7 +919,7 @@ function settings(){
  else text('INSTALLED APP',210,587,15,C.yellow);
  text(installMessage,210,648,13,C.cream,'center',850,0,356);
  button('← BACK',62,682,296,59,()=>{state='menu';age=0;},C.yellow);
- text('TAP FISH TO SHOOT • DRAG TO STEER',210,763,13,C.muted,'center',850,0,376);
+ text('TAP FISH • DRAG TO STEER',210,761,16,C.white,'center',900,0,370);
 }
 function pausedScene(){
  ctx.fillStyle='#06182cdd';ctx.fillRect(0,0,W,H);
@@ -914,7 +929,7 @@ function pausedScene(){
  button('RESUME',76,417,268,65,resumeGame,C.yellow);
  button('MAIN MENU',96,510,228,53,menuFromPause,C.cream);
 }
-function render(){hits=[];ctx.setTransform(pixelCanvas.width/W,0,0,pixelCanvas.height/H,0,0);
+function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
  if(state==='menu')menu();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
  overlayParticles();drawSplashEffects(lastFrameDt);
@@ -924,8 +939,8 @@ function render(){hits=[];ctx.setTransform(pixelCanvas.width/W,0,0,pixelCanvas.h
  }
  ctx.restore();
  if(paused){hits=[];pausedScene();}
- display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=false;
- display.drawImage(pixelCanvas,0,0,canvas.width,canvas.height);}
+ display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
+ display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);}
 let last=0,lastFrameDt=0;
 function frame(t){
  const frameGap=lowFx?1000/30:1000/60;

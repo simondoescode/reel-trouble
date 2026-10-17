@@ -129,3 +129,8 @@ Phones with browser vibration support now provide short, distinctive tactile fee
 **Settings → Feedback → Rumble** lets you turn haptics on or off independently of sound and music. The preference is saved on the device, and the default respects your reduced-motion system preference. Pausing or putting the app in the background cancels active vibrations. Where vibration is unavailable, Settings displays **Rumble N/A** and gameplay continues as normal. Browser support varies: Android browsers commonly support vibration, while iOS Safari generally does not expose the standard Vibration API. Device silent/vibration settings may also override it.
 
 The PWA cache version is incremented to ensure installed copies load the haptic module.
+
+
+## White text and sharp rendering overhaul
+
+All game UI labels and controls now use solid white, bold 900-weight lettering on dark navy surfaces. The core problem was a 210×390 intermediate buffer that reduced a 12px label to six raster pixels before enlarging it. The game now renders its UI and retro fish art together at the full 420×780 logical resolution, then presents at the original high-DPI canvas resolution; the old half-resolution rendering has been removed. Bright colours remain as button borders, fish colours and background accents, not text. The fish encyclopedia uses one wide card per row, four entries per page instead of two cramped columns, with larger 17–21px labels. Menus, HUD, results, shop, badges, fish details and settings have higher minimum font sizes, shortened hints and outlined white text.

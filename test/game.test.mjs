@@ -24,14 +24,14 @@ test('GitHub Pages Vite base matches the repo path', () => {
   assert.match(read('vite.config.js'), /base: '\/reel-trouble\/'/);
 });
 
-test('pixel art uses nearest-neighbour scaling and hand-authored sprites', () => {
+test('original pixel sprites remain while typography renders at full logical resolution', () => {
  const game=read('src/game.js');
- assert.match(game, /PIXEL=2/);
- assert.match(game, /pixelCanvas\.width=W\/PIXEL/);
- assert.match(game, /display\.imageSmoothingEnabled=false/);
- assert.match(game, /display\.drawImage\(pixelCanvas/);
+ assert.match(game, /sceneCanvas\.width=W;sceneCanvas\.height=H/);
+ assert.match(game, /ctx\.imageSmoothingEnabled=false/);
+ assert.match(game, /display\.imageSmoothingEnabled=true/);
+ assert.match(game, /display\.drawImage\(sceneCanvas/);
  assert.match(game, /const FISH_SPRITE=/);
- assert.match(read('src/styles.css'), /image-rendering:\s*pixelated/);
+ assert.match(read('src/styles.css'), /image-rendering:\s*auto/);
 });
 
 test('vibrant pixel colours and visual effects stay available', () => {
@@ -43,7 +43,7 @@ test('vibrant pixel colours and visual effects stay available', () => {
  assert.match(game, /oceanPalette\(worldDepth\)/);
  assert.match(game, /const sky=\['#4257b5'/);
  assert.match(game, /const sparks=\[color,C\.yellow,C\.teal,C\.cream,C\.pink\]/);
- assert.match(css, /image-rendering: pixelated/);
+ assert.match(css, /image-rendering: auto/);
  assert.match(css, /radial-gradient/);
 });
 
@@ -140,26 +140,29 @@ test('collection routes and rewards are wired into gameplay and save migration',
 
 test('brighter canvas typography and new ocean palette stay enabled',()=>{
  const game=read('src/game.js'),ocean=read('src/ocean.js');
- assert.match(game,/Math\.max\(12,size\)/);
+ assert.match(game,/Math\.max\(16,size\)/);
  assert.match(game,/Arial,Helvetica,sans-serif/);
- assert.match(game,/ctx\.strokeText\(fit,x,y,width\)/);
+ assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
  assert.match(game,/text\(biome\.name,97,130,13/);
  assert.match(ocean,/colors:\['#2bd0e2'/);
  assert.match(ocean,/colors:\['#28aeb5'/);
  assert.match(ocean,/colors:\['#3a69a8'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v6/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v7/);
 });
 
-test('primary UI screens have legible text sizes and book cards',()=>{
+test('readable high-contrast cards and typography across screens',()=>{
  const game=read('src/game.js');
- assert.match(game,/text\(badge\.description,80,y\+45,14/);
- assert.match(game,/text\(found\?meta\.name:'\?\?\?',x\+82,y\+19,found\?14:17/);
- assert.match(game,/text\(cfg\.desc,41,y\+54,14/);
- assert.match(game,/text\(installMessage,210,648,13/);
- assert.match(game,/text\('HITS \/ SHOTS',77,414,15/);
- assert.match(game,/text\(gun\.name,204,98,15/);
+ assert.match(game,/ctx\.fillStyle='#ffffff'/);
+ assert.match(game,/ctx\.font='900 '/);
+ assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
+ assert.match(game,/const pageSize=4/);
+ assert.match(game,/const width=370,height=99/);
+ assert.match(game,/text\(badge\.description,80,y\+45,16/);
+ assert.match(game,/text\(cfg\.desc,41,y\+54,17/);
+ assert.match(game,/text\('HITS \/ SHOTS',77,414,17/);
+ assert.match(game,/text\(p\.discovered\+'\/'\+p\.total\+' SPECIES/);
+ assert.doesNotMatch(game,/PIXEL=2|pixelCanvas\.width=W\/PIXEL/);
 });
-
 
 test('optional haptic rumble is integrated without changing fishing rules',()=>{
  const game=read('src/game.js');

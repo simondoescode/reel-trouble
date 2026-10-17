@@ -19,7 +19,7 @@ body {
   max-width: 100%;
   max-height: 100%;
   touch-action: none; outline: none; cursor: crosshair;
-  image-rendering: pixelated;
+  image-rendering: auto;
   box-shadow: 0 0 0 3px #6dffe8, 0 0 0 6px #12516d, 0 10px 70px #21c7e080;
 }
 @media (display-mode: standalone) { body { background: #092c50; } }
@@ -27,16 +27,16 @@ body {
 #rotate-notice { display: none; }
 #rotate-notice .rotate-content {
   max-width: 390px; padding: 26px; text-align: center;
-  color: #fff9df; background: #0b3753;
+  color: #ffffff; background: #092137;
   border: 3px solid #20e3d0; box-shadow: 8px 8px 0 #06182c;
 }
 .rotate-graphic { font-size: 58px; color: #ffe35b; }
 #rotate-title { font-size: 21px; margin: 4px 0 12px; }
-#rotate-notice p { font-size: 14px; line-height: 1.4; }
+#rotate-notice p { font-size: 17px; font-weight: 800; line-height: 1.4; }
 #play-landscape {
   margin-top: 9px; padding: 12px 20px; border: 2px solid #06182c;
-  font: bold 16px ui-monospace, monospace; color: #06182c;
-  background: #ffe35b; cursor: pointer; min-height: 44px;
+  font: 900 18px Arial, Helvetica, sans-serif; color: #ffffff;
+  background: #082841; cursor: pointer; min-height: 48px;
 }
 @media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
   body:not(.landscape-dismissed) #rotate-notice {
