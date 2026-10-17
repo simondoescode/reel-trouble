@@ -33,10 +33,10 @@ test('audio gracefully works in a headless browser or with disabled audio',()=>{
  player.dispose();
 });
 
-test('upbeat soundtrack uses distinct bass and faster scene tempos',async()=>{
+test('soundtrack retains one consistent tempo across scenes',async()=>{
  const {ARCADE_BASS,MUSIC_STEP_SECONDS}=await import('../src/audio.js');
  assert.equal(ARCADE_BASS.length,16);
- assert.ok(MUSIC_STEP_SECONDS.menu>=.16);
+ assert.ok(MUSIC_STEP_SECONDS.menu>0 && MUSIC_STEP_SECONDS.menu<.16);
  assert.equal(MUSIC_STEP_SECONDS.shoot,MUSIC_STEP_SECONDS.menu);
  assert.notDeepEqual(ARCADE_BASS,ARCADE_MELODY);
 });
