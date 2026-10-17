@@ -116,7 +116,7 @@ test('music, ambience and expressive animation remain integrated',()=>{
 test('ocean expansion is connected to spawning, artwork, hazards and scoring',()=>{
  const game=read('src/game.js');
  assert.match(game,/import \{ SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard \} from '\.\/ocean\.js'/);
- assert.match(game,/const populated=spawnOcean\(maxDepth,Math\.random\)/);
+ assert.match(game,/createOceanStream\(maxDepth/);
  assert.match(game,/for\(const f of fishes\)advanceFish\(f,dt\)/);
  assert.match(game,/for\(const h of hazards\)advanceHazard\(h,dt\)/);
  assert.match(game,/function jellyfish\(h,y\)/);
@@ -147,10 +147,10 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(game,/Arial,Helvetica,sans-serif/);
  assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
  assert.match(game,/text\(biome\.name,97,130,13/);
- assert.match(ocean,/colors:\['#17667a'/);
- assert.match(ocean,/colors:\['#205c67'/);
- assert.match(ocean,/colors:\['#263d71'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v17/);
+ assert.match(ocean,/SUNSKIP SHELF/);
+ assert.match(ocean,/KELP KNUCKLES/);
+ assert.match(ocean,/BLACKGLASS DROP/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v18/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
@@ -192,8 +192,8 @@ test('fishing sea uses gradient depth transitions, faint decoration and fish out
  assert.match(water,/ctx\.createLinearGradient\(0,0,0,H\)/);
  assert.match(water,/water\.addColorStop\(fraction,stop\)/);
  assert.match(water,/ctx\.createRadialGradient\(/);
- assert.match(water,/ctx\.globalAlpha=\.25/);
- assert.match(water,/for\(let i=0;i<13;i\+\+\)/);
+ assert.match(water,/drawSeaScape\(ctx,camera/);
+ assert.match(read('src/seascape.js'),/for\(let idx=first;idx<=last;idx\+\+\)/);
  assert.doesNotMatch(water,/y\+=35|worldDepth%720|fillRect\(0,y,W,36\)/);
  assert.match(fish,/const border=Math\.max\(1\.5,Math\.min\(3,step\*\.72\)\)/);
  assert.match(fish,/ctx\.fillStyle='#061321'/);
@@ -255,7 +255,26 @@ test('main game is a single valid script without duplicate or truncated trailing
   const needle=symbol;
   assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
  }
- assert.ok(source.includes("button(lvl>=3?'MAX LIGHT':'LIGHT  $'+costs[lvl]"),'light purchase button exists');
+ assert.ok(source.includes("button(lvl>=LIGHT_MAXLVL?'MAX LIGHT':'LIGHT  
+ assert.match(source,/function buyLight\(\)/);
+ assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
+ assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
+ assert.doesNotMatch(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \n/);
+});
+
+
+test('canvas bootstrap shows refresh controls if JavaScript fails',()=>{
+ const html=read('index.html'),css=read('src/styles.css'),game=read('src/game.js');
+ assert.match(html,/id="game-boot"/);
+ assert.match(html,/id="recover-game"/);
+ assert.match(html,/navigator\.serviceWorker\.getRegistrations\(\)/);
+ assert.match(html,/k\.startsWith\('reel-trouble-offline-'\)/);
+ assert.match(html,/window\.addEventListener\('error'/);
+ assert.match(html,/location\.replace\(fresh\.href\)/);
+ assert.match(css,/body\.game-ready #game-boot\{display:none\}/);
+ assert.match(game,/document\.body\.classList\.add\('game-ready'\)/);
+});
++costs[lvl]"),'light purchase button exists');
  assert.match(source,/function buyLight\(\)/);
  assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
  assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
