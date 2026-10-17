@@ -48,3 +48,14 @@ test('every gun upgrade remains worthwhile with unlimited ammo', () => {
  assert.ok(weaponForLevel(3).spread > weaponForLevel(2).spread);
  assert.ok(weaponForLevel(5).spread > weaponForLevel(4).spread);
 });
+
+test('pending and splashed-down fish cannot be shot for cash', () => {
+ const gun=weaponForLevel(4);
+ const fishes=[
+  {x:100,y:240,size:18,launched:false,shot:false,lost:false},
+  {x:100,y:240,size:18,launched:true,shot:false,lost:true},
+  {x:100,y:240,size:18,launched:true,shot:false,lost:false}
+ ];
+ assert.deepEqual(pickShotTargets(fishes,100,240,gun),[fishes[2]]);
+ assert.deepEqual(pickShotTargets(fishes.slice(0,2),100,240,gun),[]);
+});

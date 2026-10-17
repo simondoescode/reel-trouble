@@ -14,7 +14,7 @@ export function pickShotTargets(fishes, x, y, weapon) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return [];
   const hits = [];
   for (const fish of fishes) {
-    if (fish.shot) continue;
+    if (fish.shot || fish.lost || fish.launched === false) continue;
     const size = Number(fish.size);
     if (!Number.isFinite(size) || size <= 0) continue;
     const rx = size * 1.55 * 1.24 + weapon.aimAssist + weapon.spread;

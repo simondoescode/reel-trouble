@@ -5,6 +5,7 @@ import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, adv
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
+import { SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, allCatchResolved } from './airborne.js';
 (() => {
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5;
@@ -127,7 +128,8 @@ window.addEventListener('deviceorientation', event=>{
   if(tiltNeutral===null)tiltNeutral=value;
   if(sensorStatus==='WAITING FOR MOTION SENSOR'||sensorStatus==='NO SENSOR DATA - DRAG TO STEER'||sensorStatus==='ENABLE TILT TO STEER')sensorStatus='TILT READY';
 });
-let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, shotEffects=[], recoil=0, muzzleFlash=0;
+let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, escaped=0, shotEffects=[], recoil=0, muzzleFlash=0;
+let finisherSlow=0, hitFreeze=0, impactRings=[], impactGhosts=[], coinBursts=[];
 let paused=false,pauseReason='';
 function liveRound(){return state==='descent'||state==='ascent'||state==='shoot';}
 function pauseGame(reason='MANUAL'){
@@ -483,7 +485,7 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DODGE THE FISH!';messageTimer=2.1;}
@@ -510,35 +512,32 @@ function catchFish(f){
  sound.play('catch',{pitch:f.kind});rumble.play(species[f.kind].rare?'legendary':'catch');
 }
 function beginShoot(){
- state='shoot';age=0;shootTime=12;
- combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;
- shotEffects=[];recoil=0;muzzleFlash=0;
+ state='shoot';age=0;shootTime=12;endDelay=0;
+ combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;
+ shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];
+ finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;
  const gun=weaponForLevel(save.upgrades.gun);
- message=gun.tier===0?'TAP THE FLYING FISH!':gun.name+' READY!';
+ message=gun.tier===0?'SHOOT BEFORE THEY SPLASH!':gun.name+' READY!';
  messageTimer=2;
- airborne=caught.map((f,i)=>({
-  kind:f.kind,value:f.value,x:clamp(60+i*41,65,350),y:630+rand(-25,30),
-  vx:rand(-62,62),vy:rand(-255,-165),spin:rand(-1,1),phase:i,shot:false
- }));
+ airborne=caught.map((f,i)=>makeAirborneCatch(f,i,caught.length));
  if(!caught.length){endRound();return;}
- emitSplash(210,636,C.teal,1.7);sceneFlash=.26;sound.play('splash');
+ emitSplash(210,SHOOT_WATERLINE,C.teal,1.5);sceneFlash=.23;sound.play('splash');
 }
 function shootAt(x,y){
  if(state!=='shoot'||endDelay>0)return;
  const gun=weaponForLevel(save.upgrades.gun);
- fired++;recoil=1;muzzleFlash=.12;sound.play('shot',{pitch:gun.tier});
+ fired++;recoil=1;muzzleFlash=.16;sound.play('shot',{pitch:gun.tier});
  pointer={x,y};
  const targets=pickShotTargets(airborne.map(f=>({...f,size:species[f.kind].size,original:f})),x,y,gun);
- // Keep identity through hit-testing so overlapping fish cannot consume the same hit.
  const actual=targets.map(t=>t.original);
  const streak=nextCombo(combo,lastComboHit,clock,actual.length);
  combo=streak.count;lastComboHit=streak.lastHit;
  bestRoundCombo=Math.max(bestRoundCombo,combo);
  const baseX=210,baseY=663;
  const a=Math.atan2(y-baseY,x-baseX);
- const muzzleX=baseX+Math.cos(a)*86, muzzleY=baseY+Math.sin(a)*86;
+ const muzzleX=baseX+Math.cos(a)*86,muzzleY=baseY+Math.sin(a)*86;
  shotEffects.push({x:muzzleX,y:muzzleY,targets:actual.length
-   ?actual.map(f=>({x:f.x,y:f.y})):[{x,y}],life:.22,max:.22,color:gun.color});
+   ?actual.map(f=>({x:f.x,y:f.y})):[{x,y}],life:.25,max:.25,color:gun.color,tier:gun.tier});
  if(actual.length){
   landed++;
   for(const f of actual){
@@ -546,23 +545,42 @@ function shootAt(x,y){
    const money=shotPayout(f.value,streak.multiplier);
    roundEarnings+=money;save.cash+=money;save.total+=money;
    recordShot(save.collection,f.kind,money,streak.multiplier);
-   burst(f.x,f.y,species[f.kind].color,26);
-   floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,f.y-22,C.yellow);
+   burst(f.x,f.y,species[f.kind].color,streak.multiplier>=3?38:27);
+   coinBurst(f.x,f.y,streak.multiplier,gun.tier);
+   impactRings.push({x:f.x,y:f.y,radius:5,speed:streak.multiplier>=3?330:235,
+     life:.43,max:.43,color:streak.multiplier>=3?C.yellow:gun.color});
+   impactGhosts.push({x:f.x,y:f.y,kind:f.kind,vx:f.vx*.25,vy:-65,
+     angle:f.angle||0,life:.42,max:.42});
+   floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,f.y-29,C.yellow);
   }
-  shake=clamp(shake+2+actual.length*1.4,0,7);
-  sceneFlash=Math.max(sceneFlash,.09);sound.play('hit',{pitch:gun.tier});rumble.play(combo>=2?'combo':'hit');
+  shake=lowFx?0:clamp(shake+3+actual.length*2+(streak.multiplier>=3?2:0),0,12);
+  hitFreeze=lowFx?0:.045;
+  sceneFlash=Math.max(sceneFlash,streak.multiplier>=3?.2:.11);
+  sound.play('hit',{pitch:gun.tier});rumble.play(combo>=2?'combo':'hit');
   updateAchievements();
-  if(combo>=2){floatLabel('COMBO x'+streak.multiplier,210,177,C.mint);sound.play('combo');}
+  if(combo>=2){
+   floatLabel('COMBO x'+streak.multiplier+'!',210,230,C.yellow);
+   sound.play('combo');
+   if(streak.multiplier>=3)burst(210,250,C.yellow,26);
+  }
+  if(allCatchResolved(airborne)){
+   finisherSlow=lowFx?0:.8;hitFreeze=lowFx?0:.09;
+   impactGhosts.forEach(ghost=>{ghost.life=Math.max(ghost.life,.78);ghost.max=Math.max(ghost.max,.78);});
+   shake=lowFx?0:12;sceneFlash=Math.max(sceneFlash,.3);
+   burst(210,330,C.yellow,50);coinBurst(210,330,4,gun.tier);
+   floatLabel('FINISHER!',210,300,C.cream);
+   sound.play('finisher');rumble.play('legendary');
+   setTimeoutSafe(endRound,lowFx?500:1100);
+  }
   persist();
  }else{
-  // A miss breaks the streak; ammunition stays unlimited.
-  burst(x,y,'#e8f6e7',5);floatLabel('MISS',x,y-18,C.cream);
-  shake=clamp(shake+1.4,0,7);sound.play('miss');rumble.play('shot');
+  burst(x,y,'#e8f6e7',6);floatLabel('MISS',x,y-18,C.cream);
+  shake=lowFx?0:clamp(shake+1.5,0,12);
+  sound.play('miss');rumble.play('shot');
  }
- if(airborne.every(f=>f.shot))setTimeoutSafe(endRound,380);
 }
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
-function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');}
+function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost)return;
  save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 function upgradeConfig(type){const titles={line:'LONGER LINE',net:'WIDER HOOK',gun:'GUN UPGRADES'},base={line:65,net:90,gun:85};const lvl=save.upgrades[type];
@@ -577,11 +595,49 @@ function burst(x,y,color,count){
     life:rand(.38,.82),max:.82,color:sparks[i%sparks.length],r:rand(2,5)});
  }
 }
+function coinBurst(x,y,multiplier=1,tier=0){
+ const count=lowFx?4:Math.min(17,5+multiplier*2+tier*2);
+ for(let i=0;i<count;i++){
+  const angle=rand(-Math.PI+.25,-.12),speed=rand(95,270)*(multiplier>=3?1.2:1);
+  coinBursts.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+   life:rand(.7,1.1),max:1.1,spin:rand(0,6),size:rand(5,9)});
+ }
+}
+function drawShotCelebration(){
+ for(const ghost of impactGhosts){
+  ctx.save();ctx.globalAlpha=clamp(ghost.life/ghost.max,0,.75);
+  ctx.translate(ghost.x,ghost.y);ctx.rotate(ghost.angle);
+  fish(0,0,ghost.kind,ghost.vx<0?-1:1,1.65,clock*8);
+  ctx.restore();
+ }
+ for(const ring of impactRings){
+  ctx.save();ctx.globalAlpha=clamp(ring.life/ring.max,0,1)*.85;
+  ctx.strokeStyle=ring.color;ctx.lineWidth=ring.life/ring.max>.5?6:3;
+  ctx.beginPath();ctx.arc(ring.x,ring.y,ring.radius,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+ }
+ for(const coin of coinBursts){
+  const size=Math.max(4,coin.size*Math.abs(Math.cos(coin.spin)));
+  const x=Math.round(coin.x),y=Math.round(coin.y);
+  ctx.save();ctx.globalAlpha=clamp(coin.life/coin.max,0,1);
+  ctx.fillStyle='#674122';ctx.fillRect(x-size/2-2,y-size/2-2,size+4,size+4);
+  ctx.fillStyle='#ffcb3d';ctx.fillRect(x-size/2,y-size/2,size,size);
+  ctx.fillStyle='#fff5a3';ctx.fillRect(x-size/2+1,y-size/2+1,Math.max(2,size*.38),Math.max(2,size*.38));
+  ctx.restore();
+ }
+}
 function floatLabel(value,x,y,color){labels.push({value,x,y,color,life:1.1});}
 
 function update(dt){
- sound.update(dt,state,document.hidden);
- clock+=dt;if(!lowFx)waveT+=dt;age+=dt;shake=lowFx?0:Math.max(0,shake-dt*20);if(messageTimer>0)messageTimer-=dt;
+ const realDt=dt;
+ if(state==='shoot'&&!lowFx){
+  hitFreeze=Math.max(0,hitFreeze-realDt);
+  finisherSlow=Math.max(0,finisherSlow-realDt);
+  dt*=hitFreeze>0?.1:finisherSlow>0?.24:1;
+ }
+ sound.update(realDt,state,document.hidden);
+ clock+=realDt;if(!lowFx)waveT+=dt;age+=realDt;
+ shake=lowFx?0:Math.max(0,shake-realDt*23);if(messageTimer>0)messageTimer-=realDt;
  sceneFlash=Math.max(0,sceneFlash-dt*1.7);
  for(const splash of splashes)splash.life-=dt;
  splashes=splashes.filter(s=>s.life>0);
@@ -623,18 +679,37 @@ function update(dt){
  }
  }
  if(state==='shoot'){
- recoil=Math.max(0,recoil-dt*7);
- muzzleFlash=Math.max(0,muzzleFlash-dt);
- for(const fx of shotEffects)fx.life-=dt;
- shotEffects=shotEffects.filter(fx=>fx.life>0);
- if(combo&&clock-lastComboHit>2.4){combo=0;lastComboHit=-Infinity;}
- shootTime-=dt;for(const f of airborne){if(f.shot)continue;f.x+=f.vx*dt;f.y+=f.vy*dt;f.vy+=50*dt;
- if(f.x<42||f.x>W-42){f.x=clamp(f.x,42,W-42);f.vx*=-1;}
- if(f.y<130){f.y=130;f.vy=Math.abs(f.vy)*.5;}
- if(f.y>610){f.y=610;f.vy=-Math.abs(f.vy)*.8-40;}
- }
- if(endDelay>0){endDelay-=dt;if(endDelay<=0)endRound();}
- else if(shootTime<=0)endRound();
+  recoil=Math.max(0,recoil-dt*7);
+  muzzleFlash=Math.max(0,muzzleFlash-dt);
+  for(const fx of shotEffects)fx.life-=dt;
+  shotEffects=shotEffects.filter(fx=>fx.life>0);
+  for(const ring of impactRings){ring.life-=dt;ring.radius+=ring.speed*dt;}
+  impactRings=impactRings.filter(ring=>ring.life>0);
+  for(const ghost of impactGhosts){ghost.x+=ghost.vx*dt;ghost.y+=ghost.vy*dt;ghost.vy+=125*dt;ghost.life-=dt;}
+  impactGhosts=impactGhosts.filter(ghost=>ghost.life>0);
+  for(const coin of coinBursts){
+   coin.x+=coin.vx*dt;coin.y+=coin.vy*dt;coin.vy+=375*dt;
+   coin.vx*=Math.pow(.55,dt);coin.spin+=dt*15;coin.life-=dt;
+  }
+  coinBursts=coinBursts.filter(coin=>coin.life>0);
+  if(combo&&clock-lastComboHit>2.4){combo=0;lastComboHit=-Infinity;}
+  shootTime-=realDt;
+  for(const f of airborne){
+   if(f.shot||f.lost)continue;
+   const waiting=!f.launched;
+   if(stepAirborneCatch(f,dt)){
+    escaped++;
+    emitSplash(f.x,SHOOT_WATERLINE,species[f.kind].color,1.15);
+    burst(f.x,SHOOT_WATERLINE-6,C.teal,11);
+    if(escaped<=4)floatLabel('SPLASH!',f.x,SHOOT_WATERLINE-36,C.white);
+    sound.play('water-return');
+   }else if(waiting&&f.launched){
+    emitSplash(f.x,SHOOT_WATERLINE,C.cream,.58);
+   }
+  }
+  if(endDelay>0){endDelay-=realDt;if(endDelay<=0)endRound();}
+  else if(shootTime<=0)endRound();
+  else if(allCatchResolved(airborne))setTimeoutSafe(endRound,550);
  }
  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.18,dt);p.vy+=80*dt;p.life-=dt;}
  particles=particles.filter(p=>p.life>0);
@@ -714,15 +789,24 @@ for(const h of hazards){
  bottomHint(hazardSlow>0?'JELLYFISH! SLOW REEL':(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
  button('II',362,117,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
-function drawBulletTrail(x1,y1,x2,y2,alpha,color){
- ctx.save();ctx.globalAlpha=alpha;
- // Dotted, stepped bright trace rather than a smooth antialiased laser.
- const count=Math.max(1,Math.round(Math.hypot(x2-x1,y2-y1)/11));
+function drawBulletTrail(x1,y1,x2,y2,alpha,color,tier=0){
+ ctx.save();
+ if(tier>0){
+  ctx.globalAlpha=alpha*(tier===2?.65:.4);
+  ctx.strokeStyle=color;ctx.lineWidth=tier===2?10:5;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  if(tier===2){
+   ctx.strokeStyle=C.white;ctx.lineWidth=3;
+   ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  }
+ }
+ ctx.globalAlpha=alpha;
+ const count=Math.max(1,Math.round(Math.hypot(x2-x1,y2-y1)/(tier===2?8:11)));
  for(let i=0;i<=count;i++){
   const t=i/count;
   const x=Math.round((x1+(x2-x1)*t)/4)*4,y=Math.round((y1+(y2-y1)*t)/4)*4;
   ctx.fillStyle=i%3===0?C.cream:color;
-  ctx.fillRect(x,y,i%3===0?6:4,i%3===0?6:4);
+  ctx.fillRect(x,y,i%3===0?7:4,i%3===0?7:4);
  }
  ctx.restore();
 }
@@ -748,10 +832,14 @@ function drawGun(){
   ctx.fillStyle=C.cream;ctx.fillRect(-10,-72,20,7);
  }
  if(muzzleFlash>0){
-  ctx.globalAlpha=Math.min(1,muzzleFlash/.09);
-  ctx.fillStyle=C.yellow;ctx.fillRect(-17,-110,34,19);
-  ctx.fillStyle=C.cream;ctx.fillRect(-8,-127,16,37);
-  ctx.fillStyle=C.coral;ctx.fillRect(-27,-100,54,7);
+  ctx.globalAlpha=Math.min(1,muzzleFlash/.12);
+  ctx.fillStyle=gun.color;ctx.fillRect(-21-gun.tier*5,-108,42+gun.tier*10,19);
+  ctx.fillStyle=C.cream;ctx.fillRect(-10,-132-gun.tier*8,20,46+gun.tier*8);
+  ctx.fillStyle=C.yellow;ctx.fillRect(-34-gun.tier*6,-102,68+gun.tier*12,7);
+  if(gun.tier>=1){
+   ctx.fillStyle=C.pink;ctx.fillRect(-5,-148-gun.tier*5,10,17);
+   ctx.fillRect(-36,-113,9,19);ctx.fillRect(27,-113,9,19);
+  }
  }
  ctx.restore();
 }
@@ -778,9 +866,15 @@ function shootScene(){
   ctx.fillRect(x,644+(Math.floor(waveT*2+x/24)%3)*3,15,4);
  }
  boat(210,636);
- for(const f of airborne)if(!f.shot)fish(f.x,f.y,f.kind,f.vx<0?-1:1,1.55,clock*6+f.phase);
+ for(const f of airborne){
+  if(f.shot||f.lost||!f.launched)continue;
+  ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.angle);
+  fish(0,0,f.kind,f.vx<0?-1:1,1.55,clock*6+f.phase);
+  ctx.restore();
+ }
+ drawShotCelebration();
  for(const trail of shotEffects){
-  for(const end of trail.targets)drawBulletTrail(trail.x,trail.y,end.x,end.y,trail.life/trail.max,trail.color);
+  for(const end of trail.targets)drawBulletTrail(trail.x,trail.y,end.x,end.y,trail.life/trail.max,trail.color,trail.tier);
  }
  drawGun();
  const gun=weaponForLevel(save.upgrades.gun);
@@ -801,7 +895,7 @@ function shootScene(){
  ctx.strokeStyle='#fff6cd';ctx.lineWidth=3;ctx.strokeRect(px-12,py-12,24,24);
  ctx.fillStyle='#fff6cd';ctx.fillRect(px-23,py-2,8,4);ctx.fillRect(px+15,py-2,8,4);
  ctx.fillRect(px-2,py-23,4,8);ctx.fillRect(px-2,py+15,4,8);
- bottomHint('TAP FISH • CHAIN HITS FOR x4');
+ bottomHint('TAP FAST • FISH CAN SPLASH DOWN');
  button('II',362,124,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
 // Animated title screen: gradient water, layered parallax and playful sea life.
@@ -975,6 +1069,7 @@ function results(){ambient(clock);
  line(64,373,356,373,'#397587');
  text('HITS / SHOTS',77,414,17,C.white,'left',900);text(landed+' / '+fired,343,414,19,C.cream,'right',900);
  text('BEST COMBO',77,452,17,C.white,'left',900);text('x'+Math.max(1,bestRoundCombo),343,452,19,C.yellow,'right',900);
+ if(escaped)text(escaped+' FISH SPLASHED BACK',210,499,16,C.cream,'center',900);
  text(`WALLET: $${save.cash}`,210,520,19,C.yellow,'center',900);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow);
  button('GEAR SHOP',25,647,178,53,()=>{state='shop';age=0;},C.cream);
@@ -1157,7 +1252,7 @@ requestAnimationFrame(frame);
 function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
 function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
- sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+ sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
 canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
 canvas.addEventListener('pointerup',()=>pointerDown=false);canvas.addEventListener('pointercancel',()=>pointerDown=false);
 window.addEventListener('keydown',e=>{

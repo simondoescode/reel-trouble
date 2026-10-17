@@ -90,7 +90,15 @@ export function createArcadeAudio(){
   }else if(name==='hit'){
    tone(640+shift*44,.11,'square',.075,0,1.3);
    tone(960+shift*52,.14,'triangle',.06,.07,1.16);
-  }else if(name==='miss'){
+  }else if(name==='water-return'){
+    tone(220,.19,'triangle',.072,0,.42);
+    tone(475,.11,'sine',.042,.045,.38);
+   }else if(name==='finisher'){
+    tone(265,.24,'sawtooth',.075,0,.48);
+    tone(530,.16,'square',.057,.09,1.4);
+    tone(784,.24,'triangle',.085,.2,1.28);
+    tone(1047,.28,'sine',.06,.31,1.15);
+   }else if(name==='miss'){
    tone(195,.085,'triangle',.035,0,.66);
   }else if(name==='combo'){
    tone(740,.09,'square',.065,0,1.12);
