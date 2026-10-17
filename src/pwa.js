@@ -15,7 +15,7 @@ export function installGuide(userAgent=navigator.userAgent||''){
  if(/iPhone|iPad|iPod/i.test(ua))
   return {platform:'iPhone / iPad',steps:['OPEN IN SAFARI','TAP THE SHARE BUTTON','CHOOSE ADD TO HOME SCREEN','TAP ADD TO INSTALL']};
  if(/Android/i.test(ua))
-  return {platform:'Android',steps:['OPEN IN CHROME','TAP THE THREE-DOT MENU','CHOOSE INSTALL APP OR ADD TO HOME SCREEN','CONFIRM INSTALL']};
+  return {platform:'Android',steps:['OPEN IN CHROME','TAP THE THREE-DOT MENU','INSTALL / ADD TO HOME','CONFIRM INSTALL']};
  return {platform:'Desktop / Other',steps:['OPEN IN CHROME OR EDGE','OPEN THE BROWSER MENU','CHOOSE INSTALL REEL TROUBLE','CONFIRM THE SHORTCUT']};
 }
 export async function requestInstall(){
