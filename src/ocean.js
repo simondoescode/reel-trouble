@@ -64,17 +64,17 @@ export function chooseSpecies(depth,random=Math.random){
 export function spawnOcean(maxDepth,random=Math.random){
  const limit=Math.max(260,Number(maxDepth)||720);
  const fish=[];
- const count=Math.max(8,Math.floor(limit/43));
+ const count=Math.max(8,Math.floor(limit/74));
  let id=0;
  for(let i=0;i<count;i++){
-  const d=165+i*(limit-245)/Math.max(1,count-1);
-  const jitter=(random()-.5)*23;
-  const depth=Math.min(limit-65,Math.max(155,d+jitter));
+  const d=305+i*(limit-370)/Math.max(1,count-1);
+  const jitter=(random()-.5)*32;
+  const depth=Math.min(limit-65,Math.max(295,d+jitter));
   const kind=chooseSpecies(depth,random);
   const meta=SPECIES[kind],direction=random()<.5?-1:1;
-  const x=44+random()*330,phase=random()*6.28;
-  const school=meta.behavior==='school'&&random()<.58;
-  const group=school?3:1;
+  const x=36+random()*348,phase=random()*6.28;
+  const school=meta.behavior==='school'&&random()<.28;
+  const group=school?2:1;
   for(let k=0;k<group;k++){
    const fx=Math.max(34,Math.min(386,x-direction*k*19));
    fish.push({id:id++,x:fx,d:Math.min(limit-60,depth+k*8),

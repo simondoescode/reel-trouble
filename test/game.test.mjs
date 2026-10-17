@@ -213,3 +213,12 @@ test('modern arcade title and phase transitions remain hooked to actual gameplay
  assert.match(game,/easeOutCubic\(Math\.min\(1,age\/\.95\)\)/);
  assert.match(read('sw.js'),/src\/arcade-ui\.js/);
 });
+
+test('pacing is gentler and phase transitions do not interrupt the round',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/function stageCue\(_kind\)\{sceneTransition=null/);
+ assert.match(game,/depth\+= \(122\+save\.upgrades\.line\*4\)\*dt/);
+ assert.match(game,/depth<360\?null/);
+ assert.match(game,/shootTime=16/);
+ assert.match(game,/hazardSlow>0\?115:190/);
+});
