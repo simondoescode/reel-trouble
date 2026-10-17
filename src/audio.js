@@ -1,8 +1,10 @@
 // Procedurally generated, original chiptune soundtrack and sound effects.
 // No samples, downloads, tracking, or external assets.
-export const ARCADE_MELODY = Object.freeze([64,67,71,76,0,74,71,67,62,66,69,74,0,71,69,66]);
-export const UNDERWATER_MELODY = Object.freeze([52,0,59,64,55,0,62,67,57,0,64,69,55,62,59,0]);
-export const SHOT_MELODY = Object.freeze([76,79,83,86,83,79,74,77,81,84,81,77,72,76,79,83]);
+export const ARCADE_MELODY = Object.freeze([76,79,83,88,86,83,79,76,74,79,83,86,88,86,83,79]);
+export const UNDERWATER_MELODY = Object.freeze([64,67,71,76,74,71,67,69,71,74,79,76,74,71,67,62]);
+export const SHOT_MELODY = Object.freeze([79,83,86,91,88,86,83,79,81,86,88,93,91,88,86,83]);
+export const ARCADE_BASS = Object.freeze([40,40,47,40,45,45,52,47,38,38,45,38,43,43,50,47]);
+export const MUSIC_STEP_SECONDS = Object.freeze({menu:.137,descent:.155,ascent:.136,shoot:.112,results:.15});
 export function noteFrequency(note){
  if(!Number.isFinite(note)||note<=0)return 0;
  return 440*Math.pow(2,(note-69)/12);
@@ -126,14 +128,22 @@ export function createArcadeAudio(){
   if(blocked)return;
   if(isMusic){
    beatTime+=Math.min(.08,Math.max(0,dt));
-   const interval=scene==='shoot'?.18:.245;
+   const interval=MUSIC_STEP_SECONDS[scene]??.14;
+   // A catchy 16-step arcade groove: lead, bouncing bass, kick, and crisp hat.
+   // Clamp catch-up work on slow phones so no audio backlog bursts.
    if(beatTime>=interval){
     beatTime-=interval;
-    const freq=melodyNote(beat++,scene);
-    if(freq){
-     tone(freq,.115,'square',scene==='shoot'?.028:.022,0,1);
-     if(beat%4===0)tone(freq/2,.18,'triangle',.025,0,1);
+    const step=beat++%16;
+    const freq=melodyNote(step,scene);
+    if(freq)tone(freq,interval*.88,scene==='shoot'?'sawtooth':'square',
+      scene==='shoot'?.039:.032,0,scene==='shoot'?.94:1.04);
+    if(step%2===0){
+     tone(noteFrequency(ARCADE_BASS[step]),interval*1.75,'triangle',
+       scene==='shoot'?.043:.035,0,.86);
     }
+    if(step%4===0)tone(92,interval*1.8,'sine',.065,0,.22);
+    if(step%2===1)tone(1840,interval*.26,'triangle',.014,0,.36);
+    if(step===4||step===12)tone(230,interval*.5,'sawtooth',.014,0,.72);
    }
   }else{beatTime=0;}
   if(isSound&&['descent','ascent'].includes(scene)){
