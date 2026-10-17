@@ -370,28 +370,84 @@ function fish(x,y,kind=0,dir=1,scale=1,phase=0){
  ctx.restore();
 }
 function boat(x,seaY){
- ctx.save();ctx.translate(Math.round(x),Math.round(seaY+Math.sin(waveT*2)*2));
-
- ctx.fillStyle='#062537';ctx.fillRect(-71,-7,142,16);
- ctx.fillStyle='#a92f5f';ctx.fillRect(-53,12,106,10);
- ctx.fillStyle=C.coral;ctx.fillRect(-66,-8,132,19);ctx.fillRect(-54,10,108,7);
- ctx.fillStyle=C.yellow;ctx.fillRect(-56,-7,112,4);
- ctx.fillStyle='#ff99a6';ctx.fillRect(-58,0,116,4);
- ctx.fillStyle='#fff7e7';ctx.fillRect(-31,-37,64,28);
- ctx.fillStyle='#14bbcf';ctx.fillRect(-21,-30,17,15);ctx.fillRect(8,-30,17,15);
- ctx.fillStyle='#064361';ctx.fillRect(-17,-26,5,7);ctx.fillRect(12,-26,5,7);
- ctx.fillStyle='#fff7e7';ctx.fillRect(26,-70,5,36);
- ctx.fillStyle=C.yellow;ctx.fillRect(31,-67,24,7);ctx.fillRect(31,-60,16,9);ctx.fillRect(31,-51,8,6);
- ctx.fillStyle='#fffaf1';ctx.fillRect(-49,12,9,4);ctx.fillRect(37,12,9,4);
- // Original little pixel fisherman: bobbing head, cap and an animated reeling arm.
- const arm=Math.round(Math.sin(clock*8)*4);
- ctx.fillStyle='#101a3a';ctx.fillRect(39,-37,15,23);
- ctx.fillStyle='#ffe1ab';ctx.fillRect(40,-52,13,16);
- ctx.fillStyle='#ff596c';ctx.fillRect(36,-57,22,7);
- ctx.fillStyle='#081b32';ctx.fillRect(49,-48,3,3);
- ctx.fillStyle='#20e3d0';ctx.fillRect(39,-33,15,14);
- ctx.fillStyle='#ffe1ab';ctx.fillRect(52,-32+arm,5,13);
- ctx.fillStyle='#07182c';ctx.fillRect(41,-20,5,11);ctx.fillRect(49,-20,5,11);
+ // Compact, hand-drawn pixel trawler: shaped hull, wheelhouse and working deck.
+ ctx.save();
+ ctx.translate(Math.round(x),Math.round(seaY+Math.sin(waveT*2)*2));
+ const rect=(c,x,y,w,h)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
+ const poly=(c,points)=>{ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++)ctx.lineTo(...points[i]);ctx.closePath();ctx.fill();};
+ // Dark cutout under the hull adds weight against the bright sea.
+ poly('#082639',[[-73,-5],[72,-5],[64,15],[49,24],[-44,24],[-64,15]]);
+ poly('#152b45',[[-69,-3],[68,-3],[60,12],[47,19],[-44,19],[-59,11]]);
+ // Painted hull, pixel-stepped prow, and separate shadow band.
+ poly('#f05b60',[[-68,-4],[69,-4],[61,10],[45,17],[-44,17],[-59,10]]);
+ poly('#ad345b',[[-59,10],[61,10],[45,19],[-44,19]]);
+ rect('#ff9591',-63,-3,125,4);
+ rect('#ffe2a3',-55,7,108,3);
+ rect('#762b50',-38,15,78,4);
+ // Gunwale and open fishing deck.
+ rect('#0b3045',-69,-10,139,7);
+ rect('#f7d390',-65,-11,130,3);
+ rect('#347d89',-56,-8,112,4);
+ rect('#fef2d5',-52,-13,9,3);
+ rect('#fef2d5',47,-13,9,3);
+ // Rub rail, bolts, portholes and painted name stripe.
+ rect('#132f4b',-53,3,106,3);
+ for(const px of [-44,-23,0,23,44]){
+  rect('#10283d',px-4,1,9,8);
+  rect('#8eeaf1',px-2,2,5,4);
+  rect('#fff5dc',px-2,2,2,1);
+ }
+ // Tall little wheelhouse with roof overhang, tinted panes and doorway.
+ rect('#172f47',-35,-44,67,33);
+ rect('#fff3d4',-32,-43,61,30);
+ rect('#edca9b',-32,-17,61,4);
+ rect('#13344c',-39,-49,75,7);
+ rect('#f96169',-38,-51,72,5);
+ rect('#ffb77a',-31,-50,55,2);
+ rect('#216074',-26,-37,22,16);
+ rect('#216074',3,-37,20,16);
+ rect('#80dce3',-24,-35,18,12);
+ rect('#80dce3',5,-35,16,12);
+ rect('#d8ffff',-23,-34,6,6);
+ rect('#d8ffff',6,-34,5,5);
+ rect('#10394e',-1,-41,3,27);
+ rect('#203950',24,-28,4,15);
+ rect('#ffecb9',-29,-12,59,3);
+ // Wheelhouse roof beacon and radio aerial.
+ rect('#173149',-9,-59,4,9);
+ rect('#ffe29b',-12,-62,10,5);
+ rect('#fff5d4',-7,-66,3,4);
+ rect('#173149',18,-68,3,18);
+ rect('#fef2d5',17,-71,5,3);
+ // Deck fittings: rope spool and tackle box on the bow.
+ rect('#17334b',-62,-25,5,15);
+ rect('#ffe4ab',-66,-25,12,4);
+ rect('#f7bf6b',-61,-19,13,8);
+ rect('#1c4555',-63,-21,17,3);
+ rect('#ffde8b',-51,-20,10,7);
+ rect('#143e4d',-52,-14,13,3);
+ // A lively angler at the stern with a moving reeling hand.
+ const arm=Math.round(Math.sin(clock*8)*3);
+ rect('#10263d',39,-36,17,23);
+ rect('#2de0cb',41,-34,13,17);
+ rect('#14283d',41,-18,5,11);
+ rect('#14283d',49,-18,5,11);
+ rect('#ffd49d',41,-51,12,15);
+ rect('#ff6870',37,-56,21,7);
+ rect('#ffd9a0',53,-52,7,3);
+ rect('#10263d',49,-46,3,3);
+ rect('#ffd49d',52,-30+arm,6,10);
+ rect('#ffebae',53,-22+arm,7,4);
+ // Rod, line guide and tackle hook silhouette stay clear of the cabin.
+ rect('#182c42',59,-30,3,14);
+ rect('#fff1bd',61,-37,2,12);
+ rect('#fff1bd',63,-45,2,10);
+ rect('#fff1bd',65,-51,2,8);
+ // Tiny sparkling wake, kept behind the boat rather than obscuring the game.
+ const wake=Math.round(Math.sin(waveT*3)*2);
+ rect('#dcfff0',-79,12+wake,12,2);
+ rect('#dcfff0',70,9-wake,11,2);
+ rect('#9ce8e8',-86,17+wake,9,2);
  ctx.restore();
 }
 function hook(x,y){
