@@ -149,3 +149,13 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/colors:\['#3a69a8'/);
  assert.match(read('sw.js'),/reel-trouble-offline-v5/);
 });
+
+test('primary UI screens have legible text sizes and book cards',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/text\(badge\.description,80,y\+45,14/);
+ assert.match(game,/text\(found\?meta\.name:'\?\?\?',x\+82,y\+19,found\?14:17/);
+ assert.match(game,/text\(cfg\.desc,41,y\+54,14/);
+ assert.match(game,/text\(installMessage,210,648,13/);
+ assert.match(game,/text\('HITS \/ SHOTS',77,414,15/);
+ assert.match(game,/text\(gun\.name,204,98,15/);
+});
