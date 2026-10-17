@@ -93,3 +93,19 @@ test('PWA assets have the right scope, icons and worker',()=>{
  assert.match(worker,/cache\.match\(base\('\.\/index\.html'\)\)/);
  assert.match(read('vite.config.js'),/name:'copy-mobile-assets'/);
 });
+
+test('music, ambience and expressive animation remain integrated',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/createArcadeAudio\(/);
+ assert.match(game,/sound\.update\(dt,state,document\.hidden\)/);
+ assert.match(game,/function toggleMusic\(/);
+ assert.match(game,/sound\.pause\(true\)/);
+ assert.match(game,/function emitSplash\(/);
+ assert.match(game,/function drawSplashEffects\(/);
+ assert.match(game,/f\.swimY=Math\.sin/);
+ assert.match(game,/const arm=Math\.round\(Math\.sin\(clock\*8\)\*4\)/);
+ assert.match(game,/sound\.play\('catch'/);
+ assert.match(game,/sound\.play\('hit'/);
+ assert.match(game,/sound\.play\('results'/);
+ assert.match(read('sw.js'),/src\/audio\.js/);
+});

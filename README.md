@@ -79,3 +79,12 @@ Playable web prototype with one complete fishing loop, six fish types, three upg
 - **Build:** the Vite config copies root `manifest.webmanifest`, `sw.js` and both icons to `dist/` while supporting the raw-branch fallback. The workflow validates the production PWA assets.
 
 This is an installable web app, **not** an Android APK or native App Store release.
+
+
+## Game feel and audio
+
+Reel Trouble now includes an **original procedural chiptune soundtrack** with different musical patterns for menu screens, underwater fishing and the shooting phase. The underwater ambience uses quiet filtered surf noise and bubble chirps. All sound is generated using the browser's Web Audio API: **no external audio downloads or third-party samples**.
+
+Sound effects are distinct for casting and splashes, hooking fish, reeling, shots, impacts, combo streaks, upgrades and round results. There is a new **Chiptune On/Off** setting separate from the existing **Sound FX On/Off** setting; both preferences are saved locally. Browsers require a tap/key press before sound starts. Pausing or backgrounding the game quiets the soundtrack and surf.
+
+Visual feedback includes animated pixel-water droplets on casts and transitions, swim bobbing and moving fins/tails for fish, a little reeling angler on the rocking boat, catch flashes and brighter impact moments. Reduced Effects continues to limit particles and motion.
