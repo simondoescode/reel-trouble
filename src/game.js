@@ -427,7 +427,7 @@ function boat(x,seaY){
  rect('#ffde8b',-51,-20,10,7);
  rect('#143e4d',-52,-14,13,3);
  // A lively angler at the stern with a moving reeling hand.
- const arm=Math.round(Math.sin(clock*8)*3);
+ const arm=Math.round(Math.sin(clock*8)*4);
  rect('#10263d',39,-36,17,23);
  rect('#2de0cb',41,-34,13,17);
  rect('#14283d',41,-18,5,11);
