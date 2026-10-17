@@ -1055,31 +1055,51 @@ function titleActionGlow(t,x,y,w,h){
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
- roundRect(44,37,332,41,0,'#061b35f1','#65e7dd',2);
- text('THE DEEP-SEA ARCADE',210,58,18,C.white,'center',900,0,315);
+ // Crisp, neon-framed attract screen with an obvious single primary action.
+ neonPanel(23,26,374,53,C.teal,15);
+ text('REEL TROUBLE / ARCADE',42,51,18,C.white,'left',900,0,270);
+ roundRect(295,38,87,27,11,'#123c42',C.yellow,2);
+ text('FREE PLAY',338,51,16,C.white,'center',900,0,81);
  const bob=lowFx?0:Math.sin(t*1.15)*3;
  if(titleLogo.complete&&titleLogo.naturalWidth>0){
-  const width=320,height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
+  const width=Math.min(344,210*titleLogo.naturalWidth/titleLogo.naturalHeight);
+  const height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
+  const logoY=89+(211-height)/2+bob;
   ctx.save();
-  if(!lowFx){ctx.shadowColor='rgba(37,225,211,0.30)';ctx.shadowBlur=16;}
-  ctx.drawImage(titleLogo,(W-width)/2,90+bob,width,height);
+  if(!lowFx){ctx.shadowColor='rgba(42,243,224,0.53)';ctx.shadowBlur=27;}
+  ctx.drawImage(titleLogo,(W-width)/2,logoY,width,height);
   ctx.restore();
  }else{
-  text('REEL',210,173+bob,67,C.white,'center',900,0,373);
-  text('TROUBLE!',210,250+bob,50,C.white,'center',900,0,394);
+  text('REEL',210,169+bob,67,C.white,'center',900,0,373);
+  text('TROUBLE!',210,241+bob,50,C.white,'center',900,0,394);
  }
- roundRect(29,326,362,37,0,'#061b35f2','#5ad8da',2);
- text('GO DEEP. GET FISH. GET RICH.',210,345,17,C.white,'center',900,0,340);
- roundRect(26,373,368,92,0,'#061d36f5','#3ecac8',2);
- roundRect(39,384,36,31,0,'#114969','#6ee7dd',2);
- roundRect(39,422,36,31,0,'#114969','#6ee7dd',2);
- text('01',57,400,17,C.white,'center',900,0,32);
- text('02',57,438,17,C.white,'center',900,0,32);
- text('DODGE FISH ON THE WAY DOWN',86,400,17,C.white,'left',900,0,291);
- text('REEL UP, THEN SHOOT YOUR CATCH',86,438,17,C.white,'left',900,0,290);
+ // Pixel sparkles remain behind controls, avoiding bloom over readable labels.
+ for(let i=0;i<9;i++){
+  const x=38+(i*47)%344,y=119+(i*41)%176;
+  ctx.save();ctx.globalAlpha=lowFx?.45:.45+.35*Math.sin(t*1.6+i*2.5);
+  ctx.fillStyle=i%3?C.teal:C.yellow;ctx.fillRect(x,y,4,4);
+  if(i%3===0){ctx.fillRect(x-5,y+1,3,2);ctx.fillRect(x+6,y+1,3,2);}
+  ctx.restore();
+ }
+ neonPanel(29,314,362,43,'#4bd2e6',13);
+ text('GO DEEP. HOOK BIG. CASH OUT.',210,335,18,C.white,'center',900,0,338);
+ const stages=[
+  {id:'01',name:'DIVE',detail:'AVOID FISH',accent:C.teal},
+  {id:'02',name:'REEL',detail:'CATCH FISH',accent:C.yellow},
+  {id:'03',name:'BLAST',detail:'EARN CASH',accent:C.pink}
+ ];
+ stages.forEach((stage,i)=>{
+  const x=29+i*123;
+  neonPanel(x,370,116,91,stage.accent,12);
+  text(stage.id,x+58,386,16,C.white,'center',900,0,97);
+  text(stage.name,x+58,415,22,C.white,'center',900,0,103);
+  text(stage.detail,x+58,445,16,C.white,'center',900,0,103);
+ });
  const progress=collectionProgress(save.collection);
- roundRect(29,472,362,28,0,'#061b35f4','#275b73',2);
- text('DISCOVERED '+progress.discovered+'/'+progress.total+'  •  '+progress.percentage+'%  •  '+progress.unlocked+' BADGES',210,486,16,C.white,'center',900,0,345);
+ roundRect(29,472,362,28,12,'#071d36f6','#4bcfcf',2);
+ const percent=clamp(progress.percentage/100,0,1);
+ roundRect(33,475,Math.max(6,354*percent),5,2,C.teal);
+ text('FISH '+progress.discovered+'/'+progress.total+'  •  '+progress.unlocked+' BADGES UNLOCKED',210,489,16,C.white,'center',900,0,341);
  titleActionGlow(t,68,511,284,60);
  button('CAST LINE',68,511,284,60,beginCast,C.yellow);
  if(isInstalled()){
@@ -1088,12 +1108,12 @@ function menu(){
   button('FISH BOOK',29,582,183,43,()=>openCollection('fish'),C.teal);
   button('INSTALL APP',223,582,168,43,installGame,C.mint);
  }
- roundRect(29,638,362,61,0,'#061b35f5','#4e8c98',2);
- ctx.fillStyle='#4e8c9880';ctx.fillRect(209,646,2,45);
+ neonPanel(29,638,362,61,'#55cbd8',15);
+ ctx.fillStyle='#83dedd77';ctx.fillRect(209,646,2,43);
  text('WALLET',121,654,16,C.white,'center',900,0,158);
- text('$'+save.cash,121,681,21,C.white,'center',900,0,157);
+ text('$'+save.cash,121,681,22,C.white,'center',900,0,157);
  text('BEST CAST',300,654,16,C.white,'center',900,0,158);
- text('$'+save.best,300,681,21,C.white,'center',900,0,156);
+ text('$'+save.best,300,681,22,C.white,'center',900,0,156);
  button('UPGRADES',29,716,174,45,()=>{state='shop';age=0;},C.cream);
  button('SETTINGS',217,716,174,45,()=>{state='settings';age=0;},C.cream);
 }
