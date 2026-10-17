@@ -122,3 +122,18 @@ test('ocean expansion is connected to spawning, artwork, hazards and scoring',()
  assert.match(game,/const biome=biomeAtDepth\(depth\)/);
  assert.match(read('sw.js'),/src\/ocean\.js/);
 });
+
+test('collection routes and rewards are wired into gameplay and save migration',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/collection:createCollection\(\)/);
+ assert.match(game,/collection:normalizeCollection\(d\.collection\)/);
+ assert.match(game,/recordCatch\(save\.collection,f\.kind\)/);
+ assert.match(game,/recordShot\(save\.collection,f\.kind,money,streak\.multiplier\)/);
+ assert.match(game,/function updateAchievements\(/);
+ assert.match(game,/function bookCard\(/);
+ assert.match(game,/function collection\(/);
+ assert.match(game,/function fishDetail\(/);
+ assert.match(game,/FISH ENCYCLOPEDIA/);
+ assert.match(game,/else if\(state==='collection'\)collection\(\)/);
+ assert.match(read('sw.js'),/src\/collection\.js/);
+});

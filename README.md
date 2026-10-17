@@ -58,6 +58,7 @@ Input preference is stored locally as `reel-trouble-input-v1`. HTTPS is required
 - `src/game.js` — gameplay, animations, touch/tilt input, settings, upgrades, audio, saved progress
 - `src/tilt.js` — tested tilt axis and speed mapping
 - `src/shooting.js` — pure gun tier, hit detection and combo scoring rules
+- `src/collection.js` — species collection, saved statistics and one-time achievement rewards
 - `src/styles.css` — responsive mobile layout
 - `vite.config.js` — GitHub Pages base path
 - `test/` — static smoke tests
@@ -105,3 +106,12 @@ The ocean is now divided into three **world-depth-based environments**. The HUD 
 Fish now have per-species swim styles (cruising, zigzagging, schooling, drifting, dashing and bioluminescent effects). Jellyfish are distinct non-collectible hazards: touching one on descent prematurely ends your descent **without awarding a free fish**, while a sting on ascent briefly slows reeling. Your fish collection and wallet are safe.
 
 The depths of the kelp forest and twilight trench are reached naturally by upgrading the existing longer fishing line. Biome colour transitions and foreground silhouettes are anchored to the ocean world, while the animated UI shows the player's current biome. Offline asset caches are versioned so the new game code is picked up after an online refresh.
+
+
+## Fish Encyclopedia & Achievements (Collection Update v1)
+
+The **Fish Encyclopedia** is accessible from the main menu and from round results. There are **14 collectible species** in two pages: unknown fish display as shadow silhouettes with hidden details; once caught, tapping a species opens a detailed fish file with its rarity, habitat, base payout, catches, successful shots, money earned from shooting and best combo. The main menu displays your collection completion percentage and unlocked badge count.
+
+**Each newly discovered species earns a one-time $35 reward.** The **Badges** tab includes nine persistent achievements with one-time cash bonuses for discovering 1, 5, 10 or 14 species, hooking 10 or 50 fish, achieving a 4× shooting combo, hooking a Golden Fish and earning $2500 from shot fish. Discovery and badge rewards count toward the round's cash but do not inflate shooting earnings statistics. Rewards are granted at the milestone, never by repeatedly opening a screen.
+
+Collection data is embedded inside the existing `reel-trouble-save-v1` save, and old saves migrate automatically without changing cash, upgrades or best score. Past catches cannot be reconstructed from the old save, so only newly caught fish appear in the encyclopedia. Offline assets now include the collection module and the cache is versioned for this update.

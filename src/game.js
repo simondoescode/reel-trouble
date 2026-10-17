@@ -1,6 +1,7 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
 import { createArcadeAudio } from './audio.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
+import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
 (() => {
@@ -15,9 +16,9 @@ ctx.imageSmoothingEnabled=false;
 display.imageSmoothingEnabled=false;
 const C={navy:'#07182c',deep:'#07334d',ocean:'#0b91b7',teal:'#20e3d0',mint:'#b9ffe8',cream:'#fff9df',yellow:'#ffe35b',coral:'#ff596c',pink:'#ff88d6',muted:'#c0eef3',ink:'#081b32'};
 
-const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0}};
+const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0},collection:createCollection()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
-return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL)}};
+return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL)},collection:normalizeCollection(d.collection)};
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -111,9 +112,22 @@ function pauseGame(reason='MANUAL'){
 }
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sound.pause(false);}
-let splashes=[],ripples=[],sceneFlash=0;
+let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
+let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
+function awardBonus(value){
+ if(!value)return;
+ save.cash+=value;save.total+=value;roundEarnings+=value;bonusThisCast+=value;
+}
+function updateAchievements(){
+ const granted=grantAchievements(save.collection);
+ if(!granted.unlocked.length)return;
+ awardBonus(granted.reward);newBadgesThisCast+=granted.unlocked.length;
+ floatLabel(granted.unlocked.length===1?granted.unlocked[0].title:'BADGES +'+granted.unlocked.length,210,207,C.yellow);
+ sound.play('upgrade');
+}
+function openCollection(tab='fish'){collectionTab=tab;collectionPage=0;state='collection';age=0;}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
 const irand=(a,b)=>Math.floor(rand(a,b+1));
@@ -395,7 +409,7 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');
- castNumber++;state='descent';age=0;roundEarnings=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DODGE THE FISH!';messageTimer=2.1;}
@@ -406,6 +420,13 @@ function startAscent(hitFish,stung=false){if(state!=='descent')return;
 function catchFish(f){
  if(f.caught)return;f.caught=true;
  caught.push({kind:f.kind,value:species[f.kind].value});
+ const found=recordCatch(save.collection,f.kind);
+ if(found.discovered){
+  newFishThisCast++;awardBonus(found.reward);
+  floatLabel('NEW! +$'+found.reward,hookX,245,C.yellow);
+  sound.play('upgrade');
+ }
+ updateAchievements();persist();
  if(species[f.kind].rare){
   floatLabel('GOLDEN CATCH!',210,158,C.yellow);
   sceneFlash=.35;sound.play('combo');
@@ -450,11 +471,13 @@ function shootAt(x,y){
    f.shot=true;
    const money=shotPayout(f.value,streak.multiplier);
    roundEarnings+=money;save.cash+=money;save.total+=money;
+   recordShot(save.collection,f.kind,money,streak.multiplier);
    burst(f.x,f.y,species[f.kind].color,26);
    floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,f.y-22,C.yellow);
   }
   shake=clamp(shake+2+actual.length*1.4,0,7);
   sceneFlash=Math.max(sceneFlash,.09);sound.play('hit',{pitch:gun.tier});
+  updateAchievements();
   if(combo>=2){floatLabel('COMBO x'+streak.multiplier,210,177,C.mint);sound.play('combo');}
   persist();
  }else{
@@ -718,13 +741,17 @@ function menu(){ambient(clock);decoFish();
  roundRect(33,607,354,85,14,'#082637de','#4c828e');
  text(`WALLET  $${save.cash}`,104,636,16,C.yellow,'center',930);text(`BEST  $${save.best}`,308,636,16,C.mint,'center',930);
  text(inputChoice==='tilt'?'TILT TO STEER • TOUCH ALSO WORKS':'DRAG OR USE ARROW KEYS TO STEER',210,665,11,C.muted,'center',700);
- button('CAST LINE',75,493,270,64,beginCast,C.yellow);
+ const progress=collectionProgress(save.collection);
+ text('DISCOVERED '+progress.discovered+'/'+progress.total+' • '+progress.percentage+'% • '+progress.unlocked+' BADGES',210,478,12,C.mint,'center',850);
+ button('CAST LINE',75,500,270,58,beginCast,C.yellow);
+ button('FISH ENCYCLOPEDIA',80,565,260,35,()=>openCollection('fish'),C.teal);
  button('UPGRADES',37,712,170,45,()=>{state='shop';age=0;},C.cream);
  button('SETTINGS',217,712,166,45,()=>{state='settings';age=0;},C.cream);
 }
 function results(){ambient(clock);
  text('NICE CATCH!',210,123,43,C.yellow,'center',1000,-.8);
  text('BACK ON DRY LAND',210,167,12,C.muted,'center',850,2);
+ if(newFishThisCast||newBadgesThisCast)text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,13,C.yellow,'center',900);
  panel(35,217,350,264);
  text('THIS CAST',210,255,15,C.mint,'center',900,1.8);
  text('+$'+roundEarnings,210,327,73,C.cream,'center',1000,-3);
@@ -733,7 +760,8 @@ function results(){ambient(clock);
  text('BEST COMBO',77,452,12,C.muted,'left',800);text('x'+Math.max(1,bestRoundCombo),343,452,19,C.yellow,'right',900);
  text(`WALLET: $${save.cash}`,210,520,19,C.yellow,'center',900);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow);
- button('GEAR SHOP',75,647,270,53,()=>{state='shop';age=0;},C.cream);
+ button('GEAR SHOP',25,647,178,53,()=>{state='shop';age=0;},C.cream);
+ button('FISH BOOK',217,647,178,53,()=>openCollection('fish'),C.teal);
  button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
 }
 function shop(){ambient(clock);text('GEAR SHOP',210,95,46,C.cream,'center',1000,-1.5);text('MAKE THE NEXT CAST COUNT',210,135,12,C.muted,'center',850,1.3);
@@ -749,6 +777,81 @@ function shop(){ambient(clock);text('GEAR SHOP',210,95,46,C.cream,'center',1000,
  }
  button('← BACK',108,673,204,58,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.cream);
  text('PROGRESS IS SAVED ON THIS DEVICE',210,755,10,C.muted,'center',700);
+}
+
+function bookCard(kind,x,y){
+ const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
+ roundRect(x+3,y+4,180,96,0,'#071828');
+ roundRect(x,y,180,96,0,found?'#12516b':'#0c3148',found?'#47e8d9':'#487080',2);
+ ctx.fillStyle='#1b718b';ctx.fillRect(x+4,y+4,172,5);
+ ctx.save();
+ if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
+ fish(x+45,y+47,kind,1,.85,clock*1.3);
+ ctx.restore();
+ text(found?meta.name:'???',x+91,y+19,found?12:17,found?C.cream:C.muted,'left',950);
+ text(found?fishRarity(kind):'UNDISCOVERED',x+91,y+44,9,found?C.yellow:C.muted,'left',800);
+ if(found)text('CAUGHT '+entry.caught,x+91,y+68,11,C.mint,'left',850);
+ else text('FIND TO REVEAL',x+91,y+68,9,C.muted,'left',750);
+ hits.push({x,y,w:180,h:96,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+}
+function collection(){
+ ambient(clock);
+ text('FISH ENCYCLOPEDIA',210,76,28,C.cream,'center',1000);
+ const p=collectionProgress(save.collection);
+ text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,14,C.mint,'center',900);
+ roundRect(49,138,322,8,0,'#071828');
+ roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
+ button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
+ button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
+ const pageSize=collectionTab==='fish'?8:4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
+ const pages=Math.ceil(total/pageSize);
+ collectionPage=clamp(collectionPage,0,pages-1);
+ if(collectionTab==='fish'){
+  for(let i=0;i<pageSize;i++){
+   const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
+   bookCard(kind,25+(i%2)*190,227+Math.floor(i/2)*105);
+  }
+ }else{
+  for(let i=0;i<4;i++){
+   const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
+   const unlocked=save.collection.achievements[badge.id]===true;
+   const y=227+i*105;
+   roundRect(29,y,362,97,0,unlocked?'#134c63':'#0a3347',unlocked?C.yellow:'#486b7b',2);
+   text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
+   text(badge.title,80,y+19,15,unlocked?C.cream:C.muted,'left',950);
+   text(badge.description,80,y+45,11,C.muted,'left',720);
+   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,12,unlocked?C.mint:C.yellow,'left',900);
+  }
+ }
+ if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
+ text((collectionPage+1)+' / '+pages,210,682,15,C.cream);
+ if(collectionPage<pages-1)button('NEXT →',279,659,111,42,()=>collectionPage++,C.cream);
+ button('← BACK',90,717,240,48,()=>{state='menu';age=0;},C.yellow);
+}
+function fishDetail(){
+ ambient(clock);
+ const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
+ text('FISH FILE',210,78,32,C.cream,'center',1000);
+ text('#'+String(selectedFish+1).padStart(2,'0')+' / '+species.length,210,121,14,C.mint,'center',800);
+ panel(31,155,358,453);
+ ctx.save();if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
+ fish(210,252,selectedFish,1,3.2,clock*2);
+ ctx.restore();
+ text(found?meta.name:'UNDISCOVERED',210,354,found?27:22,C.yellow,'center',1000);
+ if(found){
+  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,12,C.mint,'center',800);
+  text('BASE VALUE $'+meta.value,210,425,16,C.cream,'center',900);
+  line(58,452,361,452,'#4d8797');
+  text('CAUGHT',65,487,13,C.muted,'left',850);text(entry.caught,351,487,17,C.cream,'right',950);
+  text('SHOT',65,522,13,C.muted,'left',850);text(entry.shot,351,522,17,C.cream,'right',950);
+  text('EARNED',65,557,13,C.muted,'left',850);text('$'+entry.earned,351,557,17,C.yellow,'right',950);
+  text('BEST COMBO',65,587,13,C.muted,'left',850);text('x'+entry.bestCombo,351,587,17,C.cream,'right',950);
+ }else{
+  text('CATCH THIS FISH TO REVEAL IT',210,416,14,C.muted,'center',750);
+  text('ITS STATS AND HABITAT ARE SECRET',210,455,11,C.muted,'center',800);
+ }
+ button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
+ button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
 }
 function settings(){
  ambient(clock);
@@ -783,7 +886,7 @@ function pausedScene(){
 }
 function render(){hits=[];ctx.setTransform(pixelCanvas.width/W,0,0,pixelCanvas.height/H,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
- if(state==='menu')menu();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='settings')settings();
+ if(state==='menu')menu();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
  overlayParticles();drawSplashEffects(lastFrameDt);
  if(sceneFlash>0&&!lowFx){
    ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
