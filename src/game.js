@@ -1098,80 +1098,50 @@ function titleActionGlow(t,x,y,w,h){
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
- // Neon ocean art direction: a luminous horizon and electric wake behind the hero logo.
- ctx.save();ctx.globalAlpha=lowFx?.28:.34+.14*Math.sin(t*1.9);
- const horizon=ctx.createLinearGradient(0,245,0,390);
- horizon.addColorStop(0,'#1d91d000');horizon.addColorStop(.62,'#25d3fc55');horizon.addColorStop(1,'#071b3200');
- ctx.fillStyle=horizon;ctx.fillRect(0,238,W,170);
- ctx.strokeStyle='#5cffff';ctx.lineWidth=3;
- ctx.beginPath();
- for(let x=0;x<=W;x+=8){
-  const y=305+Math.sin(x*.03+t*1.7)*5;
-  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
- }
- ctx.stroke();
+ // The player and their boat are the focus, rather than a wall of dashboard cards.
+ const seaY=438+(lowFx?0:Math.sin(t*1.15)*4);
+ ctx.save();
+ const glow=ctx.createRadialGradient(210,seaY-95,18,210,seaY-95,230);
+ glow.addColorStop(0,'#65ffe139');glow.addColorStop(1,'#65ffe100');
+ ctx.fillStyle=glow;ctx.fillRect(0,205,W,370);
  ctx.restore();
- // Crisp, neon-framed attract screen with an obvious single primary action.
- neonPanel(23,26,374,53,C.teal,15);
- text('REEL TROUBLE / ARCADE',42,51,18,C.white,'left',900,0,270);
- roundRect(295,38,87,27,11,'#123c42',C.yellow,2);
- text('FREE PLAY',338,51,16,C.white,'center',900,0,81);
- const bob=lowFx?0:Math.sin(t*1.15)*3;
- if(titleLogo.complete&&titleLogo.naturalWidth>0){
-  const width=Math.min(344,210*titleLogo.naturalWidth/titleLogo.naturalHeight);
+ const bob=lowFx?0:Math.sin(t*1.1)*3;
+ if(titleLogo.complete&&titleLogo.naturalWidth){
+  const width=Math.min(330,188*titleLogo.naturalWidth/titleLogo.naturalHeight);
   const height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
-  const logoY=89+(211-height)/2+bob;
-  ctx.save();
-  if(!lowFx){ctx.shadowColor='rgba(34,249,255,0.80)';ctx.shadowBlur=35;}
-  ctx.drawImage(titleLogo,(W-width)/2,logoY,width,height);
-  ctx.restore();
+  ctx.drawImage(titleLogo,(W-width)/2,64+bob,width,height);
  }else{
-  text('REEL',210,169+bob,67,C.white,'center',900,0,373);
-  text('TROUBLE!',210,241+bob,50,C.white,'center',900,0,394);
+  text('REEL',210,128+bob,65,C.white);
+  text('TROUBLE!',210,195+bob,49,C.white);
  }
- // Pixel sparkles remain behind controls, avoiding bloom over readable labels.
- for(let i=0;i<9;i++){
-  const x=38+(i*47)%344,y=119+(i*41)%176;
-  ctx.save();ctx.globalAlpha=lowFx?.45:.45+.35*Math.sin(t*1.6+i*2.5);
-  ctx.fillStyle=i%3?C.teal:C.yellow;ctx.fillRect(x,y,4,4);
-  if(i%3===0){ctx.fillRect(x-5,y+1,3,2);ctx.fillRect(x+6,y+1,3,2);}
-  ctx.restore();
- }
- neonPanel(29,314,362,43,'#4bd2e6',13);
- text('GO DEEP. HOOK BIG. CASH OUT.',210,335,18,C.white,'center',900,0,338);
- const stages=[
-  {id:'01',name:'DIVE',detail:'AVOID FISH',accent:C.teal},
-  {id:'02',name:'REEL',detail:'CATCH FISH',accent:C.yellow},
-  {id:'03',name:'BLAST',detail:'EARN CASH',accent:C.pink}
- ];
- stages.forEach((stage,i)=>{
-  const x=29+i*123;
-  neonPanel(x,370,116,91,stage.accent,12);
-  text(stage.id,x+58,386,16,C.white,'center',900,0,97);
-  text(stage.name,x+58,415,22,C.white,'center',900,0,103);
-  text(stage.detail,x+58,445,16,C.white,'center',900,0,103);
- });
+ // Enlarged original pixel-art angler as an identifiable mascot.
+ ctx.save();ctx.translate(210,seaY);ctx.scale(2.1,2.1);ctx.translate(-210,-seaY);
+ boat(210,seaY);
+ ctx.restore();
  const progress=collectionProgress(save.collection);
- roundRect(29,472,362,28,12,'#071d36f6','#4bcfcf',2);
- const percent=clamp(progress.percentage/100,0,1);
- roundRect(33,475,Math.max(6,354*percent),5,2,C.teal);
- text('FISH '+progress.discovered+'/'+progress.total+'  •  '+progress.unlocked+' BADGES UNLOCKED',210,489,16,C.white,'center',900,0,341);
- titleActionGlow(t,68,511,284,60);
- button('CAST LINE',68,511,284,60,beginCast,C.yellow);
- if(isInstalled()){
-  button('FISH ENCYCLOPEDIA',68,582,284,43,()=>openCollection('fish'),C.teal);
- }else{
-  button('FISH BOOK',29,582,183,43,()=>openCollection('fish'),C.teal);
-  button('INSTALL APP',223,582,168,43,installGame,C.mint);
- }
- neonPanel(29,638,362,61,'#55cbd8',15);
- ctx.fillStyle='#83dedd77';ctx.fillRect(209,646,2,43);
- text('WALLET',121,654,16,C.white,'center',900,0,158);
- text('$'+save.cash,121,681,22,C.white,'center',900,0,157);
- text('BEST CAST',300,654,16,C.white,'center',900,0,158);
- text('$'+save.best,300,681,22,C.white,'center',900,0,156);
- button('UPGRADES',29,716,174,45,()=>{state='shop';age=0;},C.cream);
- button('SETTINGS',217,716,174,45,()=>{state='settings';age=0;},C.cream);
+ roundRect(25,20,153,42,14,'#071e36e8','#51e9de',2);
+ text('$'+save.cash,101,41,23,C.white,'center',900,0,136);
+ button('☰',345,19,51,43,()=>{state='more';age=0;},C.teal);
+ text('YOUR NEXT BIG CATCH AWAITS',210,511,18,C.white,'center',900,0,365);
+ titleActionGlow(t,50,544,320,83);
+ button('CAST LINE',50,544,320,83,beginCast,C.yellow,'DIVE INTO THE DEEP');
+ button('GEAR SHOP',50,649,210,59,()=>{state='shop';age=0;},C.teal);
+ button('MORE',272,649,98,59,()=>{state='more';age=0;},C.cream);
+ text('BEST $'+save.best+'  •  '+progress.discovered+'/'+progress.total+' FISH FOUND',210,743,16,C.white,'center',900,0,372);
+}
+function moreMenu(){
+ titleBackdrop(lowFx?0:clock*.35);
+ text('CAPTAIN\'S CABIN',210,103,37,C.white,'center',900,0,380);
+ text('ALL YOUR EXTRAS, ONE PLACE',210,145,17,C.white);
+ // Navigation lives off the main attract screen, never on top of gameplay.
+ neonPanel(32,188,356,441,C.teal,20);
+ button('FISH ENCYCLOPEDIA',56,214,308,66,()=>openCollection('fish'),C.teal);
+ button('BADGES',56,296,308,66,()=>openCollection('badges'),C.yellow);
+ button('SETTINGS',56,378,308,66,()=>{state='settings';age=0;},C.cream);
+ if(!isInstalled())button('INSTALL APP',56,460,308,66,installGame,C.pink);
+ else button('APP INSTALLED',56,460,308,66,()=>{state='settings';age=0;},C.pink);
+ text('YOUR PROGRESS IS SAVED AUTOMATICALLY',210,583,16,C.white,'center',900,0,316);
+ button('← BACK TO FISHING',60,665,300,67,()=>{state='menu';age=0;},C.yellow);
 }
 function results(){
  titleBackdrop(clock*.38);
@@ -1505,7 +1475,7 @@ function drawStageTransition(){
 }
 function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
- if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
  overlayParticles();drawSplashEffects(lastFrameDt);
  if(sceneFlash>0&&!lowFx){
    ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
