@@ -204,42 +204,34 @@ function line(x1,y1,x2,y2,color,width=2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.l
 function circle(x,y,r,color){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();}
 function polygon(points,fill){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle=fill;ctx.fill();}
 function button(title,x,y,w,h,action,accent=C.coral,secondary=''){
- // High-contrast white type and a bright border; no yellow-on-yellow labels.
- const radius=h>59?19:13;
- const gradient=ctx.createLinearGradient(0,y,0,y+h);
- gradient.addColorStop(0,'#164764');gradient.addColorStop(.47,'#0b304e');
- gradient.addColorStop(1,'#081c36');
- roundRect(x+4,y+6,w,h,radius,'#031225');
- ctx.save();
- if(!lowFx&&h>=60){ctx.shadowColor=accent;ctx.shadowBlur=9;}
- roundRect(x,y,w,h,radius,gradient,accent,h>=60?3.5:2.5);
- ctx.restore();
- ctx.save();ctx.globalAlpha=.32;roundRect(x+11,y+7,w-22,4,2,accent);ctx.restore();
- ctx.fillStyle='#ffffff16';ctx.fillRect(x+22,y+h-11,Math.max(0,w-44),2);
- const labelY=y+h/2-(secondary?10:0);
- text(title,x+w/2,labelY,secondary?24:(h<41?17:h>=60?22:18),C.white,'center',900,0,w-24);
- if(secondary)text(secondary,x+w/2,y+h/2+17,16,C.white,'center',900,0,w-24);
+ // Solid, accessible arcade navigation: no glowing blue bezels or bevelled tiles.
+ const radius=h>=60?17:12;
+ const primary=accent===C.yellow;
+ const base=primary?'#efb92e':'#122b38';
+ const outline=primary?'#ffdf68':'#ffffff22';
+ roundRect(x,y+3,w,h,radius,'#04192399');
+ roundRect(x,y,w,h,radius,base,outline,primary?1.5:1);
+ if(!primary){
+  ctx.save();ctx.globalAlpha=.85;
+  roundRect(x+1,y+5,4,Math.max(4,h-10),2,accent);
+  ctx.restore();
+ }
+ const labelY=y+h/2-(secondary?9:0);
+ text(title,x+w/2,labelY,secondary?23:(h<41?16:h>=60?21:18),primary?'#152633':C.white,'center',900,0,w-25);
+ if(secondary)text(secondary,x+w/2,y+h/2+17,15,primary?'#253440':C.white,'center',850,0,w-22);
  hits.push({x,y,w,h,action});
 }
 function neonPanel(x,y,w,h,accent=C.teal,radius=17){
- const gradient=ctx.createLinearGradient(0,y,0,y+h);
- gradient.addColorStop(0,'#12415c');gradient.addColorStop(.48,'#0a2b47');
- gradient.addColorStop(1,'#071a32');
- roundRect(x+4,y+5,w,h,radius,'#03152a');
- roundRect(x,y,w,h,radius,gradient,accent,2);
- ctx.save();ctx.globalAlpha*=.74;
- roundRect(x+16,y+9,Math.max(4,w-32),3,2,accent);
- ctx.restore();
- ctx.fillStyle='#ffffff12';ctx.fillRect(x+17,y+h-10,Math.max(0,w-34),2);
+ // Quiet matte surfaces make the actual game artwork stand out.
+ roundRect(x,y,w,h,radius,'#092936e8','#ffffff20',1);
 }
-function panel(x,y,w,h){neonPanel(x,y,w,h,'#59f6e5');}
+function panel(x,y,w,h){neonPanel(x,y,w,h);}
 function arcadePill(label,x,y,w,accent=C.teal){
- roundRect(x,y,w,32,13,'#071a32e8',accent,2);
+ roundRect(x,y,w,32,13,'#082734df','#ffffff22',1);
  text(label,x+w/2,y+16,16,C.white,'center',900,0,w-18);
 }
 function arcadeRule(x1,y,x2,accent=C.teal){
- ctx.fillStyle=accent;ctx.fillRect(x1,y,x2-x1,2);
- ctx.fillStyle='#ffffff65';ctx.fillRect(x1,y+4,Math.max(8,(x2-x1)*.36),2);
+ ctx.fillStyle='#ffffff44';ctx.fillRect(x1,y,x2-x1,1);
 }
 function ambient(t,submerged=true){
  const bands=submerged?
@@ -1156,7 +1148,7 @@ function menu(){
  boat(210,seaY);
  ctx.restore();
  const progress=collectionProgress(save.collection);
- roundRect(25,20,153,42,14,'#071e36e8','#51e9de',2);
+ roundRect(25,20,153,42,14,'#082734dd','#ffffff26',1);
  text('$'+save.cash,101,41,23,C.white,'center',900,0,136);
  button('☰',345,19,51,43,()=>{state='more';age=0;},C.teal);
  text('YOUR NEXT BIG CATCH AWAITS',210,511,18,C.white,'center',900,0,365);
@@ -1169,9 +1161,8 @@ function menu(){
 function moreMenu(){
  titleBackdrop(lowFx?0:clock*.35);
  text('CAPTAIN\'S CABIN',210,103,37,C.white,'center',900,0,380);
- text('ALL YOUR EXTRAS, ONE PLACE',210,145,17,C.white);
- // Navigation lives off the main attract screen, never on top of gameplay.
- neonPanel(32,188,356,441,C.teal,20);
+ text('CHOOSE WHERE TO HEAD NEXT',210,145,17,C.white);
+ // Use open space instead of a large framed dashboard.
  button('FISH ENCYCLOPEDIA',56,214,308,66,()=>openCollection('fish'),C.teal);
  button('BADGES',56,296,308,66,()=>openCollection('badges'),C.yellow);
  button('SETTINGS',56,378,308,66,()=>{state='settings';age=0;},C.cream);
