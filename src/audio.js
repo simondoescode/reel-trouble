@@ -4,7 +4,7 @@ export const ARCADE_MELODY = Object.freeze([76,79,83,88,86,83,79,76,74,79,83,86,
 export const UNDERWATER_MELODY = Object.freeze([64,67,71,76,74,71,67,69,71,74,79,76,74,71,67,62]);
 export const SHOT_MELODY = Object.freeze([79,83,86,91,88,86,83,79,81,86,88,93,91,88,86,83]);
 export const ARCADE_BASS = Object.freeze([40,40,47,40,45,45,52,47,38,38,45,38,43,43,50,47]);
-export const MUSIC_STEP_SECONDS = Object.freeze({menu:.137,descent:.155,ascent:.136,shoot:.112,results:.15});
+export const MUSIC_STEP_SECONDS = Object.freeze({menu:.165,descent:.19,ascent:.175,shoot:.15,results:.175});
 export function noteFrequency(note){
  if(!Number.isFinite(note)||note<=0)return 0;
  return 440*Math.pow(2,(note-69)/12);
