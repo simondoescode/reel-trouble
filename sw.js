@@ -12,7 +12,7 @@ self.addEventListener('install',event=>{
   const urls=[...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))(?:\?[^"]*)?"/g)]
     .map(match=>new URL(match[1],ROOT))
     .filter(url=>url.origin===self.location.origin && url.href.startsWith(ROOT));
-  const raw=['./src/game.js','./src/styles.css','./src/tilt.js','./src/shooting.js','./src/airborne.js','./src/arcade-ui.js','./src/audio.js','./src/haptics.js','./src/ocean.js','./src/collection.js','./src/pwa.js'];
+  const raw=['./src/game.js','./src/styles.css','./src/tilt.js','./src/shooting.js','./src/airborne.js','./src/arcade-ui.js','./src/audio.js','./src/haptics.js','./src/ocean.js','./src/collection.js','./src/expeditions.js','./src/pwa.js'];
   // Installability: preload hashed Vite output when online; keep raw branch fallback.
   await Promise.allSettled([...new Set([...urls.map(u=>u.href),...raw.map(base)])].map(url=>cache.add(url)));
   await self.skipWaiting();

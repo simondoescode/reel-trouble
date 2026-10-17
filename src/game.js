@@ -1,6 +1,7 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
 import { paintShopBackdrop, paintSkipper } from './shop-art.js';
 import { createArcadeAudio } from './audio.js';
+import { createExpedition, normalizeExpedition, recordExpeditionDive, expeditionStatus, completeExpeditions, EXPEDITIONS } from './expeditions.js';
 import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
@@ -26,9 +27,9 @@ display.imageSmoothingEnabled=true; // Smooth final presentation, not font raste
 // Saturated colours remain in the art and outlines. UI labels are solid white.
 const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#ffffff',white:'#ffffff',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#ffffff',ink:'#071b31'};
 
-const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,collection:createCollection()};
+const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,collection:createCollection(),expedition:createExpedition()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
-return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,3)},collection:normalizeCollection(d.collection)};
+return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,3)},collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -144,10 +145,26 @@ function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;s
 let shopTab='lines',chargeArmed=false;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
-let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
+let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0,missionRewardThisCast=0,missionsCompletedThisCast=0;
 let deepestCast=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
+function expeditionStats(){
+ const p=collectionProgress(save.collection);
+ return {caught:p.caught,discovered:p.discovered,shots:p.shot,deepest:save.expedition.deepest,
+  line:save.upgrades.line,earned:save.total};
+}
+function currentJob(){return expeditionStatus(save.expedition,expeditionStats());}
+function settleExpedition(){
+ save.expedition=recordExpeditionDive(save.expedition,deepestCast/DEPTH_PIXELS_PER_METRE);
+ const result=completeExpeditions(save.expedition,expeditionStats());
+ save.expedition=result.progress;
+ missionRewardThisCast=result.reward;missionsCompletedThisCast=result.completed.length;
+ if(result.reward){
+  save.cash+=result.reward;save.total+=result.reward;roundEarnings+=result.reward;
+  sound.play('upgrade');rumble.play('upgrade');sceneFlash=.3;
+ }
+}
 function awardBonus(value){
  if(!value)return;
  save.cash+=value;save.total+=value;roundEarnings+=value;bonusThisCast+=value;
@@ -160,6 +177,8 @@ function updateAchievements(){
  sound.play('upgrade');
 }
 function openCollection(tab='fish'){collectionTab=tab;collectionPage=0;sceneTransition=null;state='collection';age=0;}
+let expeditionReturn='more';
+function openExpeditions(){expeditionReturn=state;sceneTransition=null;state='expeditions';age=0;}
 function stageCue(_kind){sceneTransition=null;} // Go straight into each phase: no full-screen interruptions.
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -572,7 +591,7 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
@@ -669,7 +688,7 @@ function shootAt(x,y){
  }
 }
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
-function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');stageCue('results');}
+function endRound(){if(state!=='shoot')return;settleExpedition();state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');stageCue('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost){skipperReply(type,false);return;}
  save.cash-=cfg.cost;save.upgrades[type]++;skipperReply(type,true);persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 const LINE_NAMES=['STARTER REEL','REEF RUNNER','BLUEWATER','TRENCH CRAWLER','ABYSS EXPLORER','BOTTOMLESS PRO'];
@@ -1208,7 +1227,9 @@ function menu(){
  roundRect(25,20,153,42,14,'#082734dd','#ffffff26',1);
  text('$'+save.cash,101,41,23,C.white,'center',900,0,136);
  button('☰',345,19,51,43,()=>{state='more';age=0;},C.teal);
- text('YOUR NEXT BIG CATCH AWAITS',210,511,18,C.white,'center',900,0,365);
+ const job=currentJob();
+  text(job.label+' • '+job.title,210,497,16,C.yellow,'center',900,0,375);
+  text(job.task+'  '+job.progress+'/'+job.goal,210,521,16,C.white,'center',900,0,377);
  titleActionGlow(t,50,544,320,83);
  button('CAST LINE',50,544,320,83,beginCast,C.yellow,'DIVE INTO THE DEEP');
  button('GEAR SHOP',50,649,210,59,()=>{enterShop();},C.teal);
@@ -1220,8 +1241,8 @@ function moreMenu(){
  text('CAPTAIN\'S CABIN',210,103,37,C.white,'center',900,0,380);
  text('CHOOSE WHERE TO HEAD NEXT',210,145,17,C.white);
  // Use open space instead of a large framed dashboard.
- button('FISH ENCYCLOPEDIA',56,214,308,66,()=>openCollection('fish'),C.teal);
- button('BADGES',56,296,308,66,()=>openCollection('badges'),C.yellow);
+ button('SKIPPER\'S EXPEDITIONS',56,214,308,66,openExpeditions,C.yellow);
+ button('FISH BOOK & BADGES',56,296,308,66,()=>openCollection('fish'),C.teal);
  button('SETTINGS',56,378,308,66,()=>{state='settings';age=0;},C.cream);
  if(!isInstalled())button('INSTALL APP',56,460,308,66,installGame,C.pink);
  else button('APP INSTALLED',56,460,308,66,()=>{state='settings';age=0;},C.pink);
@@ -1241,7 +1262,8 @@ function results(){
  arcadePill('RUN COMPLETE',115,51,190,C.yellow);
  text('NICE CATCH!',210,123,43,C.white,'center',1000,-.8);
  text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
- if(newFishThisCast||newBadgesThisCast)
+ if(missionsCompletedThisCast)text('MISSION CLEARED +$'+missionRewardThisCast,210,195,17,C.yellow,'center',900,0,354);
+ else if(newFishThisCast||newBadgesThisCast)
   text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
  neonPanel(35,217,350,291,C.yellow,21);
  text('YOUR ARCADE PAYOUT',210,259,18,C.white,'center',900,0,310);
@@ -1255,13 +1277,13 @@ function results(){
  text('x'+Math.max(1,bestRoundCombo),343,439,19,C.white,'right',900);
  text('DEEPEST DIVE',77,479,17,C.white,'left',900);
  text(meter(deepestCast),343,479,21,C.white,'right',900);
- if(escaped&&!newFishThisCast&&!newBadgesThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
  neonPanel(91,508,238,43,'#47e5d7',13);
  text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
  titleActionGlow(clock,64,567,292,62);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
  button('GEAR SHOP',25,647,178,53,()=>{enterShop();},C.cream);
- button('FISH BOOK',217,647,178,53,()=>openCollection('fish'),C.teal);
+ button('MISSIONS',217,647,178,53,openExpeditions,C.teal);
  button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
 }
 
@@ -1273,7 +1295,7 @@ function skipperGreeting(){
  if(save.upgrades.light===0&&save.upgrades.line>=2)return "Past the reef? Buy a lamp. The deep don't forgive.";
  if(dives>5000)return "Back again, legend? Something down there remembers ye.";
  if(dives>500)return "You're hauling serious coin. But the trench takes its toll.";
- return skipperVisits===1?"Welcome aboard! Name's Skipper. Don't touch the eel.":"Back for more trouble? Heh. My kind of customer.";
+ return skipperVisits===1?"Welcome aboard! Name's Skipper. Don't touch the eel.":currentJob().story;
 }
 function skipperReply(category,success){
  if(!success){skipperSpeak("Not enough coin, matey. The sea ain't a charity.");return;}
@@ -1316,9 +1338,10 @@ function shop(){
   "They say the bottom's full of gold. Funny, nobody comes back with it.",
   "I've fished these waters forty years. The waters have fished back.",
   "First rule o' fishing: trust no fish with too many teeth.",
-  "Every reel has a story. Mine's mostly unpaid debts."
+  "Every reel has a story. Mine's mostly unpaid debts.",currentJob().story
  ][Math.floor(clock*7)%4])});
  skipperBubble();
+ text('SKIPPER JOB: '+currentJob().title,210,468,16,C.yellow,'center',900,0,386);
  const tabs=[['lines','REELS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
  for(let i=0;i<3;i++){
   const [id,label]=tabs[i];button(label,9+i*138,487,126,43,()=>{shopTab=id;skipperSpeak(id==='lines'?"Strong line's worth more than a strong arm.":id==='guns'?"I call these pest-control equipment.": "Only the essentials. Mostly legal.");},shopTab===id?C.yellow:'#87a8a0');
@@ -1347,6 +1370,28 @@ function shop(){
  button('← LEAVE THE SHOP',78,724,264,46,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.white);
 }
 
+function expeditionBoard(){
+ titleBackdrop(lowFx?0:clock*.35);
+ const job=currentJob(),status=save.expedition;
+ text("SKIPPER'S LOG",210,75,36,C.white,'center',900,0,390);
+ text('A NEW REASON TO CAST AGAIN',210,114,16,C.white,'center',900,0,382);
+ neonPanel(23,147,374,315,C.yellow,19);
+ arcadePill(job.label,95,162,230,C.yellow);
+ text(job.title,210,228,27,C.white,'center',950,0,339);
+ text(job.task,210,281,19,C.white,'center',900,0,340);
+ text(job.progress+' / '+job.goal,210,331,31,C.yellow,'center',950);
+ roundRect(58,360,304,13,6,'#031627','#78959b',1);
+ roundRect(61,363,Math.round(298*Math.min(1,job.progress/job.goal)),7,4,C.yellow);
+ text('REWARD  $'+job.reward,210,410,22,C.white,'center',900,0,331);
+ text('SKIPPER SAYS:',210,488,16,C.yellow,'center',900,0,360);
+ text(job.story,210,519,16,C.white,'center',900,0,382);
+ text('STORY CHAPTERS  '+Math.min(status.chapter,EXPEDITIONS.length)+' / '+EXPEDITIONS.length,210,574,18,C.white,'center',900,0,381);
+ const recent=EXPEDITIONS[Math.max(0,Math.min(EXPEDITIONS.length-1,status.chapter-1))];
+ const next=EXPEDITIONS[Math.min(EXPEDITIONS.length-1,status.chapter+1)];
+ text('✓ '+(status.chapter?recent.title:'FIRST MISSION AWAITS'),210,613,16,C.white,'center',900,0,370);
+ text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,649,16,C.white,'center',900,0,370);
+ button('← BACK',70,707,280,55,()=>{state=expeditionReturn;age=0;},C.yellow);
+}
 function bookCard(kind,x,y){
  const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
  const width=370,height=99;
@@ -1601,7 +1646,7 @@ function drawStageTransition(){
 }
 function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
- if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='expeditions')expeditionBoard();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
  overlayParticles();drawSplashEffects(lastFrameDt);
  if(sceneFlash>0&&!lowFx){
    ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
