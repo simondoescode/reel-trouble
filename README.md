@@ -38,8 +38,8 @@ The workflow `.github/workflows/deploy.yml` builds and deploys `dist/` whenever 
 1. Choose **CAST LINE** to start diving.
 2. Drag side-to-side to avoid fish during descent; a collision or max depth starts the ascent.
 3. Drag into fish on the ascent to catch them.
-4. **Tap directly on airborne fish** to fire the pixel-art gun. Shots consume ammo; misses break your combo. Chain successful hits within 2.4 seconds for up to **4× earnings**. Gun upgrades unlock a two-target **Scattergun** at level 2 and a three-target **Neon Blaster** at level 4, and each gun upgrade adds five shots.
-5. Visit **UPGRADE GEAR** to buy longer line, wider hook, and extra shots.
+4. **Tap directly on airborne fish** to fire the pixel-art gun. Shots are unlimited during the timed shooting phase; misses break your combo. Chain successful hits within 2.4 seconds for up to **4× earnings**. Gun upgrades unlock a two-target **Scattergun** at level 2 and a three-target **Neon Blaster** at level 4, while intermediate upgrade levels improve aiming forgiveness.
+5. Visit **UPGRADE GEAR** to buy longer line, wider hook, and improved weapons or aiming.
 
 ### Controls and input settings
 
@@ -47,7 +47,7 @@ On first launch on a touch-screen phone, the game opens **Settings** to ask whet
 
 - **Tilt:** Select **Tilt** and allow motion access if requested (iOS Safari requires a tap to grant permission). Hold the phone comfortably to set neutral; tilt sideways to steer during descent/ascent. Tap **Recenter Tilt** to reset the neutral position. Only works where device orientation events are supported and permitted.
 - **Touch:** Drag horizontally on the screen while fishing. Dragging remains available as a fallback even when tilt is selected.
-- **Shooting:** Tap a flying fish to aim and fire; tilt does not aim. The visible gun tracks your last touch, recoils and flashes, and briefly draws bright bullet trails. Every firing action consumes one ammo even if it hits more than one fish.
+- **Shooting:** Tap a flying fish to aim and fire; tilt does not aim. The visible gun tracks your last touch, recoils and flashes, and briefly draws bright bullet trails. Ammo is unlimited, so you can keep firing until the shooting timer expires or all fish are hit.
 - **Desktop:** Left/right arrow keys or A/D to steer; Space or Enter to cast.
 
 Input preference is stored locally as `reel-trouble-input-v1`. HTTPS is required for orientation events (GitHub Pages serves HTTPS). Portrait orientation is recommended on mobile.

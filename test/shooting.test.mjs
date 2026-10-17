@@ -42,3 +42,9 @@ test('payout multiplies hit values safely', () => {
  assert.equal(shotPayout(10,1),10);
  assert.equal(shotPayout(-20,3),0);
 });
+
+test('every gun upgrade remains worthwhile with unlimited ammo', () => {
+ assert.ok(weaponForLevel(1).aimAssist > weaponForLevel(0).aimAssist);
+ assert.ok(weaponForLevel(3).spread > weaponForLevel(2).spread);
+ assert.ok(weaponForLevel(5).spread > weaponForLevel(4).spread);
+});

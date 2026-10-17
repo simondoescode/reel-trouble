@@ -54,5 +54,14 @@ test('shooting UI and gun rendering remain wired into gameplay',()=>{
  assert.match(game,/pickShotTargets\(/);
  assert.match(game,/nextCombo\(/);
  assert.match(game,/bestRoundCombo/);
- assert.match(game,/gun:'\+5 SHOTS \| NEW GUNS AT L2 \/ L4'/);
+ assert.match(game,/gun:'AIM BOOST \| NEW GUNS L2\/L4'/);
+});
+
+test('shooting has unlimited ammunition and ends when caught fish are shot or time expires',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/topBar\('SHOOT THE CATCH',Math\.ceil\(shootTime\)\+'s','AMMO ∞'\)/);
+ assert.doesNotMatch(game,/ammo\s*--|ammo\s*<=\s*0|ammo\s*=\s*9/);
+ assert.match(game,/if\(airborne\.every\(f=>f\.shot\)\)setTimeoutSafe\(endRound,380\)/);
+ assert.match(game,/else if\(shootTime<=0\)endRound\(\)/);
+ assert.match(game,/fired\+\+/);
 });

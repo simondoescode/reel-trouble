@@ -72,7 +72,7 @@ window.addEventListener('deviceorientation', event=>{
   if(sensorStatus==='WAITING FOR MOTION SENSOR'||sensorStatus==='NO SENSOR DATA - DRAG TO STEER'||sensorStatus==='ENABLE TILT TO STEER')sensorStatus='TILT READY';
 });
 let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, shotEffects=[], recoil=0, muzzleFlash=0;
-let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, ammo=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
+let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -258,7 +258,7 @@ function startAscent(hitFish){if(state!=='descent')return;
  blip(520,.1,'triangle');}
 function catchFish(f){if(f.caught)return;f.caught=true;caught.push({kind:f.kind,value:species[f.kind].value});burst(hookX,clamp(SEA+depth-(depth-230),100,680),C.yellow,8);blip(650+f.kind*55,.05,'sine');}
 function beginShoot(){
- state='shoot';age=0;shootTime=12;ammo=9+save.upgrades.gun*5;
+ state='shoot';age=0;shootTime=12;
  combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;
  shotEffects=[];recoil=0;muzzleFlash=0;
  const gun=weaponForLevel(save.upgrades.gun);
@@ -272,9 +272,9 @@ function beginShoot(){
  blip(880,.15,'sine');
 }
 function shootAt(x,y){
- if(state!=='shoot'||ammo<=0||endDelay>0)return;
+ if(state!=='shoot'||endDelay>0)return;
  const gun=weaponForLevel(save.upgrades.gun);
- ammo--;fired++;recoil=1;muzzleFlash=.12;
+ fired++;recoil=1;muzzleFlash=.12;
  pointer={x,y};
  const targets=pickShotTargets(airborne.map(f=>({...f,size:species[f.kind].size,original:f})),x,y,gun);
  // Keep identity through hit-testing so overlapping fish cannot consume the same hit.
@@ -306,14 +306,14 @@ function shootAt(x,y){
   burst(x,y,'#e8f6e7',5);floatLabel('MISS',x,y-18,C.cream);
   shake=clamp(shake+1.4,0,7);blip(140,.05,'sawtooth');
  }
- if(airborne.every(f=>f.shot)||ammo<=0)setTimeoutSafe(endRound,380);
+ if(airborne.every(f=>f.shot))setTimeoutSafe(endRound,380);
 }
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
 function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();blip(700,.16,'triangle');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost)return;
  save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);blip(770,.1,'triangle');}
 function upgradeConfig(type){const titles={line:'LONGER LINE',net:'WIDER HOOK',gun:'GUN UPGRADES'},base={line:65,net:90,gun:85};const lvl=save.upgrades[type];
- return {title:titles[type],level:lvl,cost:Math.round(base[type]*Math.pow(1.75,lvl)),desc:{line:'+40m of depth per level',net:'Catch fish more easily',gun:'+5 SHOTS | NEW GUNS AT L2 / L4'}[type]};}
+ return {title:titles[type],level:lvl,cost:Math.round(base[type]*Math.pow(1.75,lvl)),desc:{line:'+40m of depth per level',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};}
 function burst(x,y,color,count){
  // A few high-contrast gold and aqua sparkles make catches and shots satisfying.
  const sparks=[color,C.yellow,C.teal,C.cream,C.pink];
@@ -462,7 +462,7 @@ function shootScene(){
  }
  drawGun();
  const gun=weaponForLevel(save.upgrades.gun);
- topBar('SHOOT THE CATCH',Math.ceil(shootTime)+'s','AMMO '+ammo);
+ topBar('SHOOT THE CATCH',Math.ceil(shootTime)+'s','AMMO ∞');
  roundRect(78,81,264,35,0,'#081e35ec','#2cbebc');
  text(gun.name,204,98,13,gun.color,'center',950);
  if(combo>1){
