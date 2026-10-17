@@ -3,7 +3,7 @@ import { createArcadeAudio } from './audio.js';
 import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
-import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus } from './pwa.js';
+import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus, refreshGameFiles } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
 import { SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, allCatchResolved } from './airborne.js';
 import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } from './arcade-ui.js';
@@ -1374,9 +1374,10 @@ function settings(){
  else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
  if(!isInstalled())button('INSTALL / HELP',104,566,212,48,installGame,C.yellow);
  else text('INSTALLED APP',210,587,15,C.yellow);
- text('INSTALL FROM BROWSER • NOT IN-APP VIEWER',210,648,16,C.white,'center',900,0,357);
- button('← BACK',62,682,296,59,()=>{state='menu';age=0;},C.yellow);
- text('TAP FISH • DRAG TO STEER',210,761,16,C.white,'center',900,0,370);
+ button('REFRESH GAME / CLEAR CACHE',54,627,312,48,()=>{refreshGameFiles().catch(()=>{installMessage='REFRESH FAILED - TRY RELOADING';state='install';age=0;});},C.teal);
+ text('KEEPS YOUR COINS AND UPGRADES',210,687,16,C.white,'center',900,0,355);
+ button('← BACK',62,716,296,45,()=>{state='menu';age=0;},C.yellow);
+
 }
 function pausedScene(){
  ctx.fillStyle='#031225ee';ctx.fillRect(0,0,W,H);
