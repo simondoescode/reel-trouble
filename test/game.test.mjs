@@ -274,22 +274,3 @@ test('canvas bootstrap shows refresh controls if JavaScript fails',()=>{
  assert.match(css,/body\.game-ready #game-boot\{display:none\}/);
  assert.match(game,/document\.body\.classList\.add\('game-ready'\)/);
 });
-\+costs\[lvl\]/);
- assert.match(source,/function buyLight\(\)/);
- assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
- assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
- assert.doesNotMatch(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \n/);
-});
-
-
-test('canvas bootstrap shows refresh controls if JavaScript fails',()=>{
- const html=read('index.html'),css=read('src/styles.css'),game=read('src/game.js');
- assert.match(html,/id="game-boot"/);
- assert.match(html,/id="recover-game"/);
- assert.match(html,/navigator\.serviceWorker\.getRegistrations\(\)/);
- assert.match(html,/k\.startsWith\('reel-trouble-offline-'\)/);
- assert.match(html,/window\.addEventListener\('error'/);
- assert.match(html,/location\.replace\(fresh\.href\)/);
- assert.match(css,/body\.game-ready #game-boot\{display:none\}/);
- assert.match(game,/document\.body\.classList\.add\('game-ready'\)/);
-});
