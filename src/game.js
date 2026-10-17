@@ -142,6 +142,7 @@ function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;s
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
+let deepestCast=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function awardBonus(value){
@@ -516,11 +517,12 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;deepestCast=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
 function startAscent(hitFish,stung=false){if(state!=='descent')return;
+ deepestCast=Math.max(deepestCast,depth);
  state='ascent';age=0;message='REEL THEM IN!';messageTimer=1.9;if(hitFish)catchFish(hitFish);
  else if(!caught.length&&!stung){const nearest=fishes.filter(f=>!f.caught).sort((a,b)=>Math.abs(a.d-depth)-Math.abs(b.d-depth))[0];if(nearest)catchFish(nearest);}
  sound.play('reel');sceneFlash=.16;stageCue('reel');}
@@ -543,6 +545,7 @@ function catchFish(f){
  sound.play('catch',{pitch:f.kind});rumble.play(species[f.kind].rare?'legendary':'catch');
 }
 function beginShoot(){
+ deepestCast=Math.max(deepestCast,depth);
  state='shoot';age=0;shootTime=16;endDelay=0;
  combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;
  shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];
@@ -801,6 +804,27 @@ function topBar(title,left,right){
  if(left)text(left,244,47,16,C.white,'center',900,0,66);
 }
 function bottomHint(hint){roundRect(21,711,378,51,0,'#061d34fa','#6beedc',2);text(hint,210,737,16,C.white,'center',900,0,357);}
+function sideDepthGauge(){
+ // Slim right-hand depth scale, outside the hook's primary travel lane.
+ const x=379, top=238, height=405, progress=clamp(depth/maxDepth,0,1);
+ ctx.save();
+ roundRect(346,214,60,455,12,'#061d34dd','#62e8e3',2);
+ text('DEPTH',376,231,16,C.white,'center',900,0,55);
+ roundRect(x-7,top,14,height,6,'#051729','#528b9c',2);
+ // The scale reads top-to-bottom, just like the descent.
+ for(let i=0;i<=4;i++){
+  const y=top+height*i/4;
+  line(x-26,y,x-10,y,'#b6fff0',2);
+  text(meter(maxDepth*i/4),x-28,y,16,C.white,'right',900,0,48);
+ }
+ const filled=Math.max(0,Math.round(height*progress));
+ if(filled>0)roundRect(x-4,top,8,filled,3,state==='descent'?C.yellow:C.teal);
+ const markerY=top+height*progress;
+ roundRect(x-12,markerY-5,24,10,3,C.yellow,'#071a32',2);
+ roundRect(350,672,54,34,8,'#061d34ed',C.yellow,2);
+ text(meter(depth),377,689,16,C.white,'center',900,0,52);
+ ctx.restore();
+}
 function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
  bgUndersea(camera);const surf=SEA-camera;
  if(surf>45&&surf<H+60){boat(W/2,surf-7);}
@@ -817,6 +841,7 @@ for(const h of hazards){
 }
  caught.forEach((f,i)=>{fish(hookX+Math.sin(clock*3+i)*12,hy+35+i*20,f.kind,i%2?-1:1,.6,clock*4+i);});
  hook(hookX,hy);
+ sideDepthGauge();
  topBar(state==='descent'?'DIVING ↓':'REELING ↑','',`${meter(depth)} / ${meter(maxDepth)}`);
  const biome=biomeAtDepth(depth);
  roundRect(18,112,159,37,0,'#08253bf5','#76fae2',2);
@@ -1145,17 +1170,19 @@ function results(){
  text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
  if(newFishThisCast||newBadgesThisCast)
   text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
- neonPanel(35,217,350,264,C.yellow,21);
+ neonPanel(35,217,350,291,C.yellow,21);
  text('YOUR ARCADE PAYOUT',210,259,18,C.white,'center',900,0,310);
  const reveal=lowFx?1:easeOutCubic(Math.min(1,age/.95));
  const counted=Math.round(roundEarnings*reveal);
  text('+$'+counted,210,327,68,C.white,'center',1000,-3,320);
  arcadeRule(64,373,356,C.yellow);
- text('HITS / SHOTS',77,414,17,C.white,'left',900);
- text(landed+' / '+fired,343,414,19,C.white,'right',900);
- text('BEST COMBO',77,452,17,C.white,'left',900);
- text('x'+Math.max(1,bestRoundCombo),343,452,19,C.white,'right',900);
- if(escaped)text(escaped+' FISH SPLASHED BACK',210,499,16,C.white,'center',900);
+ text('HITS / SHOTS',77,405,17,C.white,'left',900);
+ text(landed+' / '+fired,343,405,19,C.white,'right',900);
+ text('BEST COMBO',77,439,17,C.white,'left',900);
+ text('x'+Math.max(1,bestRoundCombo),343,439,19,C.white,'right',900);
+ text('DEEPEST DIVE',77,479,17,C.white,'left',900);
+ text(meter(deepestCast),343,479,21,C.white,'right',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
  neonPanel(91,508,238,43,'#47e5d7',13);
  text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
  titleActionGlow(clock,64,567,292,62);
