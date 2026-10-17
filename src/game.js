@@ -3,7 +3,7 @@ import { createArcadeAudio } from './audio.js';
 import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
-import { setupPwa, canInstall, isInstalled, requestInstall } from './pwa.js';
+import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
 (() => {
 'use strict';
@@ -58,11 +58,20 @@ function installGame(){
  if(isInstalled()){installMessage='ALREADY INSTALLED';return;}
  if(canInstall()){
   installMessage='OPENING INSTALL PROMPT';
-  requestInstall().then(ok=>{installMessage=ok?'INSTALL REQUESTED':'USE BROWSER INSTALL MENU';});
- }else if(/iPad|iPhone|iPod/.test(navigator.userAgent || '')){
-  installMessage='SHARE > ADD TO HOME SCREEN';
- }else installMessage='BROWSER MENU > INSTALL APP';
+  requestInstall().then(ok=>{installMessage=ok?'INSTALL REQUESTED':'SEE INSTALL HELP';if(!ok){state='install';age=0;}});
+ }else{
+  // A browser cannot force an install prompt when none was provided.
+  state='install';age=0;installMessage='OPEN IN CHROME OR SAFARI';
+ }
 }
+async function copyGameLink(){
+ try{
+  const url=new URL('./',document.baseURI).href;
+  await navigator.clipboard.writeText(url);
+  installMessage='GAME LINK COPIED';
+ }catch(_){installMessage='COPY URL FROM YOUR ADDRESS BAR';}
+}
+
 const rotateNotice=document.getElementById('rotate-notice');
 document.getElementById('play-landscape')?.addEventListener('click',()=>{
  document.body.classList.add('landscape-dismissed');
@@ -795,35 +804,166 @@ function shootScene(){
  bottomHint('TAP FISH • CHAIN HITS FOR x4');
  button('II',362,124,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
-function decoFish(){const float=clock;
- fish(58,380,1,1,2.1,float);fish(365,448,2,-1,1.7,float+2);fish(132,535,0,-1,1.4,float*1.5);fish(340,587,4,1,1,float+1);
- for(let i=0;i<20;i++){ctx.fillStyle='#9bfff47a';ctx.fillRect(Math.floor(((i*57+30)%W)/4)*4,Math.floor(((i*86+float*18)%H)/4)*4,4,4);}
-}
-function menu(){ambient(clock);decoFish();
- roundRect(85,49,250,34,0,'#0c496b','#80fff0',2);
- text('AN ORIGINAL ARCADE GAME',210,66,16,C.white,'center',900,0,236);
- if(titleLogo.complete&&titleLogo.naturalWidth>0){
-  const width=305,height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
-  ctx.drawImage(titleLogo,(W-width)/2,91,width,height);
- }else{
-  // The game remains playable if the logo is still loading or unavailable.
-  text('REEL',210,175,68,C.white,'center',900,0,370);
-  text('TROUBLE!',210,248,51,C.white,'center',900,0,397);
+// Animated title screen: gradient water, layered parallax and playful sea life.
+// All effects render UNDER the interface, so bold white text stays clear.
+function titleWave(t,y,amplitude,frequency,fill){
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,y+Math.sin(t*.55)*amplitude);
+ for(let x=18;x<=W+18;x+=18){
+  const roll=Math.sin(x*.016*frequency+t*.55+frequency)*amplitude;
+  const ripple=Math.sin(x*.055+t*.9+frequency)*amplitude*.24;
+  ctx.lineTo(x,y+roll+ripple);
  }
- roundRect(35,323,350,36,0,'#061c35f5','#19bedd',2);
- text('GO DEEP. GET FISH. GET RICH.',210,341,17,C.white,'center',900,0,330);
- panel(32,367,356,93);
- text('DODGE ON THE WAY DOWN',210,393,19,C.white,'center',900,0,326);
- text('CATCH UP • SHOOT FOR CASH',210,430,19,C.white,'center',900,0,326);
- roundRect(33,607,354,85,0,'#0b3048fa','#64eade',2);
- text(`WALLET  $${save.cash}`,104,636,16,C.yellow,'center',930);text(`BEST  $${save.best}`,308,636,16,C.mint,'center',930);
- text(inputChoice==='tilt'?'TILT TO STEER • TOUCH ALSO WORKS':'DRAG OR USE ARROW KEYS TO STEER',210,665,13,C.cream,'center',850,0,334);
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+}
+function titleBackdrop(t){
+ const motion=lowFx?0:t;
+ const sky=ctx.createLinearGradient(0,0,0,H);
+ sky.addColorStop(0,'#071b34');
+ sky.addColorStop(.27,'#124c70');
+ sky.addColorStop(.48,'#126584');
+ sky.addColorStop(.73,'#0b4465');
+ sky.addColorStop(1,'#061d38');
+ ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ // A cool glow draws the eye to the illustrated logo, not the background.
+ const bloom=ctx.createRadialGradient(210,193,20,210,193,285);
+ bloom.addColorStop(0,'rgba(68,234,232,0.27)');
+ bloom.addColorStop(.57,'rgba(42,156,192,0.10)');
+ bloom.addColorStop(1,'rgba(15,69,117,0)');
+ ctx.fillStyle=bloom;ctx.fillRect(0,0,W,490);
+ const stars=lowFx?11:22;
+ for(let i=0;i<stars;i++){
+  const x=(i*97+31)%W,y=(i*71+29)%305;
+  const shimmer=lowFx?.24:(.23+.15*Math.sin(motion*.95+i*2.8));
+  ctx.fillStyle='rgba(207,253,254,'+shimmer.toFixed(3)+')';
+  ctx.fillRect(x,y,i%6===0?3:2,i%6===0?3:2);
+ }
+ // Gently animated sunbeams under the fish and menu cards.
+ ctx.save();ctx.beginPath();ctx.rect(0,300,W,380);ctx.clip();
+ for(let i=0;i<3;i++){
+  const x=39+i*168+Math.sin(motion*.22+i)*9;
+  const ray=ctx.createLinearGradient(0,320,0,690);
+  ray.addColorStop(0,'rgba(137,255,245,0.09)');
+  ray.addColorStop(1,'rgba(137,255,245,0)');
+  ctx.fillStyle=ray;ctx.beginPath();
+  ctx.moveTo(x-13,318);ctx.lineTo(x+28,318);
+  ctx.lineTo(x+132,690);ctx.lineTo(x+4,690);
+  ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ titleWave(motion,323,7,1.1,'rgba(42,191,207,0.30)');
+ titleWave(motion*.75,345,11,1.55,'rgba(24,110,150,0.40)');
+ titleWave(motion*.42,558,19,1.25,'rgba(9,60,90,0.46)');
+ ctx.save();ctx.globalAlpha=lowFx?.16:.25;
+ ctx.strokeStyle='#8af1e8';ctx.lineWidth=2;
+ for(let i=0;i<6;i++){
+  const x=(i*87+Math.sin(motion*.4+i)*12+15)%W;
+  const y=378+i*39+Math.sin(motion*.52+i)*9;
+  ctx.beginPath();ctx.moveTo(x-13,y);ctx.quadraticCurveTo(x,y+7,x+27,y-2);ctx.stroke();
+ }
+ ctx.restore();
+ // Edge plants and a subdued vignette frame the central interactive column.
+ ctx.save();ctx.globalAlpha=.42;
+ for(let i=0;i<8;i++){
+  const x=i<4?6+i*17:W-65+(i-4)*17;
+  const length=46+(i%4)*23;
+  ctx.fillStyle=i%2?'#0e6670':'#174e64';
+  for(let j=0;j<length;j+=15){
+   const offset=Math.round(Math.sin(motion*.55+i*.9+j*.028)*4);
+   ctx.fillRect(x+offset,H-j-15,5,16);
+   if(j>0)ctx.fillRect(x+offset+(i%2?4:-9),H-j-9,12,5);
+  }
+ }
+ ctx.restore();
+ const vignette=ctx.createRadialGradient(W*.5,H*.43,W*.18,W*.5,H*.5,H*.9);
+ vignette.addColorStop(0,'rgba(3,13,30,0)');
+ vignette.addColorStop(1,'rgba(2,12,28,0.35)');
+ ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
+}
+function titleSeaLife(t){
+ const motion=lowFx?0:t;
+ const swimmers=[
+  {kind:6,y:388,scale:.9,rate:15,offset:40,dir:1},
+  {kind:3,y:462,scale:1.1,rate:12,offset:276,dir:-1},
+  {kind:1,y:557,scale:.95,rate:21,offset:110,dir:1},
+  {kind:13,y:614,scale:.60,rate:16,offset:340,dir:-1},
+ ];
+ for(const s of swimmers){
+  const travel=(motion*s.rate+s.offset)%(W+160);
+  const x=s.dir===1?-80+travel:W+80-travel;
+  const y=s.y+Math.sin(motion*.7+s.offset)*10;
+  ctx.save();ctx.globalAlpha=s.kind===13?.73:.61;
+  fish(x,y,s.kind,s.dir,s.scale,motion*2+s.offset);
+  ctx.restore();
+ }
+ ctx.fillStyle='rgba(135,219,225,0.22)';
+ for(let i=0;i<9;i++){
+  const x=((i*25+motion*10+W*2)%(W+70))-35;
+  const y=516+Math.sin(i*.72+motion*.65)*13;
+  ctx.fillRect(x,y,9,4);ctx.fillRect(x-4,y+1,4,2);
+ }
+ for(let i=0;i<(lowFx?9:20);i++){
+  const x=18+((i*79)%383)+Math.sin(motion*.37+i)*8;
+  const lift=((motion*(5+i%5*2)+i*43)%420);
+  const y=H-18-lift,size=i%6===0?7:i%3===0?5:3;
+  ctx.save();ctx.globalAlpha=i%4===0?.32:.18;
+  ctx.strokeStyle='#ccfbff';ctx.lineWidth=1.5;
+  ctx.strokeRect(Math.round(x),Math.round(y),size,size);
+  ctx.restore();
+ }
+}
+function titleActionGlow(t,x,y,w,h){
+ if(lowFx)return;
+ const pulse=.38+.25*(.5+.5*Math.sin(t*2.8));
+ ctx.save();
+ ctx.strokeStyle='rgba(255,230,126,'+pulse.toFixed(3)+')';
+ ctx.lineWidth=2;ctx.strokeRect(x-5,y-5,w+10,h+10);
+ ctx.fillStyle='rgba(255,230,126,'+(pulse*.09).toFixed(3)+')';
+ ctx.fillRect(x-7,y-7,w+14,h+14);ctx.restore();
+}
+function menu(){
+ const t=lowFx?0:clock;
+ titleBackdrop(t);titleSeaLife(t);
+ roundRect(44,37,332,41,0,'#061b35f1','#65e7dd',2);
+ text('THE DEEP-SEA ARCADE',210,58,18,C.white,'center',900,0,315);
+ const bob=lowFx?0:Math.sin(t*1.15)*3;
+ if(titleLogo.complete&&titleLogo.naturalWidth>0){
+  const width=320,height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
+  ctx.save();
+  if(!lowFx){ctx.shadowColor='rgba(37,225,211,0.30)';ctx.shadowBlur=16;}
+  ctx.drawImage(titleLogo,(W-width)/2,90+bob,width,height);
+  ctx.restore();
+ }else{
+  text('REEL',210,173+bob,67,C.white,'center',900,0,373);
+  text('TROUBLE!',210,250+bob,50,C.white,'center',900,0,394);
+ }
+ roundRect(29,326,362,37,0,'#061b35f2','#5ad8da',2);
+ text('GO DEEP. GET FISH. GET RICH.',210,345,17,C.white,'center',900,0,340);
+ roundRect(26,373,368,92,0,'#061d36f5','#3ecac8',2);
+ roundRect(39,384,36,31,0,'#114969','#6ee7dd',2);
+ roundRect(39,422,36,31,0,'#114969','#6ee7dd',2);
+ text('01',57,400,17,C.white,'center',900,0,32);
+ text('02',57,438,17,C.white,'center',900,0,32);
+ text('DODGE FISH ON THE WAY DOWN',86,400,17,C.white,'left',900,0,291);
+ text('REEL UP, THEN SHOOT YOUR CATCH',86,438,17,C.white,'left',900,0,290);
  const progress=collectionProgress(save.collection);
- text('DISCOVERED '+progress.discovered+'/'+progress.total+' • '+progress.percentage+'% • '+progress.unlocked+' BADGES',210,478,14,C.mint,'center',900,0,379);
- button('CAST LINE',75,500,270,58,beginCast,C.yellow);
- button('FISH ENCYCLOPEDIA',77,563,266,39,()=>openCollection('fish'),C.teal);
- button('UPGRADES',37,712,170,45,()=>{state='shop';age=0;},C.cream);
- button('SETTINGS',217,712,166,45,()=>{state='settings';age=0;},C.cream);
+ roundRect(29,472,362,28,0,'#061b35f4','#275b73',2);
+ text('DISCOVERED '+progress.discovered+'/'+progress.total+'  •  '+progress.percentage+'%  •  '+progress.unlocked+' BADGES',210,486,16,C.white,'center',900,0,345);
+ titleActionGlow(t,68,511,284,60);
+ button('CAST LINE',68,511,284,60,beginCast,C.yellow);
+ if(isInstalled()){
+  button('FISH ENCYCLOPEDIA',68,582,284,43,()=>openCollection('fish'),C.teal);
+ }else{
+  button('FISH BOOK',29,582,183,43,()=>openCollection('fish'),C.teal);
+  button('INSTALL APP',223,582,168,43,installGame,C.mint);
+ }
+ roundRect(29,638,362,61,0,'#061b35f5','#4e8c98',2);
+ ctx.fillStyle='#4e8c9880';ctx.fillRect(209,646,2,45);
+ text('WALLET',121,654,16,C.white,'center',900,0,158);
+ text('$'+save.cash,121,681,21,C.white,'center',900,0,157);
+ text('BEST CAST',300,654,16,C.white,'center',900,0,158);
+ text('$'+save.best,300,681,21,C.white,'center',900,0,156);
+ button('UPGRADES',29,716,174,45,()=>{state='shop';age=0;},C.cream);
+ button('SETTINGS',217,716,174,45,()=>{state='settings';age=0;},C.cream);
 }
 function results(){ambient(clock);
  text('NICE CATCH!',210,123,43,C.yellow,'center',1000,-.8);
@@ -932,6 +1072,32 @@ function fishDetail(){
  button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
  button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
 }
+function installScene(){
+ titleBackdrop(lowFx?0:clock);
+ text('INSTALL THE GAME',210,91,33,C.white,'center',900,0,380);
+ text('PLAY FULLSCREEN • WORKS OFFLINE',210,130,16,C.white,'center',900,0,380);
+ panel(24,157,372,405);
+ const guide=installGuide();
+ text('FOR '+guide.platform.toUpperCase(),210,197,21,C.white,'center',900,0,343);
+ text('BROWSER INSTALL STEPS',210,240,17,C.white,'center',900,0,339);
+ for(let i=0;i<guide.steps.length;i++){
+  const y=278+i*66;
+  roundRect(39,y-19,40,40,0,'#0b4260','#3cf0e1',2);
+  text('0'+(i+1),59,y+2,19,C.white,'center',900,0,37);
+  text(guide.steps[i],89,y+2,16,C.white,'left',900,0,279);
+ }
+ roundRect(28,577,364,49,0,'#08243ef4','#64eade',2);
+ const status=serviceWorkerStatus();
+ const hint=canInstall()?'READY FOR INSTALL PROMPT':
+  status==='ready'?'OFFLINE SERVICE READY':
+  status==='failed'?'OFFLINE SETUP FAILED • TRY RELOAD':
+  'OPEN IN YOUR REGULAR BROWSER';
+ text(hint,210,601,16,C.white,'center',900,0,340);
+ if(canInstall())button('INSTALL NOW',62,640,296,52,installGame,C.yellow);
+ else button('COPY GAME LINK',62,640,296,52,copyGameLink,C.teal);
+ text(installMessage,210,710,16,C.white,'center',900,0,360);
+ button('← BACK',100,733,220,41,()=>{state='menu';age=0;},C.cream);
+}
 function settings(){
  ambient(clock);
  text('SETTINGS',210,85,42,C.cream,'center',1000);
@@ -951,9 +1117,9 @@ function settings(){
  button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
  if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
  else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
- if(!isInstalled())button('INSTALL APP',104,566,212,48,installGame,C.yellow);
+ if(!isInstalled())button('INSTALL / HELP',104,566,212,48,installGame,C.yellow);
  else text('INSTALLED APP',210,587,15,C.yellow);
- text(installMessage,210,648,13,C.cream,'center',850,0,356);
+ text('INSTALL FROM BROWSER • NOT IN-APP VIEWER',210,648,16,C.white,'center',900,0,357);
  button('← BACK',62,682,296,59,()=>{state='menu';age=0;},C.yellow);
  text('TAP FISH • DRAG TO STEER',210,761,16,C.white,'center',900,0,370);
 }
@@ -967,7 +1133,7 @@ function pausedScene(){
 }
 function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
- if(state==='menu')menu();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
  overlayParticles();drawSplashEffects(lastFrameDt);
  if(sceneFlash>0&&!lowFx){
    ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';

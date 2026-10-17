@@ -147,7 +147,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/colors:\['#17667a'/);
  assert.match(ocean,/colors:\['#205c67'/);
  assert.match(ocean,/colors:\['#263d71'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v9/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v10/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{

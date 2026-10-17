@@ -146,3 +146,10 @@ The canonical brand asset paths are **`assets/title-logo.webp`** for the illustr
 ## Underwater gradient and fish contrast
 
 Diving and reeling now show a continuous 17-stop vertical water gradient blended through the reef, kelp and twilight trench using world depth; the previous horizontal 35-pixel colour bars are removed. Biome palettes are cooler, muted and darker than the fish. Light rays, edge scenery and a soft vignette add depth without cluttering the fish area; floating specks are fewer and more transparent. Each pixel fish receives a crisp dark silhouette around its original vivid artwork. Fish movement, collision boxes, catches and shooting are unchanged. PWA cache updated to v9 for installed users.
+
+
+## Animated title screen & improved app installation
+
+The main menu uses a new procedural ocean illustration: smoothly shaded deep-sea gradients, gentle surface waves, soft caustics and light rays, a moving school and independent fish, slow bubbles, sea plants framing the outer edges, floating illustrated logo and a subtle highlight on the main CAST LINE button. Decorative elements remain behind high-contrast dark UI panels and bold white labels. In low-effects mode all motion is frozen and particle counts fall.
+
+An INSTALL APP shortcut is now visible on the title screen where the game is not installed. The existing native browser install prompt is used when available; if not, a dedicated help screen provides platform-specific steps for Android Chrome, iOS Safari and desktop browsers, with a COPY GAME LINK option for players opening the site from in-app browsers. Service-worker registration is also resilient to running after the page load event, and resolves its URL relative to the HTML document rather than the Vite asset bundle. Browser installation cannot be forced: users may need to open the game in Chrome or Safari before using the browser's install/home-screen command. Cache v10 refreshes the installed shell.
