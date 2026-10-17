@@ -1117,19 +1117,36 @@ function menu(){
  button('UPGRADES',29,716,174,45,()=>{state='shop';age=0;},C.cream);
  button('SETTINGS',217,716,174,45,()=>{state='settings';age=0;},C.cream);
 }
-function results(){ambient(clock);
- text('NICE CATCH!',210,123,43,C.yellow,'center',1000,-.8);
+function results(){
+ titleBackdrop(clock*.38);
+ // Small celebratory glints sit behind the reward card, never over the text.
+ const motion=lowFx?0:clock;
+ for(let i=0;i<(lowFx?7:18);i++){
+  const x=(i*71+37)%W,y=116+((i*97+motion*(i%3+1)*11)%490);
+  ctx.save();ctx.globalAlpha=.22+.17*(Math.sin(motion*2+i)+1)*.5;
+  ctx.fillStyle=i%3===0?C.yellow:C.teal;ctx.fillRect(x,y,i%4===0?5:3,i%4===0?5:3);
+  ctx.restore();
+ }
+ arcadePill('RUN COMPLETE',115,51,190,C.yellow);
+ text('NICE CATCH!',210,123,43,C.white,'center',1000,-.8);
  text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
- if(newFishThisCast||newBadgesThisCast)text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,13,C.yellow,'center',900);
- panel(35,217,350,264);
- text('THIS CAST',210,255,15,C.mint,'center',900,1.8);
- text('+$'+roundEarnings,210,327,73,C.cream,'center',1000,-3);
- line(64,373,356,373,'#397587');
- text('HITS / SHOTS',77,414,17,C.white,'left',900);text(landed+' / '+fired,343,414,19,C.cream,'right',900);
- text('BEST COMBO',77,452,17,C.white,'left',900);text('x'+Math.max(1,bestRoundCombo),343,452,19,C.yellow,'right',900);
- if(escaped)text(escaped+' FISH SPLASHED BACK',210,499,16,C.cream,'center',900);
- text(`WALLET: $${save.cash}`,210,520,19,C.yellow,'center',900);
- button('FISH AGAIN',64,567,292,62,beginCast,C.yellow);
+ if(newFishThisCast||newBadgesThisCast)
+  text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
+ neonPanel(35,217,350,264,C.yellow,21);
+ text('YOUR ARCADE PAYOUT',210,259,18,C.white,'center',900,0,310);
+ const reveal=lowFx?1:easeOutCubic(Math.min(1,age/.95));
+ const counted=Math.round(roundEarnings*reveal);
+ text('+$'+counted,210,327,68,C.white,'center',1000,-3,320);
+ arcadeRule(64,373,356,C.yellow);
+ text('HITS / SHOTS',77,414,17,C.white,'left',900);
+ text(landed+' / '+fired,343,414,19,C.white,'right',900);
+ text('BEST COMBO',77,452,17,C.white,'left',900);
+ text('x'+Math.max(1,bestRoundCombo),343,452,19,C.white,'right',900);
+ if(escaped)text(escaped+' FISH SPLASHED BACK',210,499,16,C.white,'center',900);
+ neonPanel(91,508,238,43,'#47e5d7',13);
+ text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
+ titleActionGlow(clock,64,567,292,62);
+ button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
  button('GEAR SHOP',25,647,178,53,()=>{state='shop';age=0;},C.cream);
  button('FISH BOOK',217,647,178,53,()=>openCollection('fish'),C.teal);
  button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
@@ -1277,12 +1294,18 @@ function settings(){
  text('TAP FISH • DRAG TO STEER',210,761,16,C.white,'center',900,0,370);
 }
 function pausedScene(){
- ctx.fillStyle='#06182cdd';ctx.fillRect(0,0,W,H);
- text('PAUSED',210,261,47,C.cream,'center',1000);
- text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'GAME PAUSED AUTOMATICALLY',210,317,13,C.mint,'center',850);
- text('YOUR CATCH WILL NOT MOVE',210,353,12,C.muted,'center',800);
- button('RESUME',76,417,268,65,resumeGame,C.yellow);
- button('MAIN MENU',96,510,228,53,menuFromPause,C.cream);
+ ctx.fillStyle='#031225ee';ctx.fillRect(0,0,W,H);
+ const glow=ctx.createRadialGradient(210,380,20,210,380,290);
+ glow.addColorStop(0,'#19aaa929');glow.addColorStop(1,'#071a3200');
+ ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
+ neonPanel(35,219,350,368,C.teal,23);
+ arcadePill('BREAK TIME',133,239,154,C.teal);
+ text('PAUSED',210,313,52,C.white,'center',1000);
+ text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'PAUSED AUTOMATICALLY',210,356,17,C.white,'center',900,0,309);
+ arcadeRule(85,382,335,C.teal);
+ text('YOUR CATCH WILL NOT MOVE',210,399,17,C.white,'center',900,0,320);
+ button('RESUME',76,437,268,65,resumeGame,C.yellow);
+ button('MAIN MENU',96,521,228,53,menuFromPause,C.cream);
 }
 function drawStageTransition(){
  if(!sceneTransition)return;
