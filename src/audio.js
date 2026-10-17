@@ -66,8 +66,9 @@ export function createArcadeAudio(){
   const c=getContext();if(!c)return;
   if(c.state==='suspended')void c.resume().catch(()=>{});
  }
- function fade(gain,value,time=.075){
-  if(!ctx||!gain)return;
+ function fade(node,value,time=.075){
+  if(!ctx||!node)return;
+  const gain=node.gain||node;
   gain.cancelScheduledValues?.(ctx.currentTime);
   gain.setTargetAtTime(value,ctx.currentTime,time);
  }
