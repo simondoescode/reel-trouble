@@ -48,7 +48,7 @@ let installMessage='INSTALL AS AN APP FOR OFFLINE PLAY';
 function savePreferences(){try{localStorage.setItem('reel-trouble-mobile-settings-v1',JSON.stringify({sound:soundEnabled,music:musicEnabled,rumble:rumbleEnabled,lowFx}));}catch(_){}}
 function toggleSound(){soundEnabled=!soundEnabled;savePreferences();sound.setOptions({sound:soundEnabled,music:musicEnabled});sound.unlock();}
 function toggleMusic(){musicEnabled=!musicEnabled;savePreferences();sound.setOptions({sound:soundEnabled,music:musicEnabled});sound.unlock();}
-function toggleEffects(){lowFx=!lowFx;savePreferences();shake=0;}
+function toggleEffects(){lowFx=!lowFx;savePreferences();shake=0;if(lowFx)sceneTransition=null;}
 function toggleRumble(){
  if(!rumble.supported())return;
  rumbleEnabled=!rumbleEnabled;
@@ -138,7 +138,7 @@ function pauseGame(reason='MANUAL'){
  paused=true;pauseReason=reason;pointerDown=false;keys.clear();sound.pause(true);rumble.stop();
 }
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
-function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sound.pause(false);rumble.stop();}
+function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sceneTransition=null;sound.pause(false);rumble.stop();}
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
@@ -155,7 +155,8 @@ function updateAchievements(){
  floatLabel(granted.unlocked.length===1?granted.unlocked[0].title:'BADGES +'+granted.unlocked.length,210,207,C.yellow);
  sound.play('upgrade');
 }
-function openCollection(tab='fish'){collectionTab=tab;collectionPage=0;state='collection';age=0;}
+function openCollection(tab='fish'){collectionTab=tab;collectionPage=0;sceneTransition=null;state='collection';age=0;}
+function stageCue(kind){sceneTransition=startStage(kind,lowFx);}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
 const irand=(a,b)=>Math.floor(rand(a,b+1));
@@ -518,11 +519,11 @@ function beginCast(){
  castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
- message='DODGE THE FISH!';messageTimer=2.1;}
+ message='DODGE THE FISH!';messageTimer=2.1;stageCue('dive');}
 function startAscent(hitFish,stung=false){if(state!=='descent')return;
  state='ascent';age=0;message='REEL THEM IN!';messageTimer=1.9;if(hitFish)catchFish(hitFish);
  else if(!caught.length&&!stung){const nearest=fishes.filter(f=>!f.caught).sort((a,b)=>Math.abs(a.d-depth)-Math.abs(b.d-depth))[0];if(nearest)catchFish(nearest);}
- sound.play('reel');sceneFlash=.16;}
+ sound.play('reel');sceneFlash=.16;stageCue('reel');}
 function catchFish(f){
  if(f.caught)return;f.caught=true;
  caught.push({kind:f.kind,value:species[f.kind].value});
@@ -551,10 +552,11 @@ function beginShoot(){
  messageTimer=2;
  airborne=caught.map((f,i)=>makeAirborneCatch(f,i,caught.length));
  if(!caught.length){endRound();return;}
+ stageCue('shoot');
  emitSplash(210,SHOOT_WATERLINE,C.teal,1.5);sceneFlash=.23;sound.play('splash');
 }
 function shootAt(x,y){
- if(state!=='shoot'||endDelay>0)return;
+ if(state!=='shoot'||endDelay>0||sceneTransition)return;
  const gun=weaponForLevel(save.upgrades.gun);
  fired++;recoil=1;muzzleFlash=.16;sound.play('shot',{pitch:gun.tier});
  pointer={x,y};
@@ -610,7 +612,7 @@ function shootAt(x,y){
  }
 }
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
-function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');}
+function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');stageCue('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost)return;
  save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 function upgradeConfig(type){const titles={line:'LONGER LINE',net:'WIDER HOOK',gun:'GUN UPGRADES'},base={line:65,net:90,gun:85};const lvl=save.upgrades[type];
@@ -666,6 +668,12 @@ function update(dt){
   dt*=hitFreeze>0?.1:finisherSlow>0?.24:1;
  }
  sound.update(realDt,state,document.hidden);
+ // The brief stage card freezes all gameplay timers and fish motion.
+ if(sceneTransition){
+  sceneTransition.elapsed+=realDt;
+  if(sceneTransition.elapsed>=sceneTransition.duration)sceneTransition=null;
+  return;
+ }
  clock+=realDt;if(!lowFx)waveT+=dt;age+=realDt;
  shake=lowFx?0:Math.max(0,shake-realDt*23);if(messageTimer>0)messageTimer-=realDt;
  sceneFlash=Math.max(0,sceneFlash-dt*1.7);
@@ -1256,6 +1264,39 @@ function pausedScene(){
  button('RESUME',76,417,268,65,resumeGame,C.yellow);
  button('MAIN MENU',96,510,228,53,menuFromPause,C.cream);
 }
+function drawStageTransition(){
+ if(!sceneTransition)return;
+ const stage=ARCADE_STAGES[sceneTransition.kind];
+ if(!stage)return;
+ const frame=stageFrame(sceneTransition.elapsed,sceneTransition.duration);
+ if(frame.visibility<=0)return;
+ ctx.save();
+ ctx.globalAlpha=frame.visibility;
+ ctx.fillStyle='#031326f2';ctx.fillRect(0,0,W,H);
+ const glow=ctx.createRadialGradient(W/2,380,22,W/2,380,310);
+ glow.addColorStop(0,stage.accent+'55');
+ glow.addColorStop(1,'#03132600');
+ ctx.fillStyle=glow;ctx.fillRect(0,65,W,H-125);
+ ctx.fillStyle=stage.accent;
+ for(let i=0;i<6;i++){
+  const x=-90+i*106+frame.accentProgress*42;
+  ctx.globalAlpha=frame.visibility*(.08+i%2*.055);
+  ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+23,0);
+  ctx.lineTo(x-150,H);ctx.lineTo(x-173,H);ctx.closePath();ctx.fill();
+ }
+ ctx.globalAlpha=frame.visibility;
+ const panelY=270+frame.slide;
+ neonPanel(25,panelY,370,234,stage.accent,22);
+ arcadePill('STAGE '+stage.number,147,panelY+18,126,stage.accent);
+ text(stage.title,210,panelY+104,42,C.white,'center',900,0,340);
+ arcadeRule(80,panelY+141,340,stage.accent);
+ text(stage.subtitle,210,panelY+171,18,C.white,'center',900,0,330);
+ for(let i=0;i<3;i++){
+  const x=91+i*83,y=panelY+203;
+  roundRect(x,y,72,7,4,i+1<=Number(stage.number)?stage.accent:'#2d4a62');
+ }
+ ctx.restore();
+}
 function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
  if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='collection')collection();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
@@ -1264,6 +1305,7 @@ function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
    ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
    ctx.fillRect(0,0,W,H);
  }
+ drawStageTransition();
  ctx.restore();
  if(paused){hits=[];pausedScene();}
  display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
