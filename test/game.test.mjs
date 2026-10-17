@@ -150,7 +150,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/colors:\['#17667a'/);
  assert.match(ocean,/colors:\['#205c67'/);
  assert.match(ocean,/colors:\['#263d71'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v11/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v12/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
@@ -196,4 +196,20 @@ test('fishing sea uses gradient depth transitions, faint decoration and fish out
  assert.match(fish,/const border=Math\.max\(1\.5,Math\.min\(3,step\*\.72\)\)/);
  assert.match(fish,/ctx\.fillStyle='#061321'/);
  assert.match(fish,/ctx\.fillRect\(dx-border,dy-border,step\+border\*2\+\.1,step\+border\*2\+\.1\)/);
+});
+
+test('modern arcade title and phase transitions remain hooked to actual gameplay',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/function neonPanel\(/);
+ assert.match(game,/function drawStageTransition\(/);
+ assert.match(game,/stageCue\('dive'\)/);
+ assert.match(game,/stageCue\('reel'\)/);
+ assert.match(game,/stageCue\('shoot'\)/);
+ assert.match(game,/stageCue\('results'\)/);
+ assert.match(game,/sceneTransition\.elapsed\+=realDt/);
+ assert.match(game,/if\(state!=='shoot'\|\|endDelay>0\|\|sceneTransition\)return/);
+ assert.match(game,/drawStageTransition\(\);/);
+ assert.match(game,/arcadePill\('RUN COMPLETE'/);
+ assert.match(game,/easeOutCubic\(Math\.min\(1,age\/\.95\)\)/);
+ assert.match(read('sw.js'),/src\/arcade-ui\.js/);
 });
