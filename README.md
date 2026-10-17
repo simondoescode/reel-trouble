@@ -115,3 +115,8 @@ The **Fish Encyclopedia** is accessible from the main menu and from round result
 **Each newly discovered species earns a one-time $35 reward.** The **Badges** tab includes nine persistent achievements with one-time cash bonuses for discovering 1, 5, 10 or 14 species, hooking 10 or 50 fish, achieving a 4× shooting combo, hooking a Golden Fish and earning $2500 from shot fish. Discovery and badge rewards count toward the round's cash but do not inflate shooting earnings statistics. Rewards are granted at the milestone, never by repeatedly opening a screen.
 
 Collection data is embedded inside the existing `reel-trouble-save-v1` save, and old saves migrate automatically without changing cash, upgrades or best score. Past catches cannot be reconstructed from the old save, so only newly caught fish appear in the encyclopedia. Offline assets now include the collection module and the cache is versioned for this update.
+
+
+## Bright palette and mobile readability
+
+The ocean environments, menu background and shooting sunset use brighter cyan, teal, sapphire and violet colours. High-contrast dark UI panels carry light cream, mint and yellow text. Buttons use consistently dark labels on brighter surfaces. Canvas text now has a 12px minimum, bold sans-serif letters, dark outlines for light text and width-constrained truncation to avoid tiny overflowing labels. The biome and gameplay HUD has larger labels. The offline PWA cache is versioned to update installed devices.

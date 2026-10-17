@@ -2,14 +2,14 @@
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0; width: 100%; min-height: 100%; overflow: hidden;
-  background: #07182c; touch-action: none;
+  background: #081a32; touch-action: none;
 }
 body {
   display: flex; justify-content: center; align-items: center;
   width: 100%; height: 100dvh;
   padding: max(3px, env(safe-area-inset-top)) max(3px, env(safe-area-inset-right)) max(3px, env(safe-area-inset-bottom)) max(3px, env(safe-area-inset-left));
-  font-family: ui-monospace, Consolas, monospace;
-  background: radial-gradient(ellipse at 50% 35%, #155d76 0%, #0a334d 48%, #061627 100%);
+  font-family: Arial, Helvetica, sans-serif;
+  background: radial-gradient(ellipse at 50% 35%, #258eaa 0%, #146688 46%, #092c50 100%);
 }
 #game {
   display: block;
@@ -20,9 +20,9 @@ body {
   max-height: 100%;
   touch-action: none; outline: none; cursor: crosshair;
   image-rendering: pixelated;
-  box-shadow: 0 0 0 2px #22dec0, 0 0 0 6px #09324b, 0 10px 70px #17b8bf4a;
+  box-shadow: 0 0 0 3px #6dffe8, 0 0 0 6px #12516d, 0 10px 70px #21c7e080;
 }
-@media (display-mode: standalone) { body { background: #07182c; } }
+@media (display-mode: standalone) { body { background: #092c50; } }
 
 #rotate-notice { display: none; }
 #rotate-notice .rotate-content {

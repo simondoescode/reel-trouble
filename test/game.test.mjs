@@ -37,11 +37,11 @@ test('pixel art uses nearest-neighbour scaling and hand-authored sprites', () =>
 test('vibrant pixel colours and visual effects stay available', () => {
  const game=read('src/game.js');
  const css=read('src/styles.css');
- assert.match(game, /teal:'#20e3d0'/);
- assert.match(game, /yellow:'#ffe35b'/);
+ assert.match(game, /teal:'#27f4dd'/);
+ assert.match(game, /yellow:'#ffed76'/);
  assert.match(game, /const fishPalette=\[/);
  assert.match(game, /oceanPalette\(worldDepth\)/);
- assert.match(game, /const sky=\['#293d83'/);
+ assert.match(game, /const sky=\['#4257b5'/);
  assert.match(game, /const sparks=\[color,C\.yellow,C\.teal,C\.cream,C\.pink\]/);
  assert.match(css, /image-rendering: pixelated/);
  assert.match(css, /radial-gradient/);
@@ -136,4 +136,16 @@ test('collection routes and rewards are wired into gameplay and save migration',
  assert.match(game,/FISH ENCYCLOPEDIA/);
  assert.match(game,/else if\(state==='collection'\)collection\(\)/);
  assert.match(read('sw.js'),/src\/collection\.js/);
+});
+
+test('brighter canvas typography and new ocean palette stay enabled',()=>{
+ const game=read('src/game.js'),ocean=read('src/ocean.js');
+ assert.match(game,/Math\.max\(12,size\)/);
+ assert.match(game,/Arial,Helvetica,sans-serif/);
+ assert.match(game,/ctx\.strokeText\(fit,x,y,width\)/);
+ assert.match(game,/text\(biome\.name,97,130,13/);
+ assert.match(ocean,/colors:\['#2bd0e2'/);
+ assert.match(ocean,/colors:\['#28aeb5'/);
+ assert.match(ocean,/colors:\['#3a69a8'/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v5/);
 });
