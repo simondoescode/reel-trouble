@@ -5,7 +5,7 @@ import { SPECIES } from './ocean.js';
 export const DISCOVERY_BONUS=35;
 export const ACHIEVEMENTS=Object.freeze([
  {id:'first',title:'FIRST DISCOVERY',description:'Catch your first species',reward:50},
- {id:'explorer',title:'REEF EXPLORER',description:'Discover 5 fish species',reward:100},
+ {id:'explorer',title:'SHELFWALKER',description:'Discover 5 fish species',reward:100},
  {id:'naturalist',title:'OCEAN NATURALIST',description:'Discover 10 fish species',reward:200},
  {id:'complete',title:'MASTER COLLECTOR',description:'Discover all 14 species',reward:1000},
  {id:'hooked',title:'HOOKED!',description:'Catch 10 fish',reward:100},
@@ -38,11 +38,11 @@ export function fishRarity(kind){
 }
 export function fishHabitat(kind){
  if(!valid(kind))return 'UNKNOWN';
- if(kind===13)return 'KELP + TRENCH';
- if([5,11,12].includes(kind))return 'TWILIGHT TRENCH';
- if([4,9,10].includes(kind))return 'KELP + TRENCH';
- if([0,6,7,8].includes(kind))return 'SUNLIT REEF';
- return 'MULTIPLE BIOMES';
+ if(kind===13)return 'BLUEWANDER + BELOW';
+ if([5,11,12].includes(kind))return 'THE HUSH + DEEPER';
+ if([4,9,10].includes(kind))return 'KELP KNUCKLES + BELOW';
+ if([0,6,7,8].includes(kind))return 'SUNSKIP SHELF';
+ return 'MULTIPLE REGIONS';
 }
 export function collectionProgress(collection){
  const fish=obj(collection?.fish),achievements=obj(collection?.achievements);
