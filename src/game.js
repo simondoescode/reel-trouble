@@ -117,7 +117,7 @@ function pauseGame(reason='MANUAL'){
 }
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sound.pause(false);}
-let splashes=[],sceneFlash=0;
+let splashes=[],ripples=[],sceneFlash=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
@@ -312,7 +312,7 @@ function bgUndersea(camera){
 function meter(n){return `${Math.round(n/6)}m`;}
 function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
- splashes=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
+ splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');
  castNumber++;state='descent';age=0;roundEarnings=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
  const count=Math.floor(maxDepth/39);for(let i=0;i<count;i++){
@@ -406,6 +406,8 @@ function update(dt){
  sceneFlash=Math.max(0,sceneFlash-dt*1.7);
  for(const splash of splashes)splash.life-=dt;
  splashes=splashes.filter(s=>s.life>0);
+ for(const ripple of ripples)ripple.life-=dt;
+ ripples=ripples.filter(r=>r.life>0);
  if(inputMode==='tilt'&&tiltStartedAt>-1e5&&clock-tiltStartedAt>3&&clock-tiltUpdatedAt>2&&sensorStatus==='WAITING FOR MOTION SENSOR')sensorStatus='NO SENSOR DATA - DRAG TO STEER';
  if(state==='descent'||state==='ascent'){
  // Hold the phone level for neutral, tilt sideways for acceleration.
@@ -446,14 +448,26 @@ function update(dt){
  for(const l of labels){l.y-=27*dt;l.life-=dt;}labels=labels.filter(l=>l.life>0);
 }
 function emitSplash(x,y,color=C.teal,intensity=1){
+ ripples.push({x,y,color,scale:intensity,life:.48,max:.48});
  const count=lowFx?5:Math.round(10*intensity);
  for(let i=0;i<count;i++){
-  const a=Math.PI+rand(-1.25,1.25),speed=rand(55,210)*intensity;
+  const a=-Math.PI/2+rand(-1.25,1.25),speed=rand(55,210)*intensity;
   const life=rand(.28,.68);
   splashes.push({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,life,max:life,color,size:irand(3,7)});
  }
 }
 function drawSplashEffects(dt){
+ for(const ripple of ripples){
+  const progress=1-ripple.life/ripple.max;
+  const radius=(10+46*progress)*ripple.scale;
+  const edgeX=Math.round(radius/4)*4, y=Math.round(ripple.y/4)*4;
+  ctx.globalAlpha=clamp(ripple.life/ripple.max,0,1)*.88;
+  ctx.fillStyle=ripple.color;
+  ctx.fillRect(Math.round(ripple.x-edgeX),y,18,4);
+  ctx.fillRect(Math.round(ripple.x+edgeX-18),y,18,4);
+  ctx.fillRect(Math.round(ripple.x-edgeX*.54),y-5,12,3);
+  ctx.fillRect(Math.round(ripple.x+edgeX*.54-12),y-5,12,3);
+ }
  for(const drop of splashes){
   drop.x+=drop.vx*dt;drop.y+=drop.vy*dt;
   drop.vy+=360*dt;drop.vx*=Math.pow(.75,dt);
