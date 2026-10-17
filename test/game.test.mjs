@@ -144,10 +144,10 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(game,/Arial,Helvetica,sans-serif/);
  assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
  assert.match(game,/text\(biome\.name,97,130,13/);
- assert.match(ocean,/colors:\['#2bd0e2'/);
- assert.match(ocean,/colors:\['#28aeb5'/);
- assert.match(ocean,/colors:\['#3a69a8'/);
- assert.match(read('sw.js'),/reel-trouble-offline-v8/);
+ assert.match(ocean,/colors:\['#17667a'/);
+ assert.match(ocean,/colors:\['#205c67'/);
+ assert.match(ocean,/colors:\['#263d71'/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v9/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
@@ -178,4 +178,19 @@ test('optional haptic rumble is integrated without changing fishing rules',()=>{
  assert.match(game,/rumble\.stop\(\)/);
  assert.match(game,/RUMBLE N\/A/);
  assert.match(read('sw.js'),/src\/haptics\.js/);
+});
+
+test('fishing sea uses gradient depth transitions, faint decoration and fish outlines',()=>{
+ const game=read('src/game.js');
+ const water=game.slice(game.indexOf('function bgUndersea('),game.indexOf('function jellyfish('));
+ const fish=game.slice(game.indexOf('function fish('),game.indexOf('function bgUndersea('));
+ assert.match(water,/ctx\.createLinearGradient\(0,0,0,H\)/);
+ assert.match(water,/water\.addColorStop\(fraction,stop\)/);
+ assert.match(water,/ctx\.createRadialGradient\(/);
+ assert.match(water,/ctx\.globalAlpha=\.25/);
+ assert.match(water,/for\(let i=0;i<13;i\+\+\)/);
+ assert.doesNotMatch(water,/y\+=35|worldDepth%720|fillRect\(0,y,W,36\)/);
+ assert.match(fish,/const border=Math\.max\(1\.5,Math\.min\(3,step\*\.72\)\)/);
+ assert.match(fish,/ctx\.fillStyle='#061321'/);
+ assert.match(fish,/ctx\.fillRect\(dx-border,dy-border,step\+border\*2\+\.1,step\+border\*2\+\.1\)/);
 });

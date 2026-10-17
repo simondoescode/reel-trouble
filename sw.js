@@ -1,5 +1,5 @@
 // Static, repo-scoped offline shell. Works with Vite hashed assets and raw branch publishing.
-const CACHE='reel-trouble-offline-v8';
+const CACHE='reel-trouble-offline-v9';
 const ROOT=self.registration.scope;
 const base=(path)=>new URL(path,ROOT).href;
 const core=['./','./index.html','./manifest.webmanifest','./assets/title-logo.webp','./icons/favicon.ico','./icons/favicon.png','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png'];

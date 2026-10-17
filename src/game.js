@@ -256,6 +256,17 @@ function fish(x,y,kind=0,dir=1,scale=1,phase=0){
  const r=species[kind].size*scale,step=r/8,palette=fishPalette[kind];
  const tail=Math.sin(phase*2.5)>0?1:-1,fin=Math.sin(phase*1.8)>0?1:-1;
  ctx.save();ctx.translate(Math.round(x),Math.round(y+Math.sin(phase)*2));ctx.scale(dir,1);
+ // An actual joined, hard-edged outline, not a blurry canvas shadow.
+ const border=Math.max(1.5,Math.min(3,step*.72));
+ ctx.fillStyle='#061321';
+ for(let row=0;row<FISH_SPRITE.length;row++){
+  const glyphs=FISH_SPRITE[row];
+  for(let col=0;col<glyphs.length;col++){
+   if(glyphs[col]===' ')continue;
+   const dx=(col-10)*step+(col<7?tail*step:0),dy=(row-5)*step+(col<7?tail*step*.48:0);
+   ctx.fillRect(dx-border,dy-border,step+border*2+.1,step+border*2+.1);
+  }
+ }
  for(let row=0;row<FISH_SPRITE.length;row++){
   const glyphs=FISH_SPRITE[row];
   for(let col=0;col<glyphs.length;col++){
@@ -358,72 +369,89 @@ function hook(x,y){
 }
 function bgUndersea(camera){
  const surf=SEA-camera;
- // Render using anchored world coordinates so each biome blends while diving.
- // The ocean palette gradually changes across a 50m transition around each boundary.
- for(let y=0;y<H;y+=35){
-  const worldDepth=Math.max(0,y+camera-SEA),palette=oceanPalette(worldDepth);
-  const band=Math.min(3,Math.floor((worldDepth%720)/180));
-  ctx.fillStyle=palette[band];ctx.fillRect(0,y,W,36);
+ // Continuous depth-aware gradient. World-depth samples smoothly cross biomes
+ // as the camera travels; no 35px stripes or palette resets.
+ const water=ctx.createLinearGradient(0,0,0,H);
+ for(let i=0;i<=16;i++){
+  const fraction=i/16,depthAtPixel=Math.max(0,camera+fraction*H-SEA);
+  const palette=oceanPalette(depthAtPixel);
+  const a=palette[1],b=palette[2],mix=.24+fraction*.53;
+  const stop='#'+[1,3,5].map(k=>{
+   const low=parseInt(a.slice(k,k+2),16),high=parseInt(b.slice(k,k+2),16);
+   return Math.round(low+(high-low)*mix).toString(16).padStart(2,'0');
+  }).join('');
+  water.addColorStop(fraction,stop);
  }
+ ctx.fillStyle=water;ctx.fillRect(0,0,W,H);
+
  if(surf>0){
-  ctx.fillStyle='#b7ffe5';ctx.fillRect(0,0,W,Math.min(H,surf));
-  ctx.fillStyle='#19bac7';ctx.fillRect(0,surf,W,10);
-  for(let x=0;x<W;x+=24){
-   ctx.fillStyle=x%48===0?'#fff7a5':'#d7ffff';
-   ctx.fillRect(x,surf+(Math.floor(x/24+waveT*2)%3)*3,15,3);
+  const sky=ctx.createLinearGradient(0,0,0,Math.max(1,surf));
+  sky.addColorStop(0,'#68b5ce');sky.addColorStop(1,'#b2e4d8');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,Math.min(H,surf));
+  ctx.fillStyle='#52b8bd';ctx.fillRect(0,surf,W,5);
+  ctx.fillStyle='#d4fff1';
+  for(let x=0;x<W;x+=28)ctx.fillRect(x,surf+Math.floor(x/28+waveT*2)%3*2,16,2);
+ }
+ // Low-intensity sunbeams fade out below the surface; never sit on top of fish.
+ if(surf>-400){
+  const top=Math.max(0,surf),bottom=Math.min(H,Math.max(top+1,surf+470));
+  if(bottom>top){
+   const ray=ctx.createLinearGradient(0,top,0,bottom);
+   ray.addColorStop(0,'rgba(218,255,240,0.095)');
+   ray.addColorStop(1,'rgba(218,255,240,0)');
+   ctx.save();ctx.beginPath();ctx.rect(0,top,W,bottom-top);ctx.clip();
+   ctx.fillStyle=ray;
+   for(let i=0;i<3;i++){
+    const x=54+i*150+Math.sin(waveT*.24+i)*8;
+    ctx.beginPath();ctx.moveTo(x-13,surf);ctx.lineTo(x+20,surf);
+    ctx.lineTo(x+103,surf+470);ctx.lineTo(x+16,surf+470);
+    ctx.closePath();ctx.fill();
+   }
+   ctx.restore();
   }
  }
- // Shimmering light shafts brighten shallow water; slower in reduced-effects mode.
- ctx.fillStyle='#b8fff01a';
- for(let i=0;i<5;i++){
-  const x=i*108+Math.floor(waveT*2)%24-80;
-  for(let j=0;j<13;j++){
-   const y=Math.max(0,surf)+j*60;
-   if(y>H)break;
-   if(y+camera-SEA<BIOMES[1].start+120)ctx.fillRect(x-j*9,y,28,56);
-  }
- }
- // Scenery sits at a fixed depth rather than scrolling with the screen.
+ // Distant corals, kelp and trench structures are confined to the edges.
  const bottomWorld=camera+H-SEA;
- for(let world=120;world<bottomWorld+100;world+=95){
+ ctx.save();ctx.globalAlpha=.25;
+ for(let world=150;world<bottomWorld+120;world+=175){
   const y=SEA+world-camera;
-  if(y<-110||y>H+80)continue;
-  const biome=biomeAtDepth(world),row=Math.floor(world/95);
-  for(let k=0;k<5;k++){
-   const x=16+k*91+(row%2)*32,wiggle=Math.sin(waveT*1.4+k+row)*5;
+  if(y<-115||y>H+90)continue;
+  const biome=biomeAtDepth(world),row=Math.floor(world/175);
+  for(let k=0;k<4;k++){
+   const x=k<2?14+k*53:W-75+(k-2)*53;
    if(biome.id==='reef'){
-    const height=18+(row+k)%4*9;
-    ctx.fillStyle=k%2?'#ef6589aa':'#1bd1bcaa';
-    ctx.fillRect(x,y-height,7,height+2);
-    ctx.fillRect(x-11,y-height+12,27,6);
-    ctx.fillRect(x+10,y-height-8,6,height*.6);
-    ctx.fillStyle='#ffe3a3';ctx.fillRect(x,y-height,6,4);
+    const height=25+(row+k)%3*9;
+    ctx.fillStyle=k%2?'#b97088':'#438f9d';
+    ctx.fillRect(x,y-height,7,height);
+    ctx.fillRect(x-9,y-height+9,24,5);
+    ctx.fillRect(x+12,y-height-8,5,18);
    }else if(biome.id==='kelp'){
-    const height=67+(row+k)%5*15;
-    ctx.fillStyle=k%2?'#126d63bb':'#1aa69aaa';
-    for(let h=0;h<height;h+=12){
-     const dx=x+Math.round(Math.sin(waveT*.9+h*.035+k)*4+wiggle*.3);
-     ctx.fillRect(dx,y-h,6,13);
-     ctx.fillRect(dx+(k%2?5:-8),y-h-8,14,6);
+    const height=65+(row+k)%4*15;
+    ctx.fillStyle=k%2?'#2c8c84':'#388d8e';
+    for(let h=0;h<height;h+=14){
+     const dx=x+Math.round(Math.sin(h*.05+waveT*.8+k)*4);
+     ctx.fillRect(dx,y-h,6,15);
+     ctx.fillRect(dx+(k%2?5:-9),y-h-7,13,5);
     }
    }else{
-    const h=25+(row+k)%4*17;
-    ctx.fillStyle='#0c1947ba';ctx.fillRect(x,y-h,20,h+10);
-    ctx.fillStyle=k%2?'#a37bffaa':'#54f9c8a3';
-    ctx.fillRect(x+6,y-h-8,7,9);
-    ctx.fillRect(x-5,y-h+11,5,5);
-    ctx.fillRect(x+19,y-h+23,5,5);
+    const height=35+(row+k)%4*12;
+    ctx.fillStyle='#59708e';ctx.fillRect(x,y-height,17,height+8);
+    ctx.fillStyle='#5579a0';ctx.fillRect(x+5,y-height-6,6,7);
    }
   }
  }
- // Floating pixels and glowing specks remain light enough not to hide fish.
- for(let i=0;i<37;i++){
-  const x=Math.floor(((11+i*73.27)%W)/3)*3;
-  const y=Math.floor((((i*159)+waveT*(10+i%7))%(H+30))-15)/3*3;
-  const d=Math.max(0,y+camera-SEA),deep=biomeAtDepth(d).id==='trench';
-  ctx.fillStyle=deep?(i%3===0?'#a58dffb4':'#6cfce17c'):(i%5===0?'#ffe995a6':'#a8fff571');
-  ctx.fillRect(x,y,i%4?3:6,i%4?3:6);
+ ctx.restore();
+ // Fewer, dimmer particles: movement is visible without visual clutter.
+ for(let i=0;i<13;i++){
+  const x=(i*87+13)%W;
+  const y=((i*137+waveT*(4+i%4))%(H+25))-12;
+  ctx.fillStyle=i%4===0?'rgba(216,237,240,0.20)':'rgba(152,204,218,0.13)';
+  ctx.fillRect(Math.floor(x/3)*3,Math.floor(y/3)*3,i%4===0?3:2,i%4===0?3:2);
  }
+ const vignette=ctx.createRadialGradient(W/2,H*.43,W*.25,W/2,H*.43,H*.79);
+ vignette.addColorStop(0,'rgba(3,14,30,0)');
+ vignette.addColorStop(1,'rgba(3,14,30,0.30)');
+ ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
 function jellyfish(h,y){
  const bob=Math.sin(h.phase)*9;

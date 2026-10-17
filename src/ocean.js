@@ -1,8 +1,9 @@
 // Original Reel Trouble ecosystem: depth-based biomes, fish, spawn weights and swimming.
 export const BIOMES = Object.freeze([
- {id:'reef',name:'SUNLIT REEF',start:0,colors:['#2bd0e2','#20b9d5','#158dac','#126382']},
- {id:'kelp',name:'KELP FOREST',start:450,colors:['#28aeb5','#188e9e','#156a85','#104c67']},
- {id:'trench',name:'TWILIGHT TRENCH',start:1080,colors:['#3a69a8','#2c528e','#244175','#172852']}
+ // The water should not compete with the saturated, brightly coloured fish.
+ {id:'reef',name:'SUNLIT REEF',start:0,colors:['#17667a','#135a71','#114962','#0c3b55']},
+ {id:'kelp',name:'KELP FOREST',start:450,colors:['#205c67','#184e60','#143e55','#102f46']},
+ {id:'trench',name:'TWILIGHT TRENCH',start:1080,colors:['#263d71','#1d325c','#17264c','#101b36']}
 ]);
 export const SPECIES = Object.freeze([
  {name:'Guppy',value:10,color:'#ffc247',size:13,behavior:'cruise',speed:13},

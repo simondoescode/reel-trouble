@@ -141,3 +141,8 @@ All game UI labels and controls now use solid white, bold 900-weight lettering o
 The title screen now displays an original transparent **Reel Trouble** illustrated wordmark with fish, hook, and waves, replacing the plain canvas lettering. A fallback title remains available until the asset has loaded. The favicon uses a simplified fish-and-hook badge in ICO/PNG; the home-screen PWA icon has 192px/512px square versions, a separate padded 512px maskable icon for Android, and a 180px Apple touch icon. All assets are optimized, bundled with Vite, and precached for offline use. The PWA cache version has been bumped so installed devices receive the new branding.
 
 The canonical brand asset paths are **`assets/title-logo.webp`** for the illustrated title screen and **`icons/`** for all six favicon/home-screen/PWA images. Duplicate icons previously uploaded into `assets/` were removed; references in the manifest, HTML, Vite build and offline service worker use only these canonical paths.
+
+
+## Underwater gradient and fish contrast
+
+Diving and reeling now show a continuous 17-stop vertical water gradient blended through the reef, kelp and twilight trench using world depth; the previous horizontal 35-pixel colour bars are removed. Biome palettes are cooler, muted and darker than the fish. Light rays, edge scenery and a soft vignette add depth without cluttering the fish area; floating specks are fewer and more transparent. Each pixel fish receives a crisp dark silhouette around its original vivid artwork. Fish movement, collision boxes, catches and shooting are unchanged. PWA cache updated to v9 for installed users.

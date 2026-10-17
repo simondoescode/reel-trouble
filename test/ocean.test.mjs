@@ -50,3 +50,22 @@ test('dash, zigzag, schooling and hazard movement update predictably',()=>{
  advanceHazard(hazard,.05);
  assert.ok(Number.isFinite(hazard.x));
 });
+
+test('fish stand out against muted biome palettes and transitions stay smooth',()=>{
+ const luminance=hex=>{
+  const linear=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)
+   .map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);
+  return .2126*linear[0]+.7152*linear[1]+.0722*linear[2];
+ };
+ for(const biome of BIOMES){
+  for(const colour of biome.colors)assert.ok(luminance(colour)<.16,
+    biome.name+' '+colour+' too bright');
+ }
+ for(const d of [0,300,450,600,930,1080,1230,2500]){
+  assert.equal(oceanPalette(d).length,4);
+  assert.ok(oceanPalette(d).every(c=>/^#[0-9a-f]{6}$/.test(c)));
+ }
+ const difference=(a,b)=>[1,3,5].reduce((sum,i)=>sum+Math.abs(parseInt(a.slice(i,i+2),16)-parseInt(b.slice(i,i+2),16)),0);
+ for(const boundary of [450,1080])assert.ok(difference(oceanPalette(boundary-1)[1],oceanPalette(boundary)[1])<3,
+   'abrupt colour jump at '+boundary);
+});
