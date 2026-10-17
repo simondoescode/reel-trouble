@@ -789,15 +789,24 @@ for(const h of hazards){
  bottomHint(hazardSlow>0?'JELLYFISH! SLOW REEL':(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
  button('II',362,117,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
-function drawBulletTrail(x1,y1,x2,y2,alpha,color){
- ctx.save();ctx.globalAlpha=alpha;
- // Dotted, stepped bright trace rather than a smooth antialiased laser.
- const count=Math.max(1,Math.round(Math.hypot(x2-x1,y2-y1)/11));
+function drawBulletTrail(x1,y1,x2,y2,alpha,color,tier=0){
+ ctx.save();
+ if(tier>0){
+  ctx.globalAlpha=alpha*(tier===2?.65:.4);
+  ctx.strokeStyle=color;ctx.lineWidth=tier===2?10:5;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  if(tier===2){
+   ctx.strokeStyle=C.white;ctx.lineWidth=3;
+   ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  }
+ }
+ ctx.globalAlpha=alpha;
+ const count=Math.max(1,Math.round(Math.hypot(x2-x1,y2-y1)/(tier===2?8:11)));
  for(let i=0;i<=count;i++){
   const t=i/count;
   const x=Math.round((x1+(x2-x1)*t)/4)*4,y=Math.round((y1+(y2-y1)*t)/4)*4;
   ctx.fillStyle=i%3===0?C.cream:color;
-  ctx.fillRect(x,y,i%3===0?6:4,i%3===0?6:4);
+  ctx.fillRect(x,y,i%3===0?7:4,i%3===0?7:4);
  }
  ctx.restore();
 }
@@ -823,10 +832,14 @@ function drawGun(){
   ctx.fillStyle=C.cream;ctx.fillRect(-10,-72,20,7);
  }
  if(muzzleFlash>0){
-  ctx.globalAlpha=Math.min(1,muzzleFlash/.09);
-  ctx.fillStyle=C.yellow;ctx.fillRect(-17,-110,34,19);
-  ctx.fillStyle=C.cream;ctx.fillRect(-8,-127,16,37);
-  ctx.fillStyle=C.coral;ctx.fillRect(-27,-100,54,7);
+  ctx.globalAlpha=Math.min(1,muzzleFlash/.12);
+  ctx.fillStyle=gun.color;ctx.fillRect(-21-gun.tier*5,-108,42+gun.tier*10,19);
+  ctx.fillStyle=C.cream;ctx.fillRect(-10,-132-gun.tier*8,20,46+gun.tier*8);
+  ctx.fillStyle=C.yellow;ctx.fillRect(-34-gun.tier*6,-102,68+gun.tier*12,7);
+  if(gun.tier>=1){
+   ctx.fillStyle=C.pink;ctx.fillRect(-5,-148-gun.tier*5,10,17);
+   ctx.fillRect(-36,-113,9,19);ctx.fillRect(27,-113,9,19);
+  }
  }
  ctx.restore();
 }
@@ -853,9 +866,15 @@ function shootScene(){
   ctx.fillRect(x,644+(Math.floor(waveT*2+x/24)%3)*3,15,4);
  }
  boat(210,636);
- for(const f of airborne)if(!f.shot)fish(f.x,f.y,f.kind,f.vx<0?-1:1,1.55,clock*6+f.phase);
+ for(const f of airborne){
+  if(f.shot||f.lost||!f.launched)continue;
+  ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.angle);
+  fish(0,0,f.kind,f.vx<0?-1:1,1.55,clock*6+f.phase);
+  ctx.restore();
+ }
+ drawShotCelebration();
  for(const trail of shotEffects){
-  for(const end of trail.targets)drawBulletTrail(trail.x,trail.y,end.x,end.y,trail.life/trail.max,trail.color);
+  for(const end of trail.targets)drawBulletTrail(trail.x,trail.y,end.x,end.y,trail.life/trail.max,trail.color,trail.tier);
  }
  drawGun();
  const gun=weaponForLevel(save.upgrades.gun);
@@ -876,7 +895,7 @@ function shootScene(){
  ctx.strokeStyle='#fff6cd';ctx.lineWidth=3;ctx.strokeRect(px-12,py-12,24,24);
  ctx.fillStyle='#fff6cd';ctx.fillRect(px-23,py-2,8,4);ctx.fillRect(px+15,py-2,8,4);
  ctx.fillRect(px-2,py-23,4,8);ctx.fillRect(px-2,py+15,4,8);
- bottomHint('TAP FISH • CHAIN HITS FOR x4');
+ bottomHint('TAP FAST • FISH CAN SPLASH DOWN');
  button('II',362,124,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
 // Animated title screen: gradient water, layered parallax and playful sea life.
@@ -1050,6 +1069,7 @@ function results(){ambient(clock);
  line(64,373,356,373,'#397587');
  text('HITS / SHOTS',77,414,17,C.white,'left',900);text(landed+' / '+fired,343,414,19,C.cream,'right',900);
  text('BEST COMBO',77,452,17,C.white,'left',900);text('x'+Math.max(1,bestRoundCombo),343,452,19,C.yellow,'right',900);
+ if(escaped)text(escaped+' FISH SPLASHED BACK',210,499,16,C.cream,'center',900);
  text(`WALLET: $${save.cash}`,210,520,19,C.yellow,'center',900);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow);
  button('GEAR SHOP',25,647,178,53,()=>{state='shop';age=0;},C.cream);
