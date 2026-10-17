@@ -5,6 +5,7 @@ import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, adv
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
+import { SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, allCatchResolved } from './airborne.js';
 (() => {
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5;
@@ -127,7 +128,8 @@ window.addEventListener('deviceorientation', event=>{
   if(tiltNeutral===null)tiltNeutral=value;
   if(sensorStatus==='WAITING FOR MOTION SENSOR'||sensorStatus==='NO SENSOR DATA - DRAG TO STEER'||sensorStatus==='ENABLE TILT TO STEER')sensorStatus='TILT READY';
 });
-let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, shotEffects=[], recoil=0, muzzleFlash=0;
+let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, escaped=0, shotEffects=[], recoil=0, muzzleFlash=0;
+let finisherSlow=0, hitFreeze=0, impactRings=[], impactGhosts=[], coinBursts=[];
 let paused=false,pauseReason='';
 function liveRound(){return state==='descent'||state==='ascent'||state==='shoot';}
 function pauseGame(reason='MANUAL'){
@@ -483,7 +485,7 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DODGE THE FISH!';messageTimer=2.1;}
@@ -510,35 +512,32 @@ function catchFish(f){
  sound.play('catch',{pitch:f.kind});rumble.play(species[f.kind].rare?'legendary':'catch');
 }
 function beginShoot(){
- state='shoot';age=0;shootTime=12;
- combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;
- shotEffects=[];recoil=0;muzzleFlash=0;
+ state='shoot';age=0;shootTime=12;endDelay=0;
+ combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;
+ shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];
+ finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;
  const gun=weaponForLevel(save.upgrades.gun);
- message=gun.tier===0?'TAP THE FLYING FISH!':gun.name+' READY!';
+ message=gun.tier===0?'SHOOT BEFORE THEY SPLASH!':gun.name+' READY!';
  messageTimer=2;
- airborne=caught.map((f,i)=>({
-  kind:f.kind,value:f.value,x:clamp(60+i*41,65,350),y:630+rand(-25,30),
-  vx:rand(-62,62),vy:rand(-255,-165),spin:rand(-1,1),phase:i,shot:false
- }));
+ airborne=caught.map((f,i)=>makeAirborneCatch(f,i,caught.length));
  if(!caught.length){endRound();return;}
- emitSplash(210,636,C.teal,1.7);sceneFlash=.26;sound.play('splash');
+ emitSplash(210,SHOOT_WATERLINE,C.teal,1.5);sceneFlash=.23;sound.play('splash');
 }
 function shootAt(x,y){
  if(state!=='shoot'||endDelay>0)return;
  const gun=weaponForLevel(save.upgrades.gun);
- fired++;recoil=1;muzzleFlash=.12;sound.play('shot',{pitch:gun.tier});
+ fired++;recoil=1;muzzleFlash=.16;sound.play('shot',{pitch:gun.tier});
  pointer={x,y};
  const targets=pickShotTargets(airborne.map(f=>({...f,size:species[f.kind].size,original:f})),x,y,gun);
- // Keep identity through hit-testing so overlapping fish cannot consume the same hit.
  const actual=targets.map(t=>t.original);
  const streak=nextCombo(combo,lastComboHit,clock,actual.length);
  combo=streak.count;lastComboHit=streak.lastHit;
  bestRoundCombo=Math.max(bestRoundCombo,combo);
  const baseX=210,baseY=663;
  const a=Math.atan2(y-baseY,x-baseX);
- const muzzleX=baseX+Math.cos(a)*86, muzzleY=baseY+Math.sin(a)*86;
+ const muzzleX=baseX+Math.cos(a)*86,muzzleY=baseY+Math.sin(a)*86;
  shotEffects.push({x:muzzleX,y:muzzleY,targets:actual.length
-   ?actual.map(f=>({x:f.x,y:f.y})):[{x,y}],life:.22,max:.22,color:gun.color});
+   ?actual.map(f=>({x:f.x,y:f.y})):[{x,y}],life:.25,max:.25,color:gun.color,tier:gun.tier});
  if(actual.length){
   landed++;
   for(const f of actual){
@@ -546,23 +545,42 @@ function shootAt(x,y){
    const money=shotPayout(f.value,streak.multiplier);
    roundEarnings+=money;save.cash+=money;save.total+=money;
    recordShot(save.collection,f.kind,money,streak.multiplier);
-   burst(f.x,f.y,species[f.kind].color,26);
-   floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,f.y-22,C.yellow);
+   burst(f.x,f.y,species[f.kind].color,streak.multiplier>=3?38:27);
+   coinBurst(f.x,f.y,streak.multiplier,gun.tier);
+   impactRings.push({x:f.x,y:f.y,radius:5,speed:streak.multiplier>=3?330:235,
+     life:.43,max:.43,color:streak.multiplier>=3?C.yellow:gun.color});
+   impactGhosts.push({x:f.x,y:f.y,kind:f.kind,vx:f.vx*.25,vy:-65,
+     angle:f.angle||0,life:.42,max:.42});
+   floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,f.y-29,C.yellow);
   }
-  shake=clamp(shake+2+actual.length*1.4,0,7);
-  sceneFlash=Math.max(sceneFlash,.09);sound.play('hit',{pitch:gun.tier});rumble.play(combo>=2?'combo':'hit');
+  shake=lowFx?0:clamp(shake+3+actual.length*2+(streak.multiplier>=3?2:0),0,12);
+  hitFreeze=lowFx?0:.045;
+  sceneFlash=Math.max(sceneFlash,streak.multiplier>=3?.2:.11);
+  sound.play('hit',{pitch:gun.tier});rumble.play(combo>=2?'combo':'hit');
   updateAchievements();
-  if(combo>=2){floatLabel('COMBO x'+streak.multiplier,210,177,C.mint);sound.play('combo');}
+  if(combo>=2){
+   floatLabel('COMBO x'+streak.multiplier+'!',210,230,C.yellow);
+   sound.play('combo');
+   if(streak.multiplier>=3)burst(210,250,C.yellow,26);
+  }
+  if(allCatchResolved(airborne)){
+   finisherSlow=lowFx?0:.8;hitFreeze=lowFx?0:.09;
+   impactGhosts.forEach(ghost=>{ghost.life=Math.max(ghost.life,.78);ghost.max=Math.max(ghost.max,.78);});
+   shake=lowFx?0:12;sceneFlash=Math.max(sceneFlash,.3);
+   burst(210,330,C.yellow,50);coinBurst(210,330,4,gun.tier);
+   floatLabel('FINISHER!',210,300,C.cream);
+   sound.play('finisher');rumble.play('legendary');
+   setTimeoutSafe(endRound,lowFx?500:1100);
+  }
   persist();
  }else{
-  // A miss breaks the streak; ammunition stays unlimited.
-  burst(x,y,'#e8f6e7',5);floatLabel('MISS',x,y-18,C.cream);
-  shake=clamp(shake+1.4,0,7);sound.play('miss');rumble.play('shot');
+  burst(x,y,'#e8f6e7',6);floatLabel('MISS',x,y-18,C.cream);
+  shake=lowFx?0:clamp(shake+1.5,0,12);
+  sound.play('miss');rumble.play('shot');
  }
- if(airborne.every(f=>f.shot))setTimeoutSafe(endRound,380);
 }
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
-function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');}
+function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost)return;
  save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 function upgradeConfig(type){const titles={line:'LONGER LINE',net:'WIDER HOOK',gun:'GUN UPGRADES'},base={line:65,net:90,gun:85};const lvl=save.upgrades[type];
