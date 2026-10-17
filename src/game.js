@@ -1,5 +1,6 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
 import { createArcadeAudio } from './audio.js';
+import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
 import { setupPwa, canInstall, isInstalled, requestInstall } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
 (() => {
@@ -13,14 +14,7 @@ const ctx=pixelCanvas.getContext('2d',{alpha:false});
 ctx.imageSmoothingEnabled=false;
 display.imageSmoothingEnabled=false;
 const C={navy:'#07182c',deep:'#07334d',ocean:'#0b91b7',teal:'#20e3d0',mint:'#b9ffe8',cream:'#fff9df',yellow:'#ffe35b',coral:'#ff596c',pink:'#ff88d6',muted:'#c0eef3',ink:'#081b32'};
-const species=[
- {name:'Guppy',value:10,color:'#ffc247',size:13},
- {name:'Mackerel',value:18,color:'#22dce4',size:16},
- {name:'Snapper',value:28,color:'#ff657a',size:18},
- {name:'Moonfish',value:42,color:'#b48aff',size:21},
- {name:'Sunfish',value:65,color:'#d4ff69',size:24},
- {name:'Phantom',value:95,color:'#a7fff4',size:22}
-];
+
 const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0}};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
 return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL)}};
@@ -118,7 +112,7 @@ function pauseGame(reason='MANUAL'){
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sound.pause(false);}
 let splashes=[],ripples=[],sceneFlash=0;
-let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
+let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -192,12 +186,20 @@ const FISH_SPRITE=[
  '         6666       '
 ];
 const fishPalette=[
- ['#833f38','#e68a36','#ffbd43','#fff3a2'], // Golden guppy
- ['#104f82','#178ebd','#24dbea','#b3ffff'], // Electric mackerel
- ['#7b345e','#d8406d','#ff6473','#ffc0ae'], // Coral snapper
- ['#482b7b','#8552c8','#b18bff','#f3d1ff'], // Neon moonfish
+ ['#833f38','#e68a36','#ffbd43','#fff3a2'], // Guppy
+ ['#104f82','#178ebd','#24dbea','#b3ffff'], // Mackerel
+ ['#7b345e','#d8406d','#ff6473','#ffc0ae'], // Snapper
+ ['#482b7b','#8552c8','#b18bff','#f3d1ff'], // Moonfish
  ['#4e6b2f','#88bf42','#d1f76a','#fdffa4'], // Sunfish
- ['#176b82','#48bec3','#a9fff0','#ffffff']  // Ghostly phantom
+ ['#176b82','#48bec3','#a9fff0','#ffffff'], // Phantom
+ ['#8b3a3d','#e67533','#ffad45','#fff9dc'], // Clownfish
+ ['#786332','#d6b646','#fff279','#fffed2'], // Pufferfish
+ ['#165677','#2994a8','#88f6e6','#dcfffb'], // Sardine
+ ['#75344e','#e36267','#ff9975','#ffe2a8'], // Lionfish
+ ['#1c4d74','#258ba6','#58e6ea','#c7ffff'], // Tuna
+ ['#184c5e','#258978','#7dffca','#e4ffcf'], // Lanternfish
+ ['#422458','#7855a8','#c69cff','#e6d6ff'], // Anglerfish
+ ['#a05e19','#e8a731','#ffe35b','#ffffff']  // Legendary Golden Fish
 ];
 function fish(x,y,kind=0,dir=1,scale=1,phase=0){
  const r=species[kind].size*scale,step=r/8,palette=fishPalette[kind];
@@ -225,6 +227,40 @@ function fish(x,y,kind=0,dir=1,scale=1,phase=0){
  if(kind===5){
    ctx.fillStyle='#e9fff1bd';
    ctx.fillRect(-r*1.05,-r*.3,Math.max(2,step),Math.max(2,step));
+ }
+ // Distinctive original pixel features for the new species.
+ if(kind===6){ // Clownfish: two bright bands
+  ctx.fillStyle='#fff7ee';
+  ctx.fillRect(-r*.45,-r*.58,step*1.4,r*1.18);
+  ctx.fillRect(r*.22,-r*.4,step,r*.79);
+ }
+ if(kind===7){ // Pufferfish: round shell and little spikes
+  ctx.fillStyle=palette[2];
+  ctx.fillRect(-r*.58,-r*.7,r*1.25,r*1.42);
+  ctx.fillStyle=palette[0];
+  for(let i=-2;i<=2;i++){ctx.fillRect(i*step*1.7,-r*.84,step,step*1.5);ctx.fillRect(i*step*1.7,r*.74,step,step*1.4);}
+  ctx.fillStyle=palette[3];ctx.fillRect(-step*2,-step*1.2,step*3,step);
+ }
+ if(kind===9){ // Lionfish: bright fan spines
+  ctx.fillStyle=palette[3];
+  for(let i=0;i<4;i++){ctx.fillRect(-r*.65+i*step*2,-r*.8-i%2*step*1.5,step,r*.38);ctx.fillRect(-r*.65+i*step*2,r*.5,step,r*.33);}
+ }
+ if(kind===10){ // Tuna: long racing fins
+  ctx.fillStyle=palette[3];ctx.fillRect(-r*.55,-r*.87,r*.22,r*.55);
+  ctx.fillRect(-r*.38,r*.49,r*.22,r*.44);
+ }
+ if(kind===11||kind===12){ // Deep-sea glowing organs
+  ctx.fillStyle=palette[3];
+  ctx.fillRect(-r*.5,-r*.15,step*2,step*1.5);
+  ctx.fillRect(-r*.2,r*.1,step*1.5,step);
+  if(kind===12){
+   ctx.fillStyle=palette[1];ctx.fillRect(r*.4,-r*1.2,step,r*.75);
+   ctx.fillStyle='#fff6a4';ctx.fillRect(r*.3,-r*1.28,step*2,step*2);
+  }
+ }
+ if(kind===13){ // Goldfish gleams with sparkling pixels
+  ctx.fillStyle='#fffdf0';ctx.fillRect(-r*.8,-r*.15,step*1.8,step*1.3);
+  ctx.fillRect(r*.1,-r*.66,step*1.5,step*1.5);
  }
  // A contrasting eye glint and a species-specific pixel flash stay crisp.
  ctx.fillStyle='#fff9e0';ctx.fillRect(7*step,-1.3*step,Math.max(1.3,step*.7),Math.max(1.3,step*.7));
@@ -271,43 +307,88 @@ function hook(x,y){
 }
 function bgUndersea(camera){
  const surf=SEA-camera;
- // Saturated near-surface aquas taper into blue: fish remain the brightest shapes.
- const bands=['#1599ae','#118daa','#0e82a8','#10749e','#0d658f','#0b567e','#094970','#083a61','#072b4e'];
- for(let i=0;i<bands.length;i++){ctx.fillStyle=bands[i];ctx.fillRect(0,i*90,W,91);}
+ // Render using anchored world coordinates so each biome blends while diving.
+ // The ocean palette gradually changes across a 50m transition around each boundary.
+ for(let y=0;y<H;y+=35){
+  const worldDepth=Math.max(0,y+camera-SEA),palette=oceanPalette(worldDepth);
+  const band=Math.min(3,Math.floor((worldDepth%720)/180));
+  ctx.fillStyle=palette[band];ctx.fillRect(0,y,W,36);
+ }
  if(surf>0){
-  ctx.fillStyle='#a7ffe0';ctx.fillRect(0,0,W,Math.min(H,surf));
-  ctx.fillStyle='#20bccc';ctx.fillRect(0,surf,W,10);
+  ctx.fillStyle='#b7ffe5';ctx.fillRect(0,0,W,Math.min(H,surf));
+  ctx.fillStyle='#19bac7';ctx.fillRect(0,surf,W,10);
   for(let x=0;x<W;x+=24){
-   ctx.fillStyle=x%48===0?'#fff7a5':'#c6fff1';
+   ctx.fillStyle=x%48===0?'#fff7a5':'#d7ffff';
    ctx.fillRect(x,surf+(Math.floor(x/24+waveT*2)%3)*3,15,3);
   }
  }
- // Pixel caustics, shafts and tiny light flecks move at different speeds.
- ctx.fillStyle='#a7fff018';
+ // Shimmering light shafts brighten shallow water; slower in reduced-effects mode.
+ ctx.fillStyle='#b8fff01a';
  for(let i=0;i<5;i++){
   const x=i*108+Math.floor(waveT*2)%24-80;
-  for(let j=0;j<15;j++)ctx.fillRect(x-j*9,Math.max(0,surf)+j*60,28,56);
+  for(let j=0;j<13;j++){
+   const y=Math.max(0,surf)+j*60;
+   if(y>H)break;
+   if(y+camera-SEA<BIOMES[1].start+120)ctx.fillRect(x-j*9,y,28,56);
+  }
  }
- for(let i=0;i<50;i++){
+ // Scenery sits at a fixed depth rather than scrolling with the screen.
+ const bottomWorld=camera+H-SEA;
+ for(let world=120;world<bottomWorld+100;world+=95){
+  const y=SEA+world-camera;
+  if(y<-110||y>H+80)continue;
+  const biome=biomeAtDepth(world),row=Math.floor(world/95);
+  for(let k=0;k<5;k++){
+   const x=16+k*91+(row%2)*32,wiggle=Math.sin(waveT*1.4+k+row)*5;
+   if(biome.id==='reef'){
+    const height=18+(row+k)%4*9;
+    ctx.fillStyle=k%2?'#ef6589aa':'#1bd1bcaa';
+    ctx.fillRect(x,y-height,7,height+2);
+    ctx.fillRect(x-11,y-height+12,27,6);
+    ctx.fillRect(x+10,y-height-8,6,height*.6);
+    ctx.fillStyle='#ffe3a3';ctx.fillRect(x,y-height,6,4);
+   }else if(biome.id==='kelp'){
+    const height=67+(row+k)%5*15;
+    ctx.fillStyle=k%2?'#126d63bb':'#1aa69aaa';
+    for(let h=0;h<height;h+=12){
+     const dx=x+Math.round(Math.sin(waveT*.9+h*.035+k)*4+wiggle*.3);
+     ctx.fillRect(dx,y-h,6,13);
+     ctx.fillRect(dx+(k%2?5:-8),y-h-8,14,6);
+    }
+   }else{
+    const h=25+(row+k)%4*17;
+    ctx.fillStyle='#0c1947ba';ctx.fillRect(x,y-h,20,h+10);
+    ctx.fillStyle=k%2?'#a37bffaa':'#54f9c8a3';
+    ctx.fillRect(x+6,y-h-8,7,9);
+    ctx.fillRect(x-5,y-h+11,5,5);
+    ctx.fillRect(x+19,y-h+23,5,5);
+   }
+  }
+ }
+ // Floating pixels and glowing specks remain light enough not to hide fish.
+ for(let i=0;i<37;i++){
   const x=Math.floor(((11+i*73.27)%W)/3)*3;
   const y=Math.floor((((i*159)+waveT*(10+i%7))%(H+30))-15)/3*3;
-  ctx.fillStyle=i%8===0?'#ffe995a6':i%4===0?'#bbfff1a6':'#7fe9ef51';
-  ctx.fillRect(x,y,i%5?3:6,i%5?3:6);
-  if(i%8===0){ctx.fillRect(x-3,y+1,2,2);ctx.fillRect(x+7,y+1,2,2);}
+  const d=Math.max(0,y+camera-SEA),deep=biomeAtDepth(d).id==='trench';
+  ctx.fillStyle=deep?(i%3===0?'#a58dffb4':'#6cfce17c'):(i%5===0?'#ffe995a6':'#a8fff571');
+  ctx.fillRect(x,y,i%4?3:6,i%4?3:6);
  }
- for(let i=0;i<7;i++){
-  const y=Math.round((i*170+SEA-camera+35)/4)*4;
-  if(y>0&&y<H){ctx.fillStyle='#d5fff03f';for(let x=12;x<W-12;x+=21)ctx.fillRect(x,y,10,3);}
+}
+function jellyfish(h,y){
+ const bob=Math.sin(h.phase)*9;
+ ctx.save();ctx.translate(Math.round(h.x),Math.round(y+bob));
+ ctx.fillStyle='#f4a4fc60';ctx.fillRect(-22,-20,44,29);
+ ctx.fillStyle='#ab84ec';ctx.fillRect(-20,-17,40,23);
+ ctx.fillStyle='#dfaaff';ctx.fillRect(-14,-23,28,11);
+ ctx.fillStyle='#fff3ff';ctx.fillRect(-11,-18,8,5);
+ ctx.fillStyle='#582f8f';ctx.fillRect(8,-6,4,4);
+ for(let i=0;i<5;i++){
+  const dx=-16+i*8+Math.round(Math.sin(h.phase*2+i)*4);
+  ctx.fillStyle=i%2?'#b8b5ff':'#ff93d0';
+  ctx.fillRect(dx,6,4,22+i%3*6);
+  ctx.fillRect(dx+Math.round(Math.sin(h.phase*3+i)*4),24,3,10+i%2*4);
  }
- // Shallow coral silhouettes provide colour without obscuring gameplay fish.
- for(let k=0;k<12;k++){
-  const x=k*43-14,h=35+(k%5)*9;
-  ctx.fillStyle=k%3===0?'#e45d88':k%3===1?'#179aaf':'#28bea9';
-  ctx.fillRect(x,H-h,8,h);
-  ctx.fillRect(x-9,H-h+13,26,6);
-  ctx.fillRect(x+(k%2?9:-8),H-h-9,7,23);
-  ctx.fillStyle='#a3fff0';ctx.fillRect(x,H-h,8,5);
- }
+ ctx.restore();
 }
 function meter(n){return `${Math.round(n/6)}m`;}
 function beginCast(){
@@ -315,19 +396,20 @@ function beginCast(){
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');
  castNumber++;state='descent';age=0;roundEarnings=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
- const count=Math.floor(maxDepth/39);for(let i=0;i<count;i++){
- const d=165+i*(maxDepth-180)/Math.max(count-1,1)+rand(-14,14);
- const kind=clamp(Math.floor((d/maxDepth)*5 + rand(-.7,1)),0,5);
- fishes.push({id:i, x:rand(40,W-42),d,kind,dir:Math.random()<.5?-1:1,speed:rand(7,22),phase:rand(0,7),caught:false});
- }
+const populated=spawnOcean(maxDepth,Math.random);
+ fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DODGE THE FISH!';messageTimer=2.1;}
-function startAscent(hitFish){if(state!=='descent')return;
+function startAscent(hitFish,stung=false){if(state!=='descent')return;
  state='ascent';age=0;message='REEL THEM IN!';messageTimer=1.9;if(hitFish)catchFish(hitFish);
- else if(!caught.length){const nearest=fishes.filter(f=>!f.caught).sort((a,b)=>Math.abs(a.d-depth)-Math.abs(b.d-depth))[0];if(nearest)catchFish(nearest);}
+ else if(!caught.length&&!stung){const nearest=fishes.filter(f=>!f.caught).sort((a,b)=>Math.abs(a.d-depth)-Math.abs(b.d-depth))[0];if(nearest)catchFish(nearest);}
  sound.play('reel');sceneFlash=.16;}
 function catchFish(f){
  if(f.caught)return;f.caught=true;
  caught.push({kind:f.kind,value:species[f.kind].value});
+ if(species[f.kind].rare){
+  floatLabel('GOLDEN CATCH!',210,158,C.yellow);
+  sceneFlash=.35;sound.play('combo');
+ }
  const camera=clamp(depth-230,0,maxDepth+100),hy=SEA+depth-camera;
  burst(hookX,hy,C.yellow,12);emitSplash(hookX,hy,species[f.kind].color,.55);
  sound.play('catch',{pitch:f.kind});
@@ -416,16 +498,30 @@ function update(dt){
  if(keys.has('ArrowLeft')||keys.has('a'))targetX-=270*dt;
  if(keys.has('ArrowRight')||keys.has('d'))targetX+=270*dt;
  targetX=clamp(targetX,24,W-24);hookX+=(targetX-hookX)*clamp(9*dt,0,1);
- for(const f of fishes){if(f.caught)continue;f.x+=f.dir*f.speed*dt;f.phase+=dt*(2.4+f.kind*.2);
- f.swimY=Math.sin(f.phase*1.6+f.id*.7)*(2.8+f.kind*.65);if(f.x<29){f.x=29;f.dir=1;}if(f.x>W-29){f.x=W-29;f.dir=-1;}}
+ for(const f of fishes)advanceFish(f,dt);
+ for(const h of hazards)advanceHazard(h,dt);
+ hazardSlow=Math.max(0,hazardSlow-dt);
+ const touchingHazard=hazards.find(h=>overlapsHazard(h,hookX,depth)&&clock-h.triggeredAt>1.8);
+ const triggerHazard=()=>{
+  if(!touchingHazard)return;
+  touchingHazard.triggeredAt=clock;
+  const camera=clamp(depth-230,0,maxDepth+100),y=SEA+touchingHazard.d-camera;
+  burst(touchingHazard.x,y,'#d7b3ff',14);
+  floatLabel('JELLYFISH!',touchingHazard.x,y-27,C.pink);
+  sceneFlash=.17;shake=lowFx?0:3;
+  sound.play('miss');
+ };
  if(state==='descent'){
  depth+= (162+save.upgrades.line*6)*dt;
- const collided=depth<225?null:fishes.find(f=>!f.caught&&Math.abs(f.d-depth)<20&&Math.abs(f.x-hookX)<(18+species[f.kind].size*.75));
- if(collided)startAscent(collided);else if(depth>=maxDepth){depth=maxDepth;startAscent(null);}
+ const collided=depth<225?null:fishes.find(f=>!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<20&&Math.abs(f.x-hookX)<(18+species[f.kind].size*.75));
+ if(collided)startAscent(collided);
+ else if(touchingHazard){triggerHazard();startAscent(null,true);}
+ else if(depth>=maxDepth){depth=maxDepth;startAscent(null);}
  }else{
- depth-=240*dt;
+ depth-=(hazardSlow>0?140:240)*dt;
+ if(touchingHazard){triggerHazard();hazardSlow=1.2;}
  const radius=24+save.upgrades.net*13;
- for(const f of fishes)if(!f.caught&&Math.abs(f.d-depth)<27&&Math.abs(f.x-hookX)<radius+species[f.kind].size*.5)catchFish(f);
+ for(const f of fishes)if(!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<27&&Math.abs(f.x-hookX)<radius+species[f.kind].size*.5)catchFish(f);
  if(depth<=0){depth=0;beginShoot();}
  }
  }
@@ -495,14 +591,25 @@ function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
  if(surf>45&&surf<H+60){boat(W/2,surf-7);}
  const reelY=surf-35,hy=SEA+depth-camera;
  line(W/2,Math.max(-20,reelY),hookX,hy,'#e3debbd9',1.5);
- for(const f of fishes){if(f.caught)continue;const fy=SEA+f.d-camera;if(fy<-40||fy>H+40)continue;fish(f.x,fy+(f.swimY||0),f.kind,f.dir,1,f.phase);}
+ for(const f of fishes){
+  if(f.caught)continue;
+  const fy=SEA+f.d-camera;if(fy<-48||fy>H+48)continue;
+  fish(f.x,fy+(f.swimY||0),f.kind,f.dir,1,f.phase);
+}
+for(const h of hazards){
+  const hy=SEA+h.d-camera;
+  if(hy>-80&&hy<H+80)jellyfish(h,hy);
+}
  caught.forEach((f,i)=>{fish(hookX+Math.sin(clock*3+i)*12,hy+35+i*20,f.kind,i%2?-1:1,.6,clock*4+i);});
  hook(hookX,hy);
  topBar(state==='descent'?'DIVING ↓':'REELING ↑','',`${meter(depth)} / ${meter(maxDepth)}`);
+ const biome=biomeAtDepth(depth);
+ roundRect(17,112,119,33,0,'#07182ce9','#49d9c2');
+ text(biome.name,76,128,10,biome.id==='trench'?'#cbadff':C.mint,'center',900);
  roundRect(28,85,364,9,5,'#052e3c','#32758b');roundRect(30,87,Math.max(3,360*depth/maxDepth),5,3,state==='descent'?C.yellow:C.teal);
  if(state==='ascent'){roundRect(139,110,142,40,11,'#092d3edc');text('HOOKED  '+caught.length,210,130,16,C.yellow);}
  if(messageTimer>0){roundRect(82,166,256,37,12,'#061d2cf0');text(message,210,184,15,C.cream,'center',950,.5);}
- bottomHint((sensorFresh()?'TILT TO STEER':'DRAG TO STEER')+' • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
+ bottomHint(hazardSlow>0?'JELLYFISH STING! RECOVERING...':(sensorFresh()?'TILT TO STEER':'DRAG TO STEER')+' • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
  button('II',362,117,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
 function drawBulletTrail(x1,y1,x2,y2,alpha,color){

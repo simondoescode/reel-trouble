@@ -63,11 +63,11 @@ Input preference is stored locally as `reel-trouble-input-v1`. HTTPS is required
 - `test/` — static smoke tests
 - `.github/workflows/deploy.yml` — test, build and Pages deployment
 
-Six fish types use original, hand-authored pixel sprites and vibrant, distinct colour palettes. The ocean includes layered cyan/teal bands, animated pixel caustics, coral silhouettes and bright bubble glints. The shooting sequence uses a saturated magenta-to-gold sunset, with colourful hit particles and stronger pixel UI highlights. The ocean, boat, hook, UI and shooting sky use blocky geometry, with nearest-neighbour scaling from a low-resolution canvas. This is original retro arcade art, not assets extracted from another game. No third-party runtime libraries, ads, analytics or external API calls. Player progress is saved locally under `reel-trouble-save-v1` and falls back to existing `deep-end-save-v1` data from the same browser origin.
+Fourteen fish types use original, hand-authored pixel sprites and vibrant, distinct colour palettes. The ocean includes layered cyan/teal bands, animated pixel caustics, coral silhouettes and bright bubble glints. The shooting sequence uses a saturated magenta-to-gold sunset, with colourful hit particles and stronger pixel UI highlights. The ocean, boat, hook, UI and shooting sky use blocky geometry, with nearest-neighbour scaling from a low-resolution canvas. This is original retro arcade art, not assets extracted from another game. No third-party runtime libraries, ads, analytics or external API calls. Player progress is saved locally under `reel-trouble-save-v1` and falls back to existing `deep-end-save-v1` data from the same browser origin.
 
 ## Status
 
-Playable web prototype with one complete fishing loop, six fish types, three upgrade tracks and local saved progress. Android packaging is a separate future task; the project has not been converted to an installable APK.
+Playable web prototype with one complete fishing loop, fourteen fish types, three ocean biomes, jellyfish hazards, three upgrade tracks and local saved progress. Android packaging is a separate future task; the project has not been converted to an installable APK.
 
 ## Mobile release polish
 
@@ -88,3 +88,20 @@ Reel Trouble now includes an **original procedural chiptune soundtrack** with di
 Sound effects are distinct for casting and splashes, hooking fish, reeling, shots, impacts, combo streaks, upgrades and round results. There is a new **Chiptune On/Off** setting separate from the existing **Sound FX On/Off** setting; both preferences are saved locally. Browsers require a tap/key press before sound starts. Pausing or backgrounding the game quiets the soundtrack and surf.
 
 Visual feedback includes animated pixel-water droplets on casts and transitions, swim bobbing and moving fins/tails for fish, a little reeling angler on the rocking boat, catch flashes and brighter impact moments. Reduced Effects continues to limit particles and motion.
+
+
+## Ocean Expansion v1
+
+The ocean is now divided into three **world-depth-based environments**. The HUD reports internal depth in metres (6 pixels per metre); graphics blend gradually over about 50 metres either side of biome boundaries.
+
+| Zone | Internal depth | Display depth | Features |
+| --- | --- | --- | --- |
+| Sunlit Reef | 0–449 | 0–74 m | Bright coral, clownfish, pufferfish and schooling sardines |
+| Kelp Forest | 450–1079 | 75–179 m | Swaying kelp, fast tuna, lionfish, jellyfish |
+| Twilight Trench | 1080+ | 180 m+ | Dark blue water, luminous crystals, lanternfish, anglerfish, rarer catches |
+
+**Eight new fish:** Clownfish ($22), Pufferfish ($46), Sardine ($12), Lionfish ($74), Tuna ($88), Lanternfish ($110), Anglerfish ($170) and exceptionally rare Golden Fish ($500). These join the original six species; earlier saves and upgrade levels are unchanged. The Golden Fish can appear from 90m down, with roughly a 1.2% chance per eligible spawn slot, and becomes especially lucrative with the gun combo multiplier.
+
+Fish now have per-species swim styles (cruising, zigzagging, schooling, drifting, dashing and bioluminescent effects). Jellyfish are distinct non-collectible hazards: touching one on descent prematurely ends your descent **without awarding a free fish**, while a sting on ascent briefly slows reeling. Your fish collection and wallet are safe.
+
+The depths of the kelp forest and twilight trench are reached naturally by upgrading the existing longer fishing line. Biome colour transitions and foreground silhouettes are anchored to the ocean world, while the animated UI shows the player's current biome. Offline asset caches are versioned so the new game code is picked up after an online refresh.

@@ -40,7 +40,7 @@ test('vibrant pixel colours and visual effects stay available', () => {
  assert.match(game, /teal:'#20e3d0'/);
  assert.match(game, /yellow:'#ffe35b'/);
  assert.match(game, /const fishPalette=\[/);
- assert.match(game, /const bands=\['#1599ae'/);
+ assert.match(game, /oceanPalette\(worldDepth\)/);
  assert.match(game, /const sky=\['#293d83'/);
  assert.match(game, /const sparks=\[color,C\.yellow,C\.teal,C\.cream,C\.pink\]/);
  assert.match(css, /image-rendering: pixelated/);
@@ -108,4 +108,17 @@ test('music, ambience and expressive animation remain integrated',()=>{
  assert.match(game,/sound\.play\('hit'/);
  assert.match(game,/sound\.play\('results'/);
  assert.match(read('sw.js'),/src\/audio\.js/);
+});
+
+test('ocean expansion is connected to spawning, artwork, hazards and scoring',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/import \{ SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard \} from '\.\/ocean\.js'/);
+ assert.match(game,/const populated=spawnOcean\(maxDepth,Math\.random\)/);
+ assert.match(game,/for\(const f of fishes\)advanceFish\(f,dt\)/);
+ assert.match(game,/for\(const h of hazards\)advanceHazard\(h,dt\)/);
+ assert.match(game,/function jellyfish\(h,y\)/);
+ assert.match(game,/startAscent\(null,true\)/);
+ assert.match(game,/GOLDEN CATCH!/);
+ assert.match(game,/const biome=biomeAtDepth\(depth\)/);
+ assert.match(read('sw.js'),/src\/ocean\.js/);
 });
