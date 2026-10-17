@@ -1219,7 +1219,7 @@ function shop(){
   text('STOCK: '+save.charges+' / 3',210,387,21,C.white);
   button(save.charges>=3?'STOCK FULL':'BUY $110',78,477,264,66,buyCharge,C.yellow);
   neonPanel(24,571,372,68,C.teal,14);
-  text('ONE CHARGE USED PER CAST',210,605,17,C.white);
+  text('CONSUMED ONLY ON FISH IMPACT',210,605,16,C.white);
  }
  if(shopTab!=='gadgets'){
   neonPanel(33,641,354,57,C.coral,12);
