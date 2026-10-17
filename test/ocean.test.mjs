@@ -31,9 +31,9 @@ test('spawned fish and hazards fit the available line length',()=>{
  let seed=49;
  const rng=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
  const short=spawnOcean(720,rng);
- assert.ok(short.fish.length>=16);
+ assert.ok(short.fish.length>=8);
  assert.ok(short.hazards.length>=1);
- assert.ok(short.fish.every(f=>f.d>=150&&f.d<=660&&f.kind>=0&&f.kind<14));
+ assert.ok(short.fish.every(f=>f.d>=295&&f.d<=660&&f.kind>=0&&f.kind<14));
  assert.ok(short.hazards.every(h=>h.d>400&&h.d<720));
  const deep=spawnOcean(1920,rng);
  assert.ok(deep.fish.some(f=>biomeAtDepth(f.d).id==='trench'));
@@ -68,4 +68,14 @@ test('fish stand out against muted biome palettes and transitions stay smooth',(
  const difference=(a,b)=>[1,3,5].reduce((sum,i)=>sum+Math.abs(parseInt(a.slice(i,i+2),16)-parseInt(b.slice(i,i+2),16)),0);
  for(const boundary of [450,1080])assert.ok(difference(oceanPalette(boundary-1)[1],oceanPalette(boundary)[1])<3,
    'abrupt colour jump at '+boundary);
+});
+
+test('depth distribution leaves the shallows clear and thins out fish encounters',()=>{
+ const rng=()=>.5;
+ const shallow=spawnOcean(720,rng);
+ assert.ok(shallow.fish.every(f=>f.d>=295));
+ assert.ok(shallow.fish.length<=12);
+ const deep=spawnOcean(1920,rng);
+ assert.ok(deep.fish.length<1920/43);
+ assert.ok(deep.fish.some(f=>f.d>=1080));
 });
