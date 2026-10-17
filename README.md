@@ -62,7 +62,7 @@ Input preference is stored locally as `reel-trouble-input-v1`. HTTPS is required
 - `test/` — static smoke tests
 - `.github/workflows/deploy.yml` — test, build and Pages deployment
 
-Six fish types use original, hand-authored pixel sprites and limited colour palettes. The ocean, boat, hook, UI and shooting sky use blocky geometry, with nearest-neighbour scaling from a low-resolution canvas. This is original retro arcade art, not assets extracted from another game. No third-party runtime libraries, ads, analytics or external API calls. Player progress is saved locally under `reel-trouble-save-v1` and falls back to existing `deep-end-save-v1` data from the same browser origin.
+Six fish types use original, hand-authored pixel sprites and vibrant, distinct colour palettes. The ocean includes layered cyan/teal bands, animated pixel caustics, coral silhouettes and bright bubble glints. The shooting sequence uses a saturated magenta-to-gold sunset, with colourful hit particles and stronger pixel UI highlights. The ocean, boat, hook, UI and shooting sky use blocky geometry, with nearest-neighbour scaling from a low-resolution canvas. This is original retro arcade art, not assets extracted from another game. No third-party runtime libraries, ads, analytics or external API calls. Player progress is saved locally under `reel-trouble-save-v1` and falls back to existing `deep-end-save-v1` data from the same browser origin.
 
 ## Status
 

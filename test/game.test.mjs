@@ -33,3 +33,16 @@ test('pixel art uses nearest-neighbour scaling and hand-authored sprites', () =>
  assert.match(game, /const FISH_SPRITE=/);
  assert.match(read('src/styles.css'), /image-rendering:pixelated/);
 });
+
+test('vibrant pixel colours and visual effects stay available', () => {
+ const game=read('src/game.js');
+ const css=read('src/styles.css');
+ assert.match(game, /teal:'#20e3d0'/);
+ assert.match(game, /yellow:'#ffe35b'/);
+ assert.match(game, /const fishPalette=\[/);
+ assert.match(game, /const bands=\['#1599ae'/);
+ assert.match(game, /const sky=\['#293d83'/);
+ assert.match(game, /const sparks=\[color,C\.yellow,C\.teal,C\.cream,C\.pink\]/);
+ assert.match(css, /image-rendering: pixelated/);
+ assert.match(css, /radial-gradient/);
+});

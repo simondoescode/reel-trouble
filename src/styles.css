@@ -1,8 +1,22 @@
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    html, body { margin:0; padding:0; width:100%; min-height:100%; overflow:hidden; background:#04131f; touch-action:none; }
-    body { display:flex; justify-content:center; align-items:center; font-family:system-ui,-apple-system,sans-serif; }
-    #game { display:block; width:min(100vw,calc(100dvh * 420 / 780)); height:min(100dvh,calc(100vw * 780 / 420));
-       max-width:calc(100dvh * 420 / 780); max-height:100dvh; touch-action:none; outline:none; cursor:crosshair; image-rendering:pixelated; image-rendering:crisp-edges;
-       box-shadow:0 0 0 1px #185062, 0 15px 90px #01070dcc; }
-    @media (display-mode:standalone) { body { background:#071b2b; } }
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; width: 100%; min-height: 100%; overflow: hidden;
+  background: #07182c; touch-action: none;
+}
+body {
+  display: flex; justify-content: center; align-items: center;
+  font-family: ui-monospace, Consolas, monospace;
+  background: radial-gradient(ellipse at 50% 35%, #155d76 0%, #0a334d 48%, #061627 100%);
+}
+#game {
+  display: block;
+  width: min(100vw,calc(100dvh * 420 / 780));
+  height: min(100dvh,calc(100vw * 780 / 420));
+  max-width: calc(100dvh * 420 / 780);
+  max-height: 100dvh;
+  touch-action: none; outline: none; cursor: crosshair;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 2px #22dec0, 0 0 0 6px #09324b, 0 10px 70px #17b8bf4a;
+}
+@media (display-mode: standalone) { body { background: #07182c; } }
