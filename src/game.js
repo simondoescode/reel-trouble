@@ -24,9 +24,9 @@ display.imageSmoothingEnabled=true; // Smooth final presentation, not font raste
 // Saturated colours remain in the art and outlines. UI labels are solid white.
 const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#ffffff',white:'#ffffff',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#ffffff',ink:'#071b31'};
 
-const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0},collection:createCollection()};
+const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0},charges:0,collection:createCollection()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
-return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL)},collection:normalizeCollection(d.collection)};
+return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL)},collection:normalizeCollection(d.collection)};
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -139,6 +139,7 @@ function pauseGame(reason='MANUAL'){
 }
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sceneTransition=null;sound.pause(false);rumble.stop();}
+let shopTab='lines',chargeArmed=false;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
@@ -516,7 +517,7 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
@@ -615,8 +616,18 @@ let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,s
 function endRound(){if(state!=='shoot')return;state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');stageCue('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save.cash<cfg.cost)return;
  save.cash-=cfg.cost;save.upgrades[type]++;persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
-function upgradeConfig(type){const titles={line:'LONGER LINE',net:'WIDER HOOK',gun:'GUN UPGRADES'},base={line:65,net:90,gun:85};const lvl=save.upgrades[type];
- return {title:titles[type],level:lvl,cost:Math.round(base[type]*Math.pow(1.75,lvl)),desc:{line:'+40m of depth per level',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};}
+const LINE_NAMES=['STARTER REEL','REEF RUNNER','BLUEWATER','TRENCH CRAWLER','ABYSS EXPLORER','BOTTOMLESS PRO'];
+const GUN_NAMES=['POP GUN','QUICKSHOT','SCATTERGUN','TWIN SCATTER','NEON BLASTER','STORM CANNON'];
+function upgradeConfig(type){
+ const base={line:65,net:90,gun:85},lvl=save.upgrades[type];
+ return {title:{line:'FISHING LINES',net:'WIDER HOOK',gun:'GUN COLLECTION'}[type],
+ level:lvl,cost:Math.round(base[type]*Math.pow(1.75,lvl)),
+ desc:{line:'+40m of depth per level',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};
+}
+function buyCharge(){
+ if(save.charges>=3||save.cash<110)return;
+ save.cash-=110;save.charges++;persist();sound.play('upgrade');rumble.play('upgrade');
+}
 function burst(x,y,color,count){
  if(lowFx)count=Math.min(count,7);
  // A few high-contrast gold and aqua sparkles make catches and shots satisfying.
@@ -704,8 +715,18 @@ function update(dt){
  };
  if(state==='descent'){
  depth+= (122+save.upgrades.line*4)*dt;
- const collided=depth<360?null:fishes.find(f=>!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<17&&Math.abs(f.x-hookX)<(12+species[f.kind].size*.52));
- if(collided)startAscent(collided);
+ const collided=depth<360?null:fishes.find(f=>!f.caught&&!f.bypassed&&Math.abs(f.d+(f.swimY||0)-depth)<17&&Math.abs(f.x-hookX)<(12+species[f.kind].size*.52));
+ if(collided&&chargeArmed){
+  chargeArmed=false;save.charges=Math.max(0,save.charges-1);persist();
+  // Clear the fish from the collision path without adding it to the catch.
+  collided.bypassed=true;
+  const cam=clamp(depth-230,0,maxDepth+100),cy=SEA+depth-cam;
+  burst(hookX,cy,C.yellow,32);emitSplash(hookX,cy,C.coral,1.1);
+  floatLabel('BLAST SAVE!',hookX,cy-44,C.yellow);
+  sceneFlash=.38;shake=lowFx?0:9;sound.play('finisher');rumble.play('legendary');
+  message='CHARGE USED • KEEP DIVING';messageTimer=2;
+ }
+ else if(collided)startAscent(collided);
  else if(touchingHazard){triggerHazard();startAscent(null,true);}
  else if(depth>=maxDepth){depth=maxDepth;startAscent(null);}
  }else{
@@ -818,6 +839,7 @@ for(const h of hazards){
  caught.forEach((f,i)=>{fish(hookX+Math.sin(clock*3+i)*12,hy+35+i*20,f.kind,i%2?-1:1,.6,clock*4+i);});
  hook(hookX,hy);
  topBar(state==='descent'?'DIVING ↓':'REELING ↑','',`${meter(depth)} / ${meter(maxDepth)}`);
+ if(chargeArmed&&state==='descent')arcadePill('BLAST READY',242,154,162,C.yellow);
  const biome=biomeAtDepth(depth);
  roundRect(18,112,159,37,0,'#08253bf5','#76fae2',2);
  text(biome.name,97,130,13,biome.id==='trench'?'#e4caff':C.cream,'center',950,0,145);
@@ -1164,19 +1186,46 @@ function results(){
  button('FISH BOOK',217,647,178,53,()=>openCollection('fish'),C.teal);
  button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
 }
-function shop(){ambient(clock);text('GEAR SHOP',210,95,46,C.cream,'center',1000,-1.5);text('MAKE THE NEXT CAST COUNT',210,135,17,C.white,'center',900,0,354);
- roundRect(127,159,166,41,14,'#144457','#42818b');text(`YOUR CASH  $${save.cash}`,210,179,17,C.yellow);
- const types=['line','net','gun'];for(let i=0;i<3;i++){
- const type=types[i],cfg=upgradeConfig(type),y=220+i*143;
- panel(22,y,376,127);text(cfg.title,41,y+25,18,C.cream,'left',950);
- text('LVL '+cfg.level+'/'+MAXLVL,378,y+25,15,C.mint,'right',950,0,102);
- text(cfg.desc,41,y+54,17,C.white,'left',900,0,326);
- for(let k=0;k<MAXLVL;k++)roundRect(40+k*23,y+75,17,8,3,k<cfg.level?C.yellow:'#305567');
- if(cfg.level===MAXLVL){roundRect(263,y+70,115,42,12,'#346071');text('MAXED',320,y+91,16,C.cream);}
- else {const affordable=save.cash>=cfg.cost;button('$'+cfg.cost,267,y+69,110,43,()=>purchase(type),affordable?C.yellow:'#65818a');}
+function shop(){
+ ambient(clock);
+ text('GEAR SHOP',210,66,42,C.white,'center',1000);
+ arcadePill('WALLET $'+save.cash,103,98,214,C.yellow);
+ const tabs=[['lines','LINES'],['guns','GUNS'],['gadgets','GADGETS']];
+ for(let i=0;i<tabs.length;i++){
+  const [id,label]=tabs[i];
+  button(label,15+i*132,151,126,48,()=>{shopTab=id;},shopTab===id?C.yellow:'#6c97a6');
  }
- button('← BACK',108,673,204,58,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.cream);
- text('PROGRESS SAVED ON THIS DEVICE',210,755,16,C.white,'center',900,0,372);
+ if(shopTab==='lines'||shopTab==='guns'){
+  const type=shopTab==='lines'?'line':'gun',cfg=upgradeConfig(type);
+  const names=type==='line'?LINE_NAMES:GUN_NAMES;
+  neonPanel(24,223,372,295,C.teal,18);
+  text(type==='line'?'YOUR CURRENT REEL':'YOUR CURRENT WEAPON',210,254,17,C.white);
+  text(names[cfg.level],210,302,27,C.white,'center',900,0,342);
+  text(type==='line'?meter(720+cfg.level*240)+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
+  arcadeRule(52,374,368,C.teal);
+  if(cfg.level<MAXLVL){
+   text('NEXT: '+names[cfg.level+1],210,413,22,C.white,'center',900,0,330);
+   text(type==='line'?'+40m REACH • NEW DEPTHS':'NEW SHOT PATTERN / AIM BOOST',210,446,16,C.white,'center',900,0,334);
+   button('BUY $'+cfg.cost,75,538,270,66,()=>purchase(type),C.yellow);
+  }else{
+   text('MAX UPGRADE EQUIPPED',210,429,18,C.white);
+   arcadePill('OWNED',119,541,182,C.teal);
+  }
+ }else{
+  neonPanel(24,220,372,235,C.coral,18);
+  text('EXPLOSIVE CHARGE',210,255,26,C.white,'center',900,0,344);
+  text('SURVIVE YOUR FIRST FISH HIT',210,304,17,C.white);
+  text('AUTO-TRIGGERS ON COLLISION',210,336,17,C.white);
+  text('STOCK: '+save.charges+' / 3',210,387,21,C.white);
+  button(save.charges>=3?'STOCK FULL':'BUY $110',78,477,264,66,buyCharge,C.yellow);
+  neonPanel(24,571,372,68,C.teal,14);
+  text('ONE CHARGE USED PER CAST',210,605,17,C.white);
+ }
+ if(shopTab!=='gadgets'){
+  neonPanel(33,641,354,57,C.coral,12);
+  text('BONUS: '+save.charges+' BLAST CHARGES',210,668,17,C.white);
+ }
+ button('← BACK',107,705,206,53,()=>{state=castNumber&&save.total?'results':'menu';age=0;},C.white);
 }
 
 function bookCard(kind,x,y){
