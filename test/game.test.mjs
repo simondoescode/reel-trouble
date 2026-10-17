@@ -31,7 +31,7 @@ test('pixel art uses nearest-neighbour scaling and hand-authored sprites', () =>
  assert.match(game, /display\.imageSmoothingEnabled=false/);
  assert.match(game, /display\.drawImage\(pixelCanvas/);
  assert.match(game, /const FISH_SPRITE=/);
- assert.match(read('src/styles.css'), /image-rendering:pixelated/);
+ assert.match(read('src/styles.css'), /image-rendering:\s*pixelated/);
 });
 
 test('vibrant pixel colours and visual effects stay available', () => {
