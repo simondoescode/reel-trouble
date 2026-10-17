@@ -102,7 +102,7 @@ test('music, ambience and expressive animation remain integrated',()=>{
  assert.match(game,/sound\.pause\(true\)/);
  assert.match(game,/function emitSplash\(/);
  assert.match(game,/function drawSplashEffects\(/);
- assert.match(game,/f\.swimY=Math\.sin/);
+ assert.match(read('src/ocean.js'),/f\.swimY=Math\.sin/);
  assert.match(game,/const arm=Math\.round\(Math\.sin\(clock\*8\)\*4\)/);
  assert.match(game,/sound\.play\('catch'/);
  assert.match(game,/sound\.play\('hit'/);
