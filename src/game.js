@@ -1463,7 +1463,7 @@ function settings(){
  else text('DRAG TO STEER DURING A CAST',210,350,17,C.white,'center',900,0,350);
  text('AUDIO',210,376,16,C.yellow,'center',950);
  button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
- button(musicEnabled?'CHIPTUNE: ON':'CHIPTUNE: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
+ button(musicEnabled?'SOUNDTRACK: ON':'SOUNDTRACK: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
  text('FEEDBACK',210,495,16,C.yellow,'center',950);
  button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
  if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
@@ -1645,6 +1645,7 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
 document.addEventListener('visibilitychange',()=>{
  if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);rumble.stop();}
+ else if(!paused){sound.pause(false);sound.unlock();}
  last=0;
 });
 })();
