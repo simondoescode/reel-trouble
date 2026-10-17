@@ -1,9 +1,13 @@
-// Original Reel Trouble ecosystem: depth-based biomes, fish, spawn weights and swimming.
-export const BIOMES = Object.freeze([
- // The water should not compete with the saturated, brightly coloured fish.
- {id:'reef',name:'SUNLIT REEF',start:0,colors:['#17667a','#135a71','#114962','#0c3b55']},
- {id:'kelp',name:'KELP FOREST',start:450,colors:['#205c67','#184e60','#143e55','#102f46']},
- {id:'trench',name:'TWILIGHT TRENCH',start:1080,colors:['#263d71','#1d325c','#17264c','#101b36']}
+// Reel Trouble's original seven-region ocean. World coordinates are pixels, HUD is metres.
+export const DEPTH_SCALE=3, CHUNK_DEPTH=720;
+export const BIOMES=Object.freeze([
+ {id:'sunskip',name:'SUNSKIP SHELF',start:0,colors:['#17667a','#135a71','#114962','#0c3b55'],motif:'coral'},
+ {id:'bluewander',name:'BLUEWANDER',start:780,colors:['#165771','#134a66','#103a58','#0c304a'],motif:'open'},
+ {id:'knuckles',name:'KELP KNUCKLES',start:1920,colors:['#20515d','#194752','#153947','#102e3b'],motif:'kelp'},
+ {id:'hush',name:'THE HUSH',start:3690,colors:['#163e5a','#15354f','#102a42','#0b2036'],motif:'spires'},
+ {id:'lantern',name:'LANTERN RIFT',start:6480,colors:['#192c55','#152744','#111e35','#0c182b'],motif:'glow'},
+ {id:'blackglass',name:'BLACKGLASS DROP',start:11550,colors:['#101b36','#0e192f','#0b1427','#080f20'],motif:'glass'},
+ {id:'unmarked',name:'THE UNMARKED',start:20100,colors:['#0b1630','#0a1226','#080f20','#060b18'],motif:'unknown'}
 ]);
 export const SPECIES = Object.freeze([
  {name:'Guppy',value:10,color:'#ffc247',size:13,behavior:'cruise',speed:13},
@@ -21,77 +25,108 @@ export const SPECIES = Object.freeze([
  {name:'Anglerfish',value:170,color:'#c69cff',size:24,behavior:'lure',speed:9},
  {name:'Golden Fish',value:500,color:'#ffe35b',size:18,behavior:'dash',speed:40,rare:true}
 ]);
-// Depth units are internal pixels; the HUD converts 6 px to 1 metre.
+
+// Use world-pixel depth consistently; region boundaries correspond to 260m,
+// 640m, 1230m, 2160m, 3850m, and 6700m.
 export function biomeAtDepth(depth){
- const value=Math.max(0,Number(depth)||0);
- if(value>=BIOMES[2].start)return BIOMES[2];
- if(value>=BIOMES[1].start)return BIOMES[1];
+ const d=Math.max(0,Number(depth)||0);
+ for(let i=BIOMES.length-1;i>=0;i--)if(d>=BIOMES[i].start)return BIOMES[i];
  return BIOMES[0];
 }
-function mix(a,b,t){return Math.round(a+(b-a)*t);}
-function colour(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));}
-function hex(a){return '#'+a.map(n=>Math.max(0,Math.min(255,n)).toString(16).padStart(2,'0')).join('');}
+const lerp=(a,b,t)=>Math.round(a+(b-a)*t);
+const rgb=s=>[1,3,5].map(i=>parseInt(s.slice(i,i+2),16));
+const hex=a=>'#'+a.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
 export function oceanPalette(depth){
- const d=Math.max(0,Number(depth)||0);
- let first=BIOMES[0],second=BIOMES[1],transition=450;
- if(d>BIOMES[2].start-150){first=BIOMES[1];second=BIOMES[2];transition=1080;}
- const t=Math.max(0,Math.min(1,(d-(transition-150))/300));
- if(d>=600&&d<=930)return BIOMES[1].colors;
- if(d>=1230)return BIOMES[2].colors;
- if(d<300)return BIOMES[0].colors;
- return first.colors.map((a,i)=>{
-  const rgbA=colour(a),rgbB=colour(second.colors[i]);
-  return hex(rgbA.map((v,j)=>mix(v,rgbB[j],t)));
- });
+ const d=Math.max(0,Number(depth)||0),blend=240;
+ for(let i=1;i<BIOMES.length;i++){
+  const boundary=BIOMES[i].start;
+  if(d>=boundary-blend&&d<=boundary+blend){
+   const f=Math.max(0,Math.min(1,(d-boundary+blend)/(blend*2))),t=f*f*(3-2*f);
+   return BIOMES[i-1].colors.map((c,j)=>{
+    const a=rgb(c),b=rgb(BIOMES[i].colors[j]);
+    return hex(a.map((v,k)=>lerp(v,b[k],t)));
+   });
+  }
+ }
+ return biomeAtDepth(d).colors;
 }
+export function oceanVisibility(depth){
+ const metres=Math.max(0,depth)/DEPTH_SCALE;
+ const t=Math.max(0,Math.min(1,(metres-430)/1050));
+ return 1-(t*t*(3-2*t))*.99;
+}
+// Species ordering is stable to preserve collection and achievement save data.
 const TABLES={
- reef:[[0,17],[1,14],[2,12],[6,19],[7,10],[8,21],[3,7]],
- kelp:[[1,10],[2,12],[3,12],[4,10],[7,10],[8,13],[9,16],[10,17]],
- trench:[[3,8],[4,8],[5,14],[9,6],[10,15],[11,22],[12,20],[2,7]]
+ sunskip:[[0,17],[1,14],[2,12],[6,19],[7,10],[8,21],[3,7]],
+ bluewander:[[1,16],[2,13],[3,12],[6,9],[8,16],[9,9],[10,13]],
+ knuckles:[[1,8],[2,12],[3,12],[4,10],[7,10],[8,13],[9,16],[10,17]],
+ hush:[[3,12],[4,11],[5,13],[9,6],[10,18],[11,20],[12,8]],
+ lantern:[[3,7],[4,8],[5,18],[9,6],[10,12],[11,25],[12,22]],
+ blackglass:[[5,20],[10,10],[11,25],[12,31],[3,6]],
+ unmarked:[[5,18],[11,26],[12,38],[4,5],[10,8]]
 };
 export function chooseSpecies(depth,random=Math.random){
- const biome=biomeAtDepth(depth);
- // A rare treasure catch with an independently controlled probability.
  if(depth>=540&&random()<.012)return 13;
- const table=TABLES[biome.id];
- const total=table.reduce((acc,item)=>acc+item[1],0);
+ const table=TABLES[biomeAtDepth(depth).id],total=table.reduce((n,item)=>n+item[1],0);
  let roll=Math.max(0,Math.min(.999999,random()))*total;
- for(const [kind,weight] of table){
-  roll-=weight;if(roll<0)return kind;
- }
+ for(const [kind,weight] of table){roll-=weight;if(roll<0)return kind;}
  return table[table.length-1][0];
 }
-export function spawnOcean(maxDepth,random=Math.random){
- const limit=Math.max(260,Number(maxDepth)||720);
- const fish=[];
- // More room to dodge on the way down; long lines still create huge hauls.
-  const count=Math.max(7,Math.floor(limit/112));
- let id=0;
+export function seededRandom(seed){
+ let s=(Math.trunc(seed)>>>0)||1;
+ return ()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};
+}
+export function generateOceanChunk(index,seed=1,maxDepth=Infinity){
+ const chunk=Math.max(0,Math.floor(index));
+ const rand=seededRandom(((seed>>>0)^Math.imul(chunk+1,0x9e3779b1))>>>0);
+ const lower=chunk*CHUNK_DEPTH,upper=Math.min(lower+CHUNK_DEPTH,maxDepth),fish=[],hazards=[];
+ if(upper<=lower)return {index:chunk,fish,hazards};
+ const count=4+Math.floor(rand()*3);
  for(let i=0;i<count;i++){
-  const d=305+i*(limit-370)/Math.max(1,count-1);
-  const jitter=(random()-.5)*32;
-  const depth=Math.min(limit-65,Math.max(295,d+jitter));
-  const kind=chooseSpecies(depth,random);
-  const meta=SPECIES[kind],direction=random()<.5?-1:1;
-  const x=36+random()*348,phase=random()*6.28;
-  const school=meta.behavior==='school'&&random()<.28;
-  const group=school?2:1;
-  for(let k=0;k<group;k++){
-   const fx=Math.max(34,Math.min(386,x-direction*k*19));
-   fish.push({id:id++,x:fx,d:Math.min(limit-60,depth+k*8),
-    kind,dir:direction,speed:meta.speed*(.84+random()*.32),
-    phase:phase+(school?0:k*.15),swimY:0,caught:false,school:i});
-  }
+  const d=Math.max(305,lower+58+(i+.5)*(CHUNK_DEPTH-116)/count+(rand()-.5)*44);
+  if(d<305||d>=upper-32)continue;
+  const kind=chooseSpecies(d,rand),meta=SPECIES[kind],dir=rand()<.5?-1:1;
+  fish.push({id:chunk*100+i,x:40+rand()*340,d,kind,dir,speed:meta.speed*(.84+rand()*.32),
+   phase:rand()*Math.PI*2,swimY:0,caught:false,bypassed:false,school:chunk});
  }
- // Hazards appear in kelp/trench and become more numerous on longer lines.
- const hazards=[];
- if(limit>=480){
-  const countHazards=Math.max(1,Math.round((limit-270)/680));
-  for(let i=0;i<countHazards;i++){
-   const d=470+i*(limit-540)/Math.max(1,countHazards-1);
-   hazards.push({id:i,x:60+random()*300,d:Math.min(limit-70,d),phase:random()*6.28,
-     drift:10+random()*10,radius:21,triggeredAt:-Infinity});
+ if(chunk>0&&(chunk%2===1||rand()<.13)){
+  const d=lower+170+rand()*360;
+  if(d<upper-28)hazards.push({id:chunk,x:62+rand()*296,d,phase:rand()*Math.PI*2,
+   drift:10+rand()*10,radius:21,triggeredAt:-Infinity});
+ }
+ return {index:chunk,fish,hazards};
+}
+// Cache only nearby chunks, persisting caught/bypassed states across unload/reload.
+export function createOceanStream(maxDepth,seed=1){
+ const limit=Math.max(305,Number(maxDepth)||1050),cache=new Map();
+ const caught=new Set(),bypassed=new Set(),triggered=new Map();
+ function near(depth,span=950){
+  const first=Math.max(0,Math.floor((depth-span)/CHUNK_DEPTH));
+  const last=Math.max(first,Math.floor(Math.min(limit,depth+span)/CHUNK_DEPTH));
+  for(let i=first;i<=last;i++)if(!cache.has(i)){
+   const chunk=generateOceanChunk(i,seed,limit);
+   for(const f of chunk.fish){f.caught=caught.has(f.id);f.bypassed=bypassed.has(f.id);}
+   for(const h of chunk.hazards)h.triggeredAt=triggered.get(h.id)??-Infinity;
+   cache.set(i,chunk);
   }
+  const fish=[],hazards=[];
+  for(const [i,chunk] of cache){
+   if(i<first-1||i>last+1){
+    for(const f of chunk.fish){if(f.caught)caught.add(f.id);if(f.bypassed)bypassed.add(f.id);}
+    for(const h of chunk.hazards)if(h.triggeredAt>-Infinity)triggered.set(h.id,h.triggeredAt);
+    cache.delete(i);continue;
+   }
+   fish.push(...chunk.fish);hazards.push(...chunk.hazards);
+  }
+  return {fish,hazards};
+ }
+ return {near,get chunkCount(){return cache.size;}};
+}
+export function spawnOcean(maxDepth,random=Math.random){
+ const limit=Math.max(305,Number(maxDepth)||1050);
+ const seed=Math.floor(random()*0xffffffff)>>>0,fish=[],hazards=[];
+ for(let i=0;i<=Math.floor(limit/CHUNK_DEPTH);i++){
+  const c=generateOceanChunk(i,seed,limit);fish.push(...c.fish);hazards.push(...c.hazards);
  }
  return {fish,hazards};
 }
