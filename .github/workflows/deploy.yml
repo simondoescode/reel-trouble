@@ -46,6 +46,11 @@ jobs:
           grep -q '/reel-trouble/assets/' dist/index.html
           test -n "$(find dist/assets -maxdepth 1 -name '*.js' -print -quit)"
           test -n "$(find dist/assets -maxdepth 1 -name '*.css' -print -quit)"
+          test -s dist/sw.js
+          test -s dist/manifest.webmanifest
+          test -s dist/icons/icon-192.png
+          test -s dist/icons/icon-512.png
+          grep -q 'manifest.webmanifest' dist/index.html
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

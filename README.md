@@ -68,3 +68,14 @@ Six fish types use original, hand-authored pixel sprites and vibrant, distinct c
 ## Status
 
 Playable web prototype with one complete fishing loop, six fish types, three upgrade tracks and local saved progress. Android packaging is a separate future task; the project has not been converted to an installable APK.
+
+## Mobile release polish
+
+- **Install** using **Settings → Install App** on supported Android browsers. On iOS, use **Share → Add to Home Screen** (the Settings screen gives instructions). Standalone mode launches without browser chrome.
+- **Offline** is supported after the first successful visit while online: the service worker caches the playable HTML, JS, CSS and icon files under the `/reel-trouble/` scope. A newly installed or updated app needs one online visit to fill the cache.
+- **Pause/resume:** tap **II** while fishing or shooting, or press **P**/**Escape** on desktop. Switching tabs or backgrounding the phone automatically pauses the round. Tap **Resume** when ready.
+- **Settings:** turn sound on/off and toggle reduced animations. Reduced effects also cap rendering to approximately 30 FPS for battery saving; the default respects the phone's reduced-motion preference.
+- **Display:** safe-area spacing for notches/home indicators, and a landscape reminder on small phones with a **Play anyway** option. All gameplay controls remain available.
+- **Build:** the Vite config copies root `manifest.webmanifest`, `sw.js` and both icons to `dist/` while supporting the raw-branch fallback. The workflow validates the production PWA assets.
+
+This is an installable web app, **not** an Android APK or native App Store release.

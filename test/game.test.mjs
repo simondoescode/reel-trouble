@@ -65,3 +65,31 @@ test('shooting has unlimited ammunition and ends when caught fish are shot or ti
  assert.match(game,/else if\(shootTime<=0\)endRound\(\)/);
  assert.match(game,/fired\+\+/);
 });
+
+test('mobile release pause, options and performance hooks remain in gameplay',()=>{
+ const game=read('src/game.js');
+ const html=read('index.html');
+ assert.match(game,/function pauseGame\(/);
+ assert.match(game,/function resumeGame\(/);
+ assert.match(game,/document\.addEventListener\('visibilitychange'/);
+ assert.match(game,/if\(!paused&&!document\.hidden\)update\(dt\)/);
+ assert.match(game,/lowFx\?1000\/30:1000\/60/);
+ assert.match(game,/function toggleSound\(/);
+ assert.match(game,/function toggleEffects\(/);
+ assert.match(html,/id="rotate-notice"/);
+ assert.match(html,/id="play-landscape"/);
+ assert.match(html,/rel="manifest"/);
+});
+test('PWA assets have the right scope, icons and worker',()=>{
+ const manifest=JSON.parse(read('manifest.webmanifest'));
+ assert.equal(manifest.scope,'./');
+ assert.equal(manifest.start_url,'./');
+ assert.equal(manifest.display,'standalone');
+ assert.deepEqual(manifest.icons.map(icon=>icon.sizes),['192x192','512x512']);
+ const worker=read('sw.js');
+ assert.match(worker,/self\.addEventListener\('install'/);
+ assert.match(worker,/self\.addEventListener\('fetch'/);
+ assert.match(worker,/self\.registration\.scope/);
+ assert.match(worker,/cache\.match\(base\('\.\/index\.html'\)\)/);
+ assert.match(read('vite.config.js'),/name:'copy-mobile-assets'/);
+});

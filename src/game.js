@@ -1,4 +1,5 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
+import { setupPwa, canInstall, isInstalled, requestInstall } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
 (() => {
 'use strict';
@@ -25,6 +26,38 @@ return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+setupPwa();
+const reducedMotionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+function readPreferences(){
+ try{
+  const saved=JSON.parse(localStorage.getItem('reel-trouble-mobile-settings-v1') || '{}');
+  return {sound:saved.sound!==false,lowFx:typeof saved.lowFx==='boolean'?saved.lowFx:reducedMotionPreference};
+ }catch(_){return {sound:true,lowFx:reducedMotionPreference};}
+}
+const preferences=readPreferences();
+let soundEnabled=preferences.sound, lowFx=preferences.lowFx;
+let installMessage='INSTALL AS AN APP FOR OFFLINE PLAY';
+function savePreferences(){try{localStorage.setItem('reel-trouble-mobile-settings-v1',JSON.stringify({sound:soundEnabled,lowFx}));}catch(_){}}
+function toggleSound(){soundEnabled=!soundEnabled;savePreferences();}
+function toggleEffects(){lowFx=!lowFx;savePreferences();shake=0;}
+function installGame(){
+ if(isInstalled()){installMessage='ALREADY INSTALLED';return;}
+ if(canInstall()){
+  installMessage='OPENING INSTALL PROMPT';
+  requestInstall().then(ok=>{installMessage=ok?'INSTALL REQUESTED':'USE BROWSER INSTALL MENU';});
+ }else if(/iPad|iPhone|iPod/.test(navigator.userAgent || '')){
+  installMessage='SHARE > ADD TO HOME SCREEN';
+ }else installMessage='BROWSER MENU > INSTALL APP';
+}
+const rotateNotice=document.getElementById('rotate-notice');
+document.getElementById('play-landscape')?.addEventListener('click',()=>{
+ document.body.classList.add('landscape-dismissed');
+ rotateNotice?.setAttribute('aria-hidden','true');
+});
+window.matchMedia?.('(orientation: portrait)')?.addEventListener?.('change',()=>{
+ document.body.classList.remove('landscape-dismissed');
+ rotateNotice?.removeAttribute('aria-hidden');
+});
 function loadInputChoice(){try{const value=localStorage.getItem('reel-trouble-input-v1');return value==='touch'||value==='tilt'?value:null;}catch(_){return null;}}
 let inputChoice=loadInputChoice();
 const permissionPrompt=typeof window.DeviceOrientationEvent?.requestPermission==='function';
@@ -72,6 +105,14 @@ window.addEventListener('deviceorientation', event=>{
   if(sensorStatus==='WAITING FOR MOTION SENSOR'||sensorStatus==='NO SENSOR DATA - DRAG TO STEER'||sensorStatus==='ENABLE TILT TO STEER')sensorStatus='TILT READY';
 });
 let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, shotEffects=[], recoil=0, muzzleFlash=0;
+let paused=false,pauseReason='';
+function liveRound(){return state==='descent'||state==='ascent'||state==='shoot';}
+function pauseGame(reason='MANUAL'){
+ if(!liveRound()||paused)return;
+ paused=true;pauseReason=reason;pointerDown=false;keys.clear();
+}
+function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;}
+function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;}
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
@@ -245,7 +286,7 @@ function bgUndersea(camera){
  }
 }
 function meter(n){return `${Math.round(n/6)}m`;}
-function beginCast(){castNumber++;state='descent';age=0;roundEarnings=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+function beginCast(){paused=false;pauseReason='';castNumber++;state='descent';age=0;roundEarnings=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;shotEffects=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
  const count=Math.floor(maxDepth/39);for(let i=0;i<count;i++){
  const d=165+i*(maxDepth-180)/Math.max(count-1,1)+rand(-14,14);
  const kind=clamp(Math.floor((d/maxDepth)*5 + rand(-.7,1)),0,5);
@@ -302,7 +343,7 @@ function shootAt(x,y){
   if(combo>=2){floatLabel('COMBO x'+streak.multiplier,210,177,C.mint);}
   persist();
  }else{
-  // A miss breaks the streak and consumes exactly one round of ammunition.
+  // A miss breaks the streak; ammunition stays unlimited.
   burst(x,y,'#e8f6e7',5);floatLabel('MISS',x,y-18,C.cream);
   shake=clamp(shake+1.4,0,7);blip(140,.05,'sawtooth');
  }
@@ -315,6 +356,7 @@ function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=MAXLVL||save
 function upgradeConfig(type){const titles={line:'LONGER LINE',net:'WIDER HOOK',gun:'GUN UPGRADES'},base={line:65,net:90,gun:85};const lvl=save.upgrades[type];
  return {title:titles[type],level:lvl,cost:Math.round(base[type]*Math.pow(1.75,lvl)),desc:{line:'+40m of depth per level',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};}
 function burst(x,y,color,count){
+ if(lowFx)count=Math.min(count,7);
  // A few high-contrast gold and aqua sparkles make catches and shots satisfying.
  const sparks=[color,C.yellow,C.teal,C.cream,C.pink];
  for(let i=0;i<count;i++){
@@ -325,8 +367,8 @@ function burst(x,y,color,count){
 }
 function floatLabel(value,x,y,color){labels.push({value,x,y,color,life:1.1});}
 let audio=null;function blip(freq=400,duration=.07,type='sine'){
- try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.62,audio.currentTime+duration);g.gain.setValueAtTime(.035,audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+duration);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+duration);}catch(_){}}
-function update(dt){clock+=dt;waveT+=dt;age+=dt;shake=Math.max(0,shake-dt*20);if(messageTimer>0)messageTimer-=dt;
+ try{if(!soundEnabled)return;audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.62,audio.currentTime+duration);g.gain.setValueAtTime(.035,audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+duration);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+duration);}catch(_){}}
+function update(dt){clock+=dt;if(!lowFx)waveT+=dt;age+=dt;shake=lowFx?0:Math.max(0,shake-dt*20);if(messageTimer>0)messageTimer-=dt;
  if(inputMode==='tilt'&&tiltStartedAt>-1e5&&clock-tiltStartedAt>3&&clock-tiltUpdatedAt>2&&sensorStatus==='WAITING FOR MOTION SENSOR')sensorStatus='NO SENSOR DATA - DRAG TO STEER';
  if(state==='descent'||state==='ascent'){
  // Hold the phone level for neutral, tilt sideways for acceleration.
@@ -391,6 +433,7 @@ function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
  if(state==='ascent'){roundRect(139,110,142,40,11,'#092d3edc');text('HOOKED  '+caught.length,210,130,16,C.yellow);}
  if(messageTimer>0){roundRect(82,166,256,37,12,'#061d2cf0');text(message,210,184,15,C.cream,'center',950,.5);}
  bottomHint((sensorFresh()?'TILT TO STEER':'DRAG TO STEER')+' • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
+ button('II',362,117,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
 function drawBulletTrail(x1,y1,x2,y2,alpha,color){
  ctx.save();ctx.globalAlpha=alpha;
@@ -480,6 +523,7 @@ function shootScene(){
  ctx.fillStyle='#fff6cd';ctx.fillRect(px-23,py-2,8,4);ctx.fillRect(px+15,py-2,8,4);
  ctx.fillRect(px-2,py-23,4,8);ctx.fillRect(px-2,py+15,4,8);
  bottomHint('TAP FISH TO SHOOT  |  CHAIN HITS FOR x4');
+ button('II',362,124,42,37,()=>pauseGame('MANUAL'),C.cream);
 }
 function decoFish(){const float=clock;
  fish(58,380,1,1,2.1,float);fish(365,448,2,-1,1.7,float+2);fish(132,535,0,-1,1.4,float*1.5);fish(340,587,4,1,1,float+1);
@@ -531,37 +575,71 @@ function shop(){ambient(clock);text('GEAR SHOP',210,95,46,C.cream,'center',1000,
 }
 function settings(){
  ambient(clock);
- text('SETTINGS',210,99,43,C.cream,'center',1000);
- text('CHOOSE YOUR INPUT',210,144,13,C.mint,'center',900,1.5);
- panel(24,187,372,396);
- text('STEERING',210,223,19,C.yellow,'center',950);
- button('TOUCH',43,260,161,55,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
- button('TILT',215,260,161,55,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
- text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,346,17,C.cream,'center',950);
- text(sensorStatus,210,382,11,C.mint,'center',800);
- text('TILT YOUR PHONE LEFT OR RIGHT',210,425,12,C.muted,'center',800);
- text('DRAG IS ALWAYS AVAILABLE',210,456,12,C.muted,'center',800);
- if(inputMode==='tilt')button('RECENTER TILT',89,495,242,54,recenterTilt,C.cream);
- else text('TAP TILT TO ALLOW MOTION ACCESS',210,521,11,C.yellow,'center',800);
- text('TAP FISH TO SHOOT - NO TILT AIMING',210,615,12,C.muted,'center',800);
- button('← BACK TO GAME',62,680,296,65,()=>{state='menu';age=0;},C.yellow);
+ text('SETTINGS',210,85,42,C.cream,'center',1000);
+ text('PHONE & INPUT',210,127,13,C.mint,'center',900,1.5);
+ panel(23,151,374,488);
+ text('STEERING',210,181,18,C.yellow,'center',950);
+ button('TOUCH',43,206,161,48,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
+ button('TILT',215,206,161,48,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
+ text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,278,14,C.cream,'center',900);
+ text(sensorStatus,210,305,10,C.mint,'center',800);
+ if(inputMode==='tilt')button('RECENTER',122,326,176,41,recenterTilt,C.cream);
+ else text('DRAG THE SCREEN DURING A CAST',210,350,11,C.muted,'center',800);
+ text('AUDIO',210,396,16,C.yellow,'center',950);
+ button(soundEnabled?'SOUND: ON':'SOUND: OFF',94,416,232,43,toggleSound,soundEnabled?C.teal:C.cream);
+ text('ANIMATION',210,489,16,C.yellow,'center',950);
+ button(lowFx?'EFFECTS: LOW':'EFFECTS: FULL',94,506,232,42,toggleEffects,lowFx?C.cream:C.teal);
+ if(!isInstalled())button('INSTALL APP',104,566,212,48,installGame,C.yellow);
+ else text('INSTALLED APP',210,587,15,C.yellow);
+ text(installMessage,210,648,10,C.mint,'center',750);
+ button('← BACK',62,682,296,59,()=>{state='menu';age=0;},C.yellow);
+ text('TAP FISH TO SHOOT • DRAG ALWAYS WORKS',210,763,10,C.muted,'center',700);
+}
+function pausedScene(){
+ ctx.fillStyle='#06182cdd';ctx.fillRect(0,0,W,H);
+ text('PAUSED',210,261,47,C.cream,'center',1000);
+ text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'GAME PAUSED AUTOMATICALLY',210,317,13,C.mint,'center',850);
+ text('YOUR CATCH WILL NOT MOVE',210,353,12,C.muted,'center',800);
+ button('RESUME',76,417,268,65,resumeGame,C.yellow);
+ button('MAIN MENU',96,510,228,53,menuFromPause,C.cream);
 }
 function render(){hits=[];ctx.setTransform(pixelCanvas.width/W,0,0,pixelCanvas.height/H,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
  if(state==='menu')menu();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='settings')settings();
  overlayParticles();ctx.restore();
+ if(paused){hits=[];pausedScene();}
  display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=false;
  display.drawImage(pixelCanvas,0,0,canvas.width,canvas.height);}
-let last=0;function frame(t){const dt=Math.min((t-last)/1000||.016,.05);last=t;update(dt);render();requestAnimationFrame(frame);}requestAnimationFrame(frame);
+let last=0;
+function frame(t){
+ const frameGap=lowFx?1000/30:1000/60;
+ if(last&&t-last<frameGap-1){requestAnimationFrame(frame);return;}
+ const dt=Math.min((t-last)/1000||.016,.05);
+ last=t;
+ if(!paused&&!document.hidden)update(dt);
+ if(!document.hidden)render();
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
 function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
 function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
- pointerDown=true;pointer=pos(e);if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
-canvas.addEventListener('pointermove',e=>{pointer=pos(e);if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
+ pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
 canvas.addEventListener('pointerup',()=>pointerDown=false);canvas.addEventListener('pointercancel',()=>pointerDown=false);
-window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();keys.add(e.key);
+window.addEventListener('keydown',e=>{
+ if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(e.code==='Escape'||e.key.toLowerCase()==='p'){
+  if(paused)resumeGame();else pauseGame('MANUAL');return;
+ }
+ if(paused)return;
+ keys.add(e.key);
  if(e.repeat)return;if(e.code==='Space'||e.code==='Enter'){
  if(state==='menu'||state==='results')beginCast();else if(state==='shoot')shootAt(pointer.x,pointer.y);
  }});window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();pointerDown=false;});
+window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;}
+ last=0;
+});
 })();

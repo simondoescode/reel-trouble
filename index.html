@@ -2,12 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07182c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Reel Trouble">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <meta name="description" content="Reel Trouble — an original arcade fishing game. Dive, hook fish, and make a splash.">
   <title>Reel Trouble — Arcade Fishing</title>
 </head>
 <body>
+<div id="rotate-notice" aria-labelledby="rotate-title">
+  <div class="rotate-content">
+    <div class="rotate-graphic" aria-hidden="true">↻</div>
+    <h1 id="rotate-title">Portrait works best</h1>
+    <p>Rotate your phone upright to see the whole ocean.</p>
+    <button type="button" id="play-landscape">Play anyway</button>
+  </div>
+</div>
 <canvas id="game" width="840" height="1560" tabindex="0" role="application" aria-label="Reel Trouble fishing game. Choose tilt or touch steering in Settings, then tap flying fish to shoot them."></canvas>
 <link rel="stylesheet" href="./src/styles.css">
 <script type="module" src="./src/game.js"></script>
