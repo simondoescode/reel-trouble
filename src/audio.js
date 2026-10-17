@@ -32,7 +32,7 @@ export function createArcadeAudio(){
   if(c.state==='suspended')void c.resume().catch(()=>{});
  }
  function tone(frequency,duration=.1,type='square',volume=.07,delay=0,fall=.65){
-  if(!ctx||!output||ctx.state!=='running'||!Number.isFinite(frequency)||frequency<=0)return;
+  if(!ctx||!output||ctx.state==='closed'||!Number.isFinite(frequency)||frequency<=0)return;
   const now=ctx.currentTime+Math.max(0,delay),end=now+Math.max(.015,duration);
   try{
    const oscillator=ctx.createOscillator(),gain=ctx.createGain();
