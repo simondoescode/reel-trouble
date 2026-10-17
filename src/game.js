@@ -595,11 +595,49 @@ function burst(x,y,color,count){
     life:rand(.38,.82),max:.82,color:sparks[i%sparks.length],r:rand(2,5)});
  }
 }
+function coinBurst(x,y,multiplier=1,tier=0){
+ const count=lowFx?4:Math.min(17,5+multiplier*2+tier*2);
+ for(let i=0;i<count;i++){
+  const angle=rand(-Math.PI+.25,-.12),speed=rand(95,270)*(multiplier>=3?1.2:1);
+  coinBursts.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+   life:rand(.7,1.1),max:1.1,spin:rand(0,6),size:rand(5,9)});
+ }
+}
+function drawShotCelebration(){
+ for(const ghost of impactGhosts){
+  ctx.save();ctx.globalAlpha=clamp(ghost.life/ghost.max,0,.75);
+  ctx.translate(ghost.x,ghost.y);ctx.rotate(ghost.angle);
+  fish(0,0,ghost.kind,ghost.vx<0?-1:1,1.65,clock*8);
+  ctx.restore();
+ }
+ for(const ring of impactRings){
+  ctx.save();ctx.globalAlpha=clamp(ring.life/ring.max,0,1)*.85;
+  ctx.strokeStyle=ring.color;ctx.lineWidth=ring.life/ring.max>.5?6:3;
+  ctx.beginPath();ctx.arc(ring.x,ring.y,ring.radius,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+ }
+ for(const coin of coinBursts){
+  const size=Math.max(4,coin.size*Math.abs(Math.cos(coin.spin)));
+  const x=Math.round(coin.x),y=Math.round(coin.y);
+  ctx.save();ctx.globalAlpha=clamp(coin.life/coin.max,0,1);
+  ctx.fillStyle='#674122';ctx.fillRect(x-size/2-2,y-size/2-2,size+4,size+4);
+  ctx.fillStyle='#ffcb3d';ctx.fillRect(x-size/2,y-size/2,size,size);
+  ctx.fillStyle='#fff5a3';ctx.fillRect(x-size/2+1,y-size/2+1,Math.max(2,size*.38),Math.max(2,size*.38));
+  ctx.restore();
+ }
+}
 function floatLabel(value,x,y,color){labels.push({value,x,y,color,life:1.1});}
 
 function update(dt){
- sound.update(dt,state,document.hidden);
- clock+=dt;if(!lowFx)waveT+=dt;age+=dt;shake=lowFx?0:Math.max(0,shake-dt*20);if(messageTimer>0)messageTimer-=dt;
+ const realDt=dt;
+ if(state==='shoot'&&!lowFx){
+  hitFreeze=Math.max(0,hitFreeze-realDt);
+  finisherSlow=Math.max(0,finisherSlow-realDt);
+  dt*=hitFreeze>0?.1:finisherSlow>0?.24:1;
+ }
+ sound.update(realDt,state,document.hidden);
+ clock+=realDt;if(!lowFx)waveT+=dt;age+=realDt;
+ shake=lowFx?0:Math.max(0,shake-realDt*23);if(messageTimer>0)messageTimer-=realDt;
  sceneFlash=Math.max(0,sceneFlash-dt*1.7);
  for(const splash of splashes)splash.life-=dt;
  splashes=splashes.filter(s=>s.life>0);
@@ -641,18 +679,37 @@ function update(dt){
  }
  }
  if(state==='shoot'){
- recoil=Math.max(0,recoil-dt*7);
- muzzleFlash=Math.max(0,muzzleFlash-dt);
- for(const fx of shotEffects)fx.life-=dt;
- shotEffects=shotEffects.filter(fx=>fx.life>0);
- if(combo&&clock-lastComboHit>2.4){combo=0;lastComboHit=-Infinity;}
- shootTime-=dt;for(const f of airborne){if(f.shot)continue;f.x+=f.vx*dt;f.y+=f.vy*dt;f.vy+=50*dt;
- if(f.x<42||f.x>W-42){f.x=clamp(f.x,42,W-42);f.vx*=-1;}
- if(f.y<130){f.y=130;f.vy=Math.abs(f.vy)*.5;}
- if(f.y>610){f.y=610;f.vy=-Math.abs(f.vy)*.8-40;}
- }
- if(endDelay>0){endDelay-=dt;if(endDelay<=0)endRound();}
- else if(shootTime<=0)endRound();
+  recoil=Math.max(0,recoil-dt*7);
+  muzzleFlash=Math.max(0,muzzleFlash-dt);
+  for(const fx of shotEffects)fx.life-=dt;
+  shotEffects=shotEffects.filter(fx=>fx.life>0);
+  for(const ring of impactRings){ring.life-=dt;ring.radius+=ring.speed*dt;}
+  impactRings=impactRings.filter(ring=>ring.life>0);
+  for(const ghost of impactGhosts){ghost.x+=ghost.vx*dt;ghost.y+=ghost.vy*dt;ghost.vy+=125*dt;ghost.life-=dt;}
+  impactGhosts=impactGhosts.filter(ghost=>ghost.life>0);
+  for(const coin of coinBursts){
+   coin.x+=coin.vx*dt;coin.y+=coin.vy*dt;coin.vy+=375*dt;
+   coin.vx*=Math.pow(.55,dt);coin.spin+=dt*15;coin.life-=dt;
+  }
+  coinBursts=coinBursts.filter(coin=>coin.life>0);
+  if(combo&&clock-lastComboHit>2.4){combo=0;lastComboHit=-Infinity;}
+  shootTime-=realDt;
+  for(const f of airborne){
+   if(f.shot||f.lost)continue;
+   const waiting=!f.launched;
+   if(stepAirborneCatch(f,dt)){
+    escaped++;
+    emitSplash(f.x,SHOOT_WATERLINE,species[f.kind].color,1.15);
+    burst(f.x,SHOOT_WATERLINE-6,C.teal,11);
+    if(escaped<=4)floatLabel('SPLASH!',f.x,SHOOT_WATERLINE-36,C.white);
+    sound.play('water-return');
+   }else if(waiting&&f.launched){
+    emitSplash(f.x,SHOOT_WATERLINE,C.cream,.58);
+   }
+  }
+  if(endDelay>0){endDelay-=realDt;if(endDelay<=0)endRound();}
+  else if(shootTime<=0)endRound();
+  else if(allCatchResolved(airborne))setTimeoutSafe(endRound,550);
  }
  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.18,dt);p.vy+=80*dt;p.life-=dt;}
  particles=particles.filter(p=>p.life>0);
