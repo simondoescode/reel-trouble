@@ -276,9 +276,9 @@ function shootAt(x,y){
  const gun=weaponForLevel(save.upgrades.gun);
  ammo--;fired++;recoil=1;muzzleFlash=.12;
  pointer={x,y};
- const targets=pickShotTargets(airborne.map(f=>({...f,size:species[f.kind].size})),x,y,gun);
- // The copied targets preserve index-independent references via positions/identity.
- const actual=targets.map(t=>airborne.find(f=>f.x===t.x&&f.y===t.y&&!f.shot)).filter(Boolean);
+ const targets=pickShotTargets(airborne.map(f=>({...f,size:species[f.kind].size,original:f})),x,y,gun);
+ // Keep identity through hit-testing so overlapping fish cannot consume the same hit.
+ const actual=targets.map(t=>t.original);
  const streak=nextCombo(combo,lastComboHit,clock,actual.length);
  combo=streak.count;lastComboHit=streak.lastHit;
  bestRoundCombo=Math.max(bestRoundCombo,combo);
