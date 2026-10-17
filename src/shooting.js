@@ -1,11 +1,16 @@
 // Pure weapon, hit-testing and combo logic. Graphics and side effects live in game.js.
 export function weaponForLevel(level) {
-  const tier = Math.max(0, Math.min(5, Math.floor(Number(level) || 0)));
-  // All tiers have unlimited ammunition; odd upgrade levels increase forgiveness.
-  const aimBoost = tier % 2 === 1 ? 4 : 0;
-  if (tier >= 4) return { name: 'NEON BLASTER', maxHits: 3, spread: 27 + aimBoost, aimAssist: 12, color: '#8dffec', tier: 2 };
-  if (tier >= 2) return { name: 'SCATTERGUN', maxHits: 2, spread: 14 + aimBoost, aimAssist: 12, color: '#ffe35b', tier: 1 };
-  return { name: 'POP GUN', maxHits: 1, spread: 0, aimAssist: 12 + aimBoost, color: '#ff596c', tier: 0 };
+ const tier=Math.max(0,Math.min(5,Math.floor(Number(level)||0)));
+ // Every gun has unlimited ammo; each purchase changes its feel or coverage.
+ const weapons=[
+  {name:'POP GUN',maxHits:1,spread:0,aimAssist:12,color:'#ff596c',tier:0},
+  {name:'QUICKSHOT',maxHits:1,spread:5,aimAssist:21,color:'#ffad63',tier:0},
+  {name:'SCATTERGUN',maxHits:2,spread:14,aimAssist:12,color:'#ffe35b',tier:1},
+  {name:'TWIN SCATTER',maxHits:3,spread:19,aimAssist:14,color:'#ff9bea',tier:1},
+  {name:'NEON BLASTER',maxHits:3,spread:27,aimAssist:12,color:'#8dffec',tier:2},
+  {name:'STORM CANNON',maxHits:5,spread:36,aimAssist:16,color:'#b6a7ff',tier:2}
+ ];
+ return weapons[tier];
 }
 
 // Compare the tap with the sprite's approximate *visible* elliptical footprint.
