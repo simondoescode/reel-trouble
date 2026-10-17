@@ -33,6 +33,33 @@ Vite bundles the JavaScript and CSS into `dist/`. The configured base path (`/re
 
 The workflow `.github/workflows/deploy.yml` builds and deploys `dist/` whenever a commit lands on `main`. You can also run it manually from the Actions tab. No pull requests are required. The source HTML works as a fallback for legacy branch-based Pages, but the supported deployment setting is **GitHub Actions** so the production bundle is what visitors receive.
 
+## The endless ocean
+
+Reel Trouble's underwater world uses **original regions and depth boundaries**, with
+procedural scenery and fish/hazard chunks generated near the hook. All depths
+below are in metres; the internal game world uses 3 pixels per metre.
+
+| Region | Depth |
+| --- | --- |
+| Sunskip Shelf | 0–259m |
+| Bluewander | 260–639m |
+| Kelp Knuckles | 640–1,229m |
+| The Hush | 1,230–2,159m |
+| Lantern Rift | 2,160–3,849m |
+| Blackglass Drop | 3,850–6,699m |
+| The Unmarked | 6,700m onwards |
+
+The seven regions blend seamlessly rather than resetting the scene. Parallax
+geography and ambient particles are generated in world space; fish and hazards
+stream deterministically in 720-pixel chunks while collected fish remain
+caught when revisiting a chunk. The renderer has no artificial seafloor.
+
+There are now **15 reel tiers** (including the starter reel) with progressively
+larger depth gains, and **six lantern states** (including no lantern). Existing
+save slots, currencies, achievements and the indices of the original 14 fish
+remain compatible. Deep-sea light gradually fades, with upgraded lanterns
+expanding visibility around the hook.
+
 ## Play
 
 1. Choose **CAST LINE** to start diving.
