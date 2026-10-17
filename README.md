@@ -161,3 +161,11 @@ During the shooting phase, fish burst out of the water in a short staggered sequ
 Weapon tiers now have distinct, bolder projectile effects and muzzle flashes. Hits produce colourful impact bursts, shock rings and flying gold coins; chain combos intensify them. When the **last remaining fish** is shot, a short slow-motion finishing celebration triggers with a large coin explosion, dramatic screen shake and an original finisher jingle. Existing reduced-effects settings suppress screen shake and slow motion, while keeping the same fish physics and shot payouts. Ammo remains unlimited.
 
 The flight rules live in `src/airborne.js` and are covered by `test/airborne.test.mjs`, including gravity, staggered launches, one-time splash-downs and round completion. Shots ignore fish that have not launched or have already escaped.
+
+## Modern arcade title and phase transition overhaul
+
+The main title is now a neon-framed arcade attract screen: the original logo has a stronger glow and sparkles, a streamlined three-step DIVE / REEL / BLAST sequence explains the loop, and the primary CAST LINE control sits above the smaller navigation and persistent wallet/best-score cards. Panels and buttons use rounded gradient-backed chrome with sharp high-contrast white text.
+
+Each cast now has a short, original animated full-screen stage card for **DIVE IN**, **REEL IT IN**, **LOCK & LOAD**, and **CAST COMPLETE**. During these transitions, the game freezes fish physics and round timers, so players don't lose any fishing or shooting time. Backgrounding and pausing freeze the cards too. Reduced Effects disables the interstitial animation entirely and preserves immediate play. The transition timings and configurations live in `src/arcade-ui.js` with unit tests.
+
+The results screen has a count-up payout, stronger hierarchy, neon reward card, and a more prominent FISH AGAIN button. The pause screen has been redesigned to match, while retaining its controls. All original gameplay systems, progression and save data are unchanged. PWA cache v12 includes the new module for offline play.
