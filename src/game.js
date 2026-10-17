@@ -1055,6 +1055,19 @@ function titleActionGlow(t,x,y,w,h){
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
+ // Neon ocean art direction: a luminous horizon and electric wake behind the hero logo.
+ ctx.save();ctx.globalAlpha=lowFx?.28:.34+.14*Math.sin(t*1.9);
+ const horizon=ctx.createLinearGradient(0,245,0,390);
+ horizon.addColorStop(0,'#1d91d000');horizon.addColorStop(.62,'#25d3fc55');horizon.addColorStop(1,'#071b3200');
+ ctx.fillStyle=horizon;ctx.fillRect(0,238,W,170);
+ ctx.strokeStyle='#5cffff';ctx.lineWidth=3;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){
+  const y=305+Math.sin(x*.03+t*1.7)*5;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ }
+ ctx.stroke();
+ ctx.restore();
  // Crisp, neon-framed attract screen with an obvious single primary action.
  neonPanel(23,26,374,53,C.teal,15);
  text('REEL TROUBLE / ARCADE',42,51,18,C.white,'left',900,0,270);
@@ -1066,7 +1079,7 @@ function menu(){
   const height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
   const logoY=89+(211-height)/2+bob;
   ctx.save();
-  if(!lowFx){ctx.shadowColor='rgba(42,243,224,0.53)';ctx.shadowBlur=27;}
+  if(!lowFx){ctx.shadowColor='rgba(34,249,255,0.80)';ctx.shadowBlur=35;}
   ctx.drawImage(titleLogo,(W-width)/2,logoY,width,height);
   ctx.restore();
  }else{
