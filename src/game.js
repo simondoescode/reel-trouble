@@ -6,6 +6,7 @@ import { createCollection, normalizeCollection, recordCatch, recordShot, grantAc
 import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
 import { SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, allCatchResolved } from './airborne.js';
+import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } from './arcade-ui.js';
 (() => {
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5;
@@ -139,6 +140,7 @@ function pauseGame(reason='MANUAL'){
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sound.pause(false);rumble.stop();}
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
+let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
@@ -157,11 +159,19 @@ function openCollection(tab='fish'){collectionTab=tab;collectionPage=0;state='co
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
 const irand=(a,b)=>Math.floor(rand(a,b+1));
-// Square-corner arcade panels.
-function roundRect(x,y,w,h,_r,fill,stroke,lw=2){
+// Rounded modern arcade chrome, always drawn at full-resolution for sharp text.
+function roundRect(x,y,w,h,r=0,fill,stroke,lw=2){
  x=Math.round(x);y=Math.round(y);w=Math.round(w);h=Math.round(h);
- if(fill){ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);}
- if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.strokeRect(x+lw/2,y+lw/2,w-lw,h-lw);}
+ const radius=Math.max(0,Math.min(r,w/2,h/2));
+ ctx.beginPath();
+ ctx.moveTo(x+radius,y);ctx.lineTo(x+w-radius,y);
+ ctx.quadraticCurveTo(x+w,y,x+w,y+radius);
+ ctx.lineTo(x+w,y+h-radius);ctx.quadraticCurveTo(x+w,y+h,x+w-radius,y+h);
+ ctx.lineTo(x+radius,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-radius);
+ ctx.lineTo(x,y+radius);ctx.quadraticCurveTo(x,y,x+radius,y);
+ ctx.closePath();
+ if(fill){ctx.fillStyle=fill;ctx.fill();}
+ if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
 }
 function text(s,x,y,size=20,_color=C.white,align='center',_weight=900,_letter=0,maxWidth=null){
  // One highly readable type treatment everywhere: full-resolution, heavy white
@@ -190,22 +200,42 @@ function line(x1,y1,x2,y2,color,width=2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.l
 function circle(x,y,r,color){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();}
 function polygon(points,fill){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle=fill;ctx.fill();}
 function button(title,x,y,w,h,action,accent=C.coral,secondary=''){
- // Always put WHITE labels over a DARK button. Bright accent is a border only.
- roundRect(x+4,y+5,w,h,0,'#041123');
- roundRect(x,y,w,h,0,'#082841',accent,3);
- ctx.fillStyle=accent;ctx.fillRect(x+5,y+4,w-10,5);
- ctx.fillStyle='#ffffff25';ctx.fillRect(x+7,y+h-10,w-14,3);
- const labelY=y+h/2-(secondary?8:0);
- text(title,x+w/2,labelY,secondary?16:(h<41?17:19),C.white,'center',900,0,w-20);
- if(secondary)text(secondary,x+w/2,y+h/2+15,16,C.white,'center',900,0,w-22);
+ // High-contrast white type and a bright border; no yellow-on-yellow labels.
+ const radius=h>59?19:13;
+ const gradient=ctx.createLinearGradient(0,y,0,y+h);
+ gradient.addColorStop(0,'#164764');gradient.addColorStop(.47,'#0b304e');
+ gradient.addColorStop(1,'#081c36');
+ roundRect(x+4,y+6,w,h,radius,'#031225');
+ ctx.save();
+ if(!lowFx&&h>=60){ctx.shadowColor=accent;ctx.shadowBlur=9;}
+ roundRect(x,y,w,h,radius,gradient,accent,h>=60?3.5:2.5);
+ ctx.restore();
+ ctx.save();ctx.globalAlpha=.32;roundRect(x+11,y+7,w-22,4,2,accent);ctx.restore();
+ ctx.fillStyle='#ffffff16';ctx.fillRect(x+22,y+h-11,Math.max(0,w-44),2);
+ const labelY=y+h/2-(secondary?10:0);
+ text(title,x+w/2,labelY,secondary?24:(h<41?17:h>=60?22:18),C.white,'center',900,0,w-24);
+ if(secondary)text(secondary,x+w/2,y+h/2+17,16,C.white,'center',900,0,w-24);
  hits.push({x,y,w,h,action});
 }
-function panel(x,y,w,h){
- roundRect(x+4,y+5,w,h,0,'#041625');
- roundRect(x,y,w,h,0,'#10405a','#59f6e5',3);
- ctx.fillStyle='#8cfff2';ctx.fillRect(x+4,y+4,Math.max(0,w-8),4);
- ctx.fillStyle='#19738c';ctx.fillRect(x+4,y+h-9,Math.max(0,w-8),5);
- ctx.fillStyle='#ffe35b';ctx.fillRect(x+12,y+12,10,4);
+function neonPanel(x,y,w,h,accent=C.teal,radius=17){
+ const gradient=ctx.createLinearGradient(0,y,0,y+h);
+ gradient.addColorStop(0,'#12415c');gradient.addColorStop(.48,'#0a2b47');
+ gradient.addColorStop(1,'#071a32');
+ roundRect(x+4,y+5,w,h,radius,'#03152a');
+ roundRect(x,y,w,h,radius,gradient,accent,2);
+ ctx.fillStyle=accent;ctx.globalAlpha=.74;
+ roundRect(x+16,y+9,Math.max(4,w-32),3,2,accent);
+ ctx.globalAlpha=1;
+ ctx.fillStyle='#ffffff12';ctx.fillRect(x+17,y+h-10,Math.max(0,w-34),2);
+}
+function panel(x,y,w,h){neonPanel(x,y,w,h,'#59f6e5');}
+function arcadePill(label,x,y,w,accent=C.teal){
+ roundRect(x,y,w,32,13,'#071a32e8',accent,2);
+ text(label,x+w/2,y+16,16,C.white,'center',900,0,w-18);
+}
+function arcadeRule(x1,y,x2,accent=C.teal){
+ ctx.fillStyle=accent;ctx.fillRect(x1,y,x2-x1,2);
+ ctx.fillStyle='#ffffff65';ctx.fillRect(x1,y+4,Math.max(8,(x2-x1)*.36),2);
 }
 function ambient(t,submerged=true){
  const bands=submerged?
