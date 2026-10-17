@@ -64,7 +64,8 @@ export function chooseSpecies(depth,random=Math.random){
 export function spawnOcean(maxDepth,random=Math.random){
  const limit=Math.max(260,Number(maxDepth)||720);
  const fish=[];
- const count=Math.max(8,Math.floor(limit/74));
+ // More room to dodge on the way down; long lines still create huge hauls.
+  const count=Math.max(7,Math.floor(limit/112));
  let id=0;
  for(let i=0;i<count;i++){
   const d=305+i*(limit-370)/Math.max(1,count-1);
@@ -85,7 +86,7 @@ export function spawnOcean(maxDepth,random=Math.random){
  // Hazards appear in kelp/trench and become more numerous on longer lines.
  const hazards=[];
  if(limit>=480){
-  const countHazards=Math.max(1,Math.round((limit-270)/410));
+  const countHazards=Math.max(1,Math.round((limit-270)/680));
   for(let i=0;i<countHazards;i++){
    const d=470+i*(limit-540)/Math.max(1,countHazards-1);
    hazards.push({id:i,x:60+random()*300,d:Math.min(limit-70,d),phase:random()*6.28,
