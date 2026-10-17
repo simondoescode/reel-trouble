@@ -255,7 +255,8 @@ test('main game is a single valid script without duplicate or truncated trailing
   const needle=symbol;
   assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
  }
- assert.match(source,/button\(lvl>=3\?'MAX LIGHT':'LIGHT  \
+ assert.ok(source.includes("button(lvl>=3?'MAX LIGHT':'LIGHT  $'+costs[lvl]"),'light purchase button exists');
+ assert.match(source,/function buyLight\(\)/);
  assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
  assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
  assert.doesNotMatch(source,/button\(level===3\?'MAX LIGHT':'BUY LIGHT \n/);
