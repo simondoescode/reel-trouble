@@ -15,14 +15,14 @@ export const SPECIES = Object.freeze([
  {name:'Snapper',value:28,color:'#ff657a',size:18,behavior:'zigzag',speed:17},
  {name:'Moonfish',value:42,color:'#b48aff',size:21,behavior:'drift',speed:11},
  {name:'Sunfish',value:65,color:'#d4ff69',size:24,behavior:'drift',speed:12},
- {name:'Phantom',value:95,color:'#a7fff4',size:22,behavior:'glow',speed:15},
+ {name:'Hushwisp',value:95,color:'#a7fff4',size:22,behavior:'glow',speed:15},
  {name:'Clownfish',value:22,color:'#ff963a',size:15,behavior:'zigzag',speed:23},
  {name:'Pufferfish',value:46,color:'#fff279',size:22,behavior:'drift',speed:8},
  {name:'Sardine',value:12,color:'#88f6e6',size:11,behavior:'school',speed:25},
  {name:'Lionfish',value:74,color:'#ff8c7f',size:20,behavior:'drift',speed:10},
  {name:'Tuna',value:88,color:'#58e6ea',size:24,behavior:'dash',speed:30},
- {name:'Lanternfish',value:110,color:'#7dffca',size:17,behavior:'glow',speed:17},
- {name:'Anglerfish',value:170,color:'#c69cff',size:24,behavior:'lure',speed:9},
+ {name:'Riftglimmer',value:110,color:'#7dffca',size:17,behavior:'glow',speed:17},
+ {name:'Blackglass Lurker',value:170,color:'#c69cff',size:24,behavior:'lure',speed:9},
  {name:'Golden Fish',value:500,color:'#ffe35b',size:18,behavior:'dash',speed:40,rare:true}
 ]);
 
