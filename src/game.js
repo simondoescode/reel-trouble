@@ -518,7 +518,7 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=720+save.upgrades.line*240;depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=1200+save.upgrades.line*240;depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const populated=spawnOcean(maxDepth,Math.random);
  fishes=populated.fish;hazards=populated.hazards;hazardSlow=0;
  message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
@@ -825,24 +825,21 @@ function topBar(title,left,right){
 }
 function bottomHint(hint){roundRect(21,711,378,51,0,'#061d34fa','#6beedc',2);text(hint,210,737,16,C.white,'center',900,0,357);}
 function sideDepthGauge(){
- // Slim right-hand depth scale, outside the hook's primary travel lane.
- const x=379, top=238, height=405, progress=clamp(depth/maxDepth,0,1);
+ // Compact ruler: 50m major ticks, 25m minor ticks, no opaque side panel.
+ const x=401,top=235,height=414,totalMetres=maxDepth/6;
+ const progress=clamp(depth/maxDepth,0,1);
  ctx.save();
- roundRect(346,214,60,455,12,'#061d34dd','#62e8e3',2);
- text('DEPTH',376,231,16,C.white,'center',900,0,55);
- roundRect(x-7,top,14,height,6,'#051729','#528b9c',2);
- // The scale reads top-to-bottom, just like the descent.
- for(let i=0;i<=4;i++){
-  const y=top+height*i/4;
-  line(x-26,y,x-10,y,'#b6fff0',2);
-  text(meter(maxDepth*i/4),x-28,y,16,C.white,'right',900,0,48);
+ ctx.fillStyle='#041b2db0';ctx.fillRect(x-2,top,3,height);
+ for(let metres=0;metres<=totalMetres;metres+=25){
+  const y=top+height*metres/totalMetres;
+  const major=metres%50===0;
+  line(x-(major?14:8),y,x+1,y,major?'#f2fff5':'#9ed5db',major?2:1);
+  if(major)text(metres+'m',x-17,y,16,C.white,'right',900,0,46);
  }
- const filled=Math.max(0,Math.round(height*progress));
- if(filled>0)roundRect(x-4,top,8,filled,3,state==='descent'?C.yellow:C.teal);
- const markerY=top+height*progress;
- roundRect(x-12,markerY-5,24,10,3,C.yellow,'#071a32',2);
- roundRect(350,672,54,34,8,'#061d34ed',C.yellow,2);
- text(meter(depth),377,689,16,C.white,'center',900,0,52);
+ const y=top+height*progress;
+ line(x-17,y,x+3,y,C.yellow,4);
+ roundRect(345,665,70,32,8,'#061d34ef',C.yellow,2);
+ text(meter(depth),380,681,16,C.white,'center',900,0,64);
  ctx.restore();
 }
 function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
@@ -1227,7 +1224,7 @@ function shop(){
   neonPanel(24,223,372,295,C.teal,18);
   text(type==='line'?'YOUR CURRENT REEL':'YOUR CURRENT WEAPON',210,254,17,C.white);
   text(names[cfg.level],210,302,27,C.white,'center',900,0,342);
-  text(type==='line'?meter(720+cfg.level*240)+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
+  text(type==='line'?meter(1200+cfg.level*240)+' MAX DEPTH':'UNLIMITED AMMO',210,345,21,C.white);
   arcadeRule(52,374,368,C.teal);
   if(cfg.level<MAXLVL){
    text('NEXT: '+names[cfg.level+1],210,413,22,C.white,'center',900,0,330);
