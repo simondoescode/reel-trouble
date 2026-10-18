@@ -1900,8 +1900,60 @@ function shopInspectOverlay(){
  }
  ctx.restore();
 }
+
+const BOAT_YARD_TOP=485,BOAT_YARD_BOTTOM=706,BOAT_YARD_ROW=91;
+function boatYardOptions(){return boatOptions(boatYardTab);}
+function boatYardMaxScroll(){return Math.max(0,boatYardOptions().length*BOAT_YARD_ROW-(BOAT_YARD_BOTTOM-BOAT_YARD_TOP));}
+function boatYardScrollTo(value){boatYardScroll[boatYardTab]=clamp(value,0,boatYardMaxScroll());}
+function boatYard(){
+ shopInterior();
+ shopButton('← SHOP COUNTER',13,101,394,48,()=>{shopView='counter';boatYardDrag=null;});
+ shopInk('THE BOAT YARD',210,170,23,'#ffe1ac','center',370);
+ pixelPlate(22,186,376,223,'#143c4c','#a9d4b7',8,false);
+ ctx.fillStyle='#22637d';ctx.fillRect(36,362,348,31);
+ ctx.save();ctx.translate(210,339);ctx.scale(1.55,1.55);ctx.translate(-210,-339);
+ boat(210,339);ctx.restore();
+ shopInk('COSMETIC ONLY • NO STAT BOOSTS',210,398,12,'#fff0c2','center',342);
+ const tabs=[['hull','HULL PAINT'],['flag','FLAGS']];
+ for(let i=0;i<tabs.length;i++){
+  const [id,label]=tabs[i],chosen=boatYardTab===id,x=25+i*194;
+  pixelPlate(x,428,179,46,chosen?'#f4d69d':'#382f34',chosen?'#ffe9b7':'#886f5f',6,false);
+  shopInk(label,x+89,450,13,chosen?'#33251d':'#f4e2c6','center',161);
+  hits.push({x,y:428,w:179,h:46,action:()=>{boatYardTab=id;boatYardScrollTo(boatYardScroll[id]);}});
+ }
+ const options=boatYardOptions(),top=BOAT_YARD_TOP,bottom=BOAT_YARD_BOTTOM,height=bottom-top;
+ const offset=boatYardScroll[boatYardTab];
+ ctx.save();ctx.beginPath();ctx.rect(12,top,393,height);ctx.clip();
+ for(let i=Math.max(0,Math.floor(offset/BOAT_YARD_ROW));i<options.length&&i<=Math.ceil((offset+height)/BOAT_YARD_ROW);i++){
+  const item=options[i],y=top+i*BOAT_YARD_ROW-offset;
+  const owned=boatYardTab==='hull'?save.boatStyle.ownedHulls.includes(item.id):save.boatStyle.ownedFlags.includes(item.id);
+  const equipped=save.boatStyle[boatYardTab]===item.id;
+  pixelPlate(20,y+3,375,84,equipped?'#f7e6c1':owned?'#e7e2c6':'#c8b7a0',
+   equipped?'#ffe1a2':owned?'#86ab93':'#8d755e',6,false);
+  ctx.save();ctx.translate(85,y+55);ctx.scale(.38,.38);ctx.translate(-85,-y-55);
+  boat(85,y+55,boatYardTab==='hull'?{...save.boatStyle,hull:item.id}:{...save.boatStyle,flag:item.id});
+  ctx.restore();
+  shopInk(item.name,144,y+23,14,'#30231d','left',236);
+  shopInk(item.detail,144,y+46,11,'#6f523c','left',228);
+  shopInk(equipped?'EQUIPPED':owned?'OWNED • TAP TO EQUIP':'BUY FOR $'+item.price,144,y+70,12,
+   equipped?'#266749':'#785339','left',235);
+  const hitY=Math.max(top,y+3),hitBottom=Math.min(bottom,y+87);
+  if(hitBottom>hitY)hits.push({x:20,y:hitY,w:375,h:hitBottom-hitY,
+   action:()=>{shopInspect={kind:'boat',slot:boatYardTab,id:item.id,openedAt:clock};}});
+ }
+ ctx.restore();
+ const max=boatYardMaxScroll();
+ if(max>0){
+  const thumb=Math.max(27,height*height/(options.length*BOAT_YARD_ROW));
+  ctx.fillStyle='#5b4b46';ctx.fillRect(399,top,3,height);
+  ctx.fillStyle='#f7d38f';ctx.fillRect(397,top+(height-thumb)*offset/max,7,thumb);
+ }
+ shopButton('← BACK TO WATER',13,717,394,48,()=>{state=castNumber&&save.total?'results':'menu';age=0;boatYardDrag=null;});
+}
+
 function shop(){
  if(shopView==='counter')shopCounter();
+ else if(shopView==='boat')boatYard();
  else shopCatalogue();
  if(shopInspect)shopInspectOverlay();
 }
