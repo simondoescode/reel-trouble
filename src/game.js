@@ -919,33 +919,55 @@ function bottomHint(hint){
  roundRect(49,725,322,38,12,'#061d34ce','#6beedc',1);
  text(hint,210,744,14,C.white,'center',900,0,298);
 }
-function sideDepthGauge(){
- // Hairline ruler pinned to the extreme right edge. Metres are spaced by
- // actual on-screen distance; don't cram every 50m tick into a short gauge.
- const x=W-2,top=217,height=465,rangeMetres=200;
- const currentMetres=depth/DEPTH_PIXELS_PER_METRE;
- const windowStart=Math.max(0,Math.floor((currentMetres-40)/50)*50);
- const windowEnd=windowStart+rangeMetres;
- const yAt=metres=>top+(metres-windowStart)/rangeMetres*height;
+function depthReadout(){
+ // EX-inspired angular typography, drawn from scratch for Reel Trouble.
+ // Current depth and the upgraded line limit are both always readable.
+ const y=15;
  ctx.save();
- ctx.fillStyle='#ffffffb0';ctx.fillRect(x,top,2,height);
+ ctx.shadowColor='#031625';ctx.shadowBlur=6;ctx.shadowOffsetY=3;
+ ctx.fillStyle='#f5faff';
+ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(130,y);ctx.lineTo(151,y+31);
+ ctx.lineTo(138,y+65);ctx.lineTo(0,y+65);ctx.closePath();ctx.fill();
+ ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ ctx.fillStyle='#4a83e5';ctx.fillRect(12,y+45,94,2);
+ ctx.font='900 30px Arial,Helvetica,sans-serif';
+ ctx.textAlign='left';ctx.textBaseline='middle';
+ ctx.fillText(meter(depth),11,y+23,124);
+ ctx.font='900 14px Arial,Helvetica,sans-serif';
+ ctx.fillText('OF '+meter(maxDepth),12,y+56,121);
+ ctx.restore();
+ // Avoid a full-width status bar: the moving ocean should remain the star.
+ ctx.save();ctx.shadowColor='#071526';ctx.shadowBlur=5;
+ ctx.textAlign='left';ctx.textBaseline='middle';
+ ctx.font='900 17px Arial,Helvetica,sans-serif';ctx.fillStyle='#ffffff';
+ ctx.fillText(state==='descent'?'DIVING ↓':'REELING ↑',165,45,164);
+ ctx.restore();
+}
+function sideDepthGauge(){
+ // World-anchored, smoothly scrolling ruler at the extreme right edge.
+ // Unlike a segmented/progress meter, the ticks stay aligned with actual depth.
+ const x=W-2,top=211,bottom=H-64,rangeMetres=200;
+ const currentMetres=depth/DEPTH_PIXELS_PER_METRE;
+ const markerY=clamp(SEA+depth-cameraY,top+30,bottom-30);
+ const pixelsPerMetre=(bottom-top)/rangeMetres;
+ const start=Math.max(0,Math.ceil((currentMetres-(markerY-top)/pixelsPerMetre)/25)*25);
+ const end=currentMetres+(bottom-markerY)/pixelsPerMetre;
+ ctx.save();
+ ctx.beginPath();ctx.rect(x-76,top,80,bottom-top);ctx.clip();
+ ctx.fillStyle='#ffffffa8';ctx.fillRect(x,top,2,bottom-top);
  ctx.shadowColor='#061525';ctx.shadowBlur=4;ctx.shadowOffsetY=1;
- for(let metres=Math.ceil(windowStart/25)*25;metres<=windowEnd;metres+=25){
-  const y=yAt(metres),major=metres%50===0;
-  line(x-(major?9:5),y,x,y,'#ffffff',major?1.5:1);
-  if(major){
-   ctx.textAlign='right';ctx.textBaseline='middle';
-   ctx.font='900 12px Arial,Helvetica,sans-serif';
-   ctx.fillStyle='#ffffff';
-   ctx.fillText(metres+'m',x-13,y);
+ ctx.textAlign='right';ctx.textBaseline='middle';
+ for(let metres=start;metres<=end;metres+=25){
+  const y=markerY+(metres-currentMetres)*pixelsPerMetre,major=metres%50===0;
+  line(x-(major?10:5),y,x,y,'#ffffff',major?1.5:1);
+  if(major&&Math.abs(y-markerY)>23){
+   ctx.font='900 12px Arial,Helvetica,sans-serif';ctx.fillStyle='#ffffff';
+   ctx.fillText(metres+'m',x-14,y);
   }
  }
- const markerY=clamp(yAt(currentMetres),top,top+height);
- line(x-13,markerY,x,markerY,'#ffffff',2.5);
- ctx.font='900 16px Arial,Helvetica,sans-serif';
- ctx.textAlign='right';ctx.textBaseline='middle';
- ctx.fillStyle='#ffffff';
- ctx.fillText(meter(depth),x-15,markerY-15);
+ line(x-14,markerY,x,markerY,'#ffffff',2.5);
+ ctx.font='900 16px Arial,Helvetica,sans-serif';ctx.fillStyle='#ffffff';
+ ctx.fillText(meter(depth),x-16,markerY-15);
  ctx.restore();
 }
 function gameplay(){const camera=cameraY;
@@ -980,12 +1002,12 @@ for(const h of hazards){
  }
  deepDarkness(hy);
   sideDepthGauge();
- topBar(state==='descent'?'DIVING ↓':'REELING ↑','',`${meter(depth)} / ${meter(maxDepth)}`);
+ depthReadout();
  if(chargeArmed&&state==='descent')arcadePill('BLAST READY',242,154,162,C.yellow);
  const biome=biomeAtDepth(depth);
  roundRect(18,112,159,37,0,'#08253bf5','#76fae2',2);
  text(biome.name,97,130,13,biome.id==='unmarked'?'#e4caff':C.cream,'center',950,0,145);
- roundRect(28,85,364,9,5,'#052e3c','#32758b');roundRect(30,87,Math.max(3,360*depth/maxDepth),5,3,state==='descent'?C.yellow:C.teal);
+ // Depth is conveyed by the angular readout and the right-edge ruler; no duplicate progress bar.
  if(state==='ascent'){roundRect(191,112,162,37,0,'#08253bf0','#ffed76',2);text('HOOKED '+caught.length,272,130,16,C.yellow,'center',950,0,148);}
  if(messageTimer>0){roundRect(67,164,286,42,0,'#07243df5','#86fff2',2);text(message,210,185,16,C.cream,'center',950,0,269);}
  bottomHint(hazardSlow>0?'JELLYFISH! SLOW REEL':(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));

@@ -287,3 +287,18 @@ test('rare discoveries and bespoke deep creature art are integrated without inte
  assert.match(worker,/src\/deep-creatures\.js/);
  assert.match(worker,/src\/discoveries\.js/);
 });
+
+
+test('fishing depth HUD uses an angular current/limit readout and smooth hook-anchored edge ruler',()=>{
+ const game=read('src/game.js');
+ const hud=game.slice(game.indexOf('function depthReadout()'),game.indexOf('function gameplay()'));
+ assert.match(hud,/ctx\.moveTo\(0,y\)/);
+ assert.match(hud,/ctx\.fillText\(meter\(depth\),11,y\+23,124\)/);
+ assert.match(hud,/ctx\.fillText\('OF '\+meter\(maxDepth\)/);
+ assert.match(hud,/const markerY=clamp\(SEA\+depth-cameraY/);
+ assert.match(hud,/metres%50===0/);
+ assert.match(hud,/metres-currentMetres/);
+ assert.match(hud,/const x=W-2/);
+ assert.match(game,/sideDepthGauge\(\);\s*depthReadout\(\);/);
+ assert.doesNotMatch(game,/360\*depth\/maxDepth/);
+});
