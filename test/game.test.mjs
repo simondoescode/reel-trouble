@@ -41,7 +41,8 @@ test('vibrant pixel colours and visual effects stay available', () => {
  assert.match(game, /yellow:'#ffed76'/);
  assert.match(game, /const fishPalette=\[/);
  assert.match(game, /oceanPalette\(depthAtPixel\)/);
- assert.match(game, /const sky=\['#4257b5'/);
+ assert.match(game, /const sky=ctx\.createLinearGradient\(0,0,0,H\)/);
+  assert.match(game, /sky\.addColorStop\(\.67,'#f18db7'\)/);
  assert.match(game, /const sparks=\[color,C\.yellow,C\.teal,C\.cream,C\.pink\]/);
  assert.match(css, /image-rendering: auto/);
  assert.match(css, /radial-gradient/);
