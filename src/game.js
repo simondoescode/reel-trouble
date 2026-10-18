@@ -1621,8 +1621,11 @@ function shopTierList(type,top,bottom){
   const row=all[index],tier=row.tier,rowType=row.type,lv=rowType==='charge'?save.charges:save.upgrades[rowType];
   const y=top+index*SHOP_ROW-offset,owned=rowType!=='charge'&&tier<lv,current=rowType==='charge'||tier===lv;
   const [name,detail]=rowType==='charge'?['BLAST CHARGE','SKIP ONE COLLISION']:shopTierMeta(rowType,tier);
-  const cost=rowType==='charge'?110:rowType==='light'?LAMP_COSTS[tier]:
-   Math.round(({line:65,net:90,gun:85}[rowType])*Math.pow(rowType==='line'?1.52:1.75,tier));
+  // Current row shows the cost of the next upgrade; future rows show
+  // the price to unlock that tier, rather than an undefined final-tier price.
+  const priceTier=current?tier:Math.max(0,tier-1);
+  const cost=rowType==='charge'?110:rowType==='light'?LAMP_COSTS[priceTier]:
+   Math.round(({line:65,net:90,gun:85}[rowType])*Math.pow(rowType==='line'?1.52:1.75,priceTier));
   const affordable=save.cash>=cost;
   roundRect(21,y+4,368,96,7,current?'#f6e4bd':owned?'#dce7d8':'#c9beb0');
   ctx.fillStyle=current?'#d8a65b':owned?'#5d9d85':'#8e8278';ctx.fillRect(21,y+15,4,74);
