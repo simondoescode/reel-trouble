@@ -590,7 +590,7 @@ function catchFish(f){
   floatLabel('GOLDEN CATCH!',210,158,C.yellow);
   sceneFlash=.35;sound.play('combo');
  }
- const camera=clamp(depth-230,0,maxDepth+100),hy=SEA+depth-camera;
+ const camera=cameraY,hy=SEA+depth-camera;
  burst(hookX,hy,C.yellow,12);emitSplash(hookX,hy,species[f.kind].color,.55);
  sound.play('catch',{pitch:f.kind});rumble.play(species[f.kind].rare?'legendary':'catch');
 }
@@ -780,7 +780,7 @@ function update(dt){
  const triggerHazard=()=>{
   if(!touchingHazard)return;
   touchingHazard.triggeredAt=clock;
-  const camera=clamp(depth-230,0,maxDepth+100),y=SEA+touchingHazard.d-camera;
+  const camera=cameraY,y=SEA+touchingHazard.d-camera;
   burst(touchingHazard.x,y,'#d7b3ff',14);
   floatLabel('JELLYFISH!',touchingHazard.x,y-27,C.pink);
   sceneFlash=.17;shake=lowFx?0:3;
@@ -793,7 +793,7 @@ function update(dt){
   chargeArmed=false;save.charges=Math.max(0,save.charges-1);persist();
   // Clear the fish from the collision path without adding it to the catch.
   collided.bypassed=true;
-  const cam=clamp(depth-230,0,maxDepth+100),cy=SEA+depth-cam;
+  const cam=cameraY,cy=SEA+depth-cam;
   burst(hookX,cy,C.yellow,32);emitSplash(hookX,cy,C.coral,1.1);
   floatLabel('BLAST SAVE!',hookX,cy-44,C.yellow);
   sceneFlash=.38;shake=lowFx?0:9;sound.play('finisher');rumble.play('legendary');
