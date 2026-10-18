@@ -1421,7 +1421,6 @@ function titleSeaLife(t){
   ctx.restore();
  }
 }
-function titleActionGlow(){ /* Primary buttons no longer have a rectangular halo. */ }
 function captainBubble(){
  if(clock>=captainLineUntil||!captainLine)return;
  const remaining=captainLineUntil-clock;
@@ -1434,6 +1433,7 @@ function captainBubble(){
  storyCopy(captainLine,206,269,303,15,'#34271c',19,2);
  ctx.restore();
 }
+function titleActionGlow(){ /* Primary buttons no longer have a rectangular halo. */ }
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
