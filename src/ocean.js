@@ -23,7 +23,14 @@ export const SPECIES = Object.freeze([
  {name:'Tuna',value:88,color:'#58e6ea',size:24,behavior:'dash',speed:30},
  {name:'Riftglimmer',value:110,color:'#7dffca',size:17,behavior:'glow',speed:17},
  {name:'Blackglass Lurker',value:170,color:'#c69cff',size:24,behavior:'lure',speed:9},
- {name:'Golden Fish',value:500,color:'#ffe35b',size:18,behavior:'dash',speed:40,rare:true}
+ {name:'Golden Fish',value:500,color:'#ffe35b',size:18,behavior:'dash',speed:40,rare:true},
+
+ {name:'Reef Shark',value:210,color:'#91b7d1',size:36,behavior:'patrol',speed:24,hp:2},
+ {name:'Swordfish',value:260,color:'#84d9ff',size:34,behavior:'dash',speed:33,hp:2},
+ {name:'Giant Grouper',value:325,color:'#f0ab68',size:43,behavior:'drift',speed:9,hp:3},
+ {name:'Hammerhead',value:410,color:'#9db4c6',size:46,behavior:'patrol',speed:21,hp:3},
+ {name:'Whale Shark',value:650,color:'#72b6cf',size:57,behavior:'cruise',speed:12,hp:4},
+ {name:'Abyssal Squid',value:940,color:'#dc8fdb',size:53,behavior:'lure',speed:13,hp:5}
 ]);
 
 // Use world-pixel depth consistently; region boundaries correspond to 260m,
@@ -58,12 +65,12 @@ export function oceanVisibility(depth){
 // Species ordering is stable to preserve collection and achievement save data.
 const TABLES={
  sunskip:[[0,17],[1,14],[2,12],[6,19],[7,10],[8,21],[3,7]],
- bluewander:[[1,16],[2,13],[3,12],[6,9],[8,16],[9,9],[10,13]],
- knuckles:[[1,8],[2,12],[3,12],[4,10],[7,10],[8,13],[9,16],[10,17]],
- hush:[[3,12],[4,11],[5,13],[9,6],[10,18],[11,20],[12,8]],
- lantern:[[3,7],[4,8],[5,18],[9,6],[10,12],[11,25],[12,22]],
- blackglass:[[5,20],[10,10],[11,25],[12,31],[3,6]],
- unmarked:[[5,18],[11,26],[12,38],[4,5],[10,8]]
+ bluewander:[[1,16],[2,13],[3,12],[6,9],[8,16],[9,9],[10,13],[14,5]],
+ knuckles:[[1,8],[2,12],[3,12],[4,10],[7,10],[8,13],[9,16],[10,17],[14,9],[15,5],[16,3]],
+ hush:[[3,12],[4,11],[5,13],[9,6],[10,18],[11,20],[12,8],[14,8],[15,9],[16,8],[17,4]],
+ lantern:[[3,7],[4,8],[5,18],[9,6],[10,12],[11,25],[12,22],[16,10],[17,11],[18,4]],
+ blackglass:[[5,20],[10,10],[11,25],[12,31],[3,6],[17,12],[18,10],[19,6]],
+ unmarked:[[5,18],[11,26],[12,38],[4,5],[10,8],[18,13],[19,16]]
 };
 export function chooseSpecies(depth,random=Math.random){
  if(depth>=540&&random()<.012)return 13;
@@ -138,8 +145,9 @@ export function advanceFish(f,dt){
  if(m.behavior==='dash')factor=Math.sin(f.phase*2.4)>.5?2.75:.48;
  if(m.behavior==='zigzag')factor=1+.32*Math.sin(f.phase*2.2);
  f.x+=f.dir*f.speed*factor*rate;
- if(f.x<29){f.x=29;f.dir=1;}
- if(f.x>391){f.x=391;f.dir=-1;}
+ const margin=Math.max(29,Math.min(88,m.size*1.35));
+ if(f.x<margin){f.x=margin;f.dir=1;}
+ if(f.x>420-margin){f.x=420-margin;f.dir=-1;}
  const magnitude=m.behavior==='zigzag'?15:m.behavior==='drift'?8:
   m.behavior==='school'?3:m.behavior==='dash'?6:4;
  f.swimY=Math.sin(f.phase*1.6+(m.behavior==='school'?0:f.id*.7))*magnitude;
