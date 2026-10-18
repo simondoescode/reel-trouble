@@ -268,8 +268,7 @@ function button(title,x,y,w,h,action,accent=C.coral,secondary=''){
  const base=primary?'#ffd45c':'#0e3048';
  const edge=primary?'#fff0aa':accent===C.cream?'#c2d9e3':accent;
  pixelPlate(x,y,w,h,base,edge,Math.min(9,Math.round(h/7)));
- if(!primary){ctx.fillStyle=accent===C.cream?'#b5d1dc':accent;ctx.fillRect(x+8,y+12,4,Math.max(0,h-24));}
- else{ctx.fillStyle='#c88524';ctx.fillRect(x+13,y+h-7,w-26,3);}
+ if(primary){ctx.fillStyle='#c88524';ctx.fillRect(x+13,y+h-7,w-26,3);}
  const labelY=y+h/2-(secondary?10:0);
  text(title,x+w/2,labelY,secondary?21:(h<41?14:h>=60?20:17),primary?'#152637':C.white,'center',900,0,w-32);
  if(secondary)text(secondary,x+w/2,y+h/2+16,12,primary?'#263548':'#e2f3f8','center',800,0,w-32);
@@ -1559,7 +1558,6 @@ function shopWrap(message,maxWidth,size=16,maxLines=2){
 function shopButton(label,x,y,w,h,action,affordable=true){
  const active=affordable;
  pixelPlate(x,y,w,h,active?'#f0cb7f':'#af9e89',active?'#ffe5ab':'#cabca6',7);
- ctx.fillStyle=active?'#a26b32':'#86756a';ctx.fillRect(x+9,y+8,3,h-16);
  shopInk(label,x+w/2,y+h/2,15,active?'#302219':'#51463e','center',w-27);
  hits.push({x,y,w,h,action});
 }
