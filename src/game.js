@@ -315,7 +315,42 @@ const fishPalette=[
  ['#422458','#7855a8','#c69cff','#e6d6ff'], // Anglerfish
  ['#a05e19','#e8a731','#ffe35b','#ffffff']  // Legendary Golden Fish
 ];
+
+// Individually drawn big-fish silhouettes, rather than stretching the tiny fish sprite.
+// 0 is transparent; 1 outline, 2 shadow, 3 body, 4 highlight, 5 eye, 6 accent.
+const GIANT_SPRITES={
+ 14:['            1     1             ','           1331  131            ','  11     13333311331           ',' 1331111133333333333111111111  ','13333333333333333333333333531 ',' 1333333333333333333333311111  ','  111113333333333311111       ','        1111111111             '],
+ 15:['    1                   1        ','   1331                 131      ','  133331111111111111111331111111',' 133333333333333333333333335311','  13333333333333333333333111111','   133111113333333331111        ','    1      11111111            '],
+ 16:['        1111111                 ','      11333333311               ',' 111113333344433331111111      ','13333333333333333333333333511  ','133333333333333333333333333311 ',' 111113333333333333333331111   ','      11111111111111111        '],
+ 17:['     111111        111111       ','   113333331      133333311     ','  1333333331111113333333331    ',' 13333333333333333333333333511 ','  1333333333333333333333333311 ','   113333333311113333333311    ','     1111111      1111111      '],
+ 18:['               111              ','       111111133311            ','   111133333333333331111       ','11133333334333333333333335111  ','133333333333333333333333333311 ','1113333333333333333333333111   ','   111133333333333331111       ','       11111111111             '],
+ 19:['       1111111111111            ','     11333333333333311          ','    1333344333333344331         ','   133333333333333333331        ','    111133311133311111         ','       131   131   131         ','       131   131   131         ','       131   131   131         ','       131   131   131         ','       111   111   111         ']
+};
+const GIANT_PALETTES={
+ 14:['#122c45','#4c7c9c','#91b7d1','#d8ecf6','#0b1b2a','#e8f6ff'],
+ 15:['#102c4c','#2a719e','#64bde8','#c9efff','#061b30','#9deaff'],
+ 16:['#513221','#a56b45','#e5a66a','#ffdfaa','#1b1720','#ffd48a'],
+ 17:['#203344','#667f94','#a7bbc9','#e7f3fa','#0b1a24','#f5fcff'],
+ 18:['#153c59','#347b9a','#70b1cf','#c6e9f4','#0b2136','#e9ffff'],
+ 19:['#49294d','#915b9d','#d78ed6','#f2c7eb','#160f28','#a1fffa']
+};
+function drawGiantFish(x,y,kind,dir,scale,phase){
+ const rows=GIANT_SPRITES[kind],palette=GIANT_PALETTES[kind],width=Math.max(...rows.map(r=>r.length));
+ const unit=species[kind].size*scale/17;
+ ctx.save();ctx.translate(Math.round(x),Math.round(y+Math.sin(phase)*2));ctx.scale(dir*unit,unit);
+ for(let pass=0;pass<2;pass++)for(let j=0;j<rows.length;j++)for(let i=0;i<rows[j].length;i++){
+  const glyph=rows[j][i];if(glyph===' '||glyph==='0')continue;
+  const sway=(i<5?Math.round(Math.sin(phase*2.5)):0),px=i-width/2+sway,py=j-rows.length/2;
+  ctx.fillStyle=pass===0?'#071b2c':palette[Math.max(0,Math.min(5,Number(glyph)-1))];
+  if(pass===0)ctx.fillRect(px-.26,py-.26,1.53,1.53);
+  else ctx.fillRect(px,py,1.04,1.04);
+ }
+ if(kind===18){ctx.fillStyle='#dcf8ff';for(let i=0;i<13;i++){const px=-10+(i*7)%24,py=-2+(i*3)%5;ctx.fillRect(px,py,.9,.9);}}
+ if(kind===19){ctx.fillStyle='#8cf6ec';ctx.fillRect(9,-1,2,1);}
+ ctx.restore();
+}
 function fish(x,y,kind=0,dir=1,scale=1,phase=0){
+  if(GIANT_SPRITES[kind]){drawGiantFish(x,y,kind,dir,scale,phase);return;}
  if(isDeepCreature(kind)){
   drawDeepCreature(ctx,{x,y,kind,dir,scale,phase,size:species[kind].size,lowFx});
   return;
@@ -604,7 +639,7 @@ function beginShoot(){
  const gun=weaponForLevel(save.upgrades.gun);
  message=gun.tier===0?'SHOOT BEFORE THEY SPLASH!':gun.name+' READY!';
  messageTimer=2;
- airborne=caught.map((f,i)=>makeAirborneCatch(f,i,caught.length));
+ airborne=caught.map((f,i)=>({...makeAirborneCatch(f,i,caught.length),hp:species[f.kind].hp||1}));
  if(!caught.length){endRound();return;}
  stageCue('shoot');
  emitSplash(210,SHOOT_WATERLINE,C.teal,1.5);sceneFlash=.23;sound.play('splash');
@@ -616,7 +651,8 @@ function shootAt(x,y){
  pointer={x,y};
  const targets=pickShotTargets(airborne.map(f=>({...f,size:species[f.kind].size,original:f})),x,y,gun);
  const actual=targets.map(t=>t.original);
- const streak=nextCombo(combo,lastComboHit,clock,actual.length);
+ const defeated=actual.filter(f=>f.hp<=Math.max(1,gun.tier+1));
+  const streak=nextCombo(combo,lastComboHit,clock,defeated.length);
  combo=streak.count;lastComboHit=streak.lastHit;
  bestRoundCombo=Math.max(bestRoundCombo,combo);
  const baseX=210,baseY=663;
