@@ -994,7 +994,7 @@ function depthReadout(){
  const items=[
   {label:'▼ '+meter(depth),x:12,width:139,align:'left',color:'#ffffff'},
   {label:'♥ '+caught.length,x:161,width:68,align:'left',color:'#ff9bad'},
-  {label:'$ '+Math.floor(save.cash+roundEarnings).toLocaleString('en-GB'),x:W-11,width:179,align:'right',color:payoutPulse>0?'#fff1a5':'#ffffff'}
+  {label:'$ '+Math.floor(save.cash).toLocaleString('en-GB'),x:W-11,width:179,align:'right',color:payoutPulse>0?'#fff1a5':'#ffffff'}
  ];
  for(const item of items){
   ctx.font='11px "Press Start 2P",monospace';
