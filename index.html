@@ -45,8 +45,17 @@
   recovery.hidden=false;
   panel.classList.add('failed');
  };
- window.addEventListener('error',()=>loadingFailed('The game failed to start. Refresh game files to retry.'));
- window.addEventListener('unhandledrejection',()=>loadingFailed('The game failed to start. Refresh game files to retry.'));
+ const diagnostic=(value)=>String(value||'Unknown startup error').slice(0,240);
+ window.addEventListener('error',event=>{
+  const source=event.filename?.split('/').pop()||event.target?.src?.split('/').pop()||'startup';
+  const details=event.message||event.error?.message||'A game asset could not be loaded';
+  console.error('[Reel Trouble] Startup error',event.error||event);
+  loadingFailed('Startup error ('+source+'): '+diagnostic(details)+'. Refresh game files to retry.');
+ },true);
+ window.addEventListener('unhandledrejection',event=>{
+  console.error('[Reel Trouble] Startup rejection',event.reason);
+  loadingFailed('Startup error: '+diagnostic(event.reason?.message||event.reason)+'. Refresh game files to retry.');
+ });
  window.setTimeout(()=>loadingFailed('Still loading? Refresh the game files to try again.'),6500);
  recovery.addEventListener('click',async()=>{
   recovery.disabled=true;
