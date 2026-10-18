@@ -151,7 +151,7 @@ function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sceneTransition=null;sound.pause(false);rumble.stop();}
 let shopTab='lines',shopView='counter',chargeArmed=false;
 let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
-let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
+let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionScroll={fish:0,badges:0},collectionDrag=null,selectedFish=0;
 let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0,missionRewardThisCast=0,missionsCompletedThisCast=0;
 let deepestCast=0,discoveriesThisCast=0,lastBiomeId='sunskip',cameraY=0,zoneNotice=null;
@@ -184,7 +184,7 @@ function updateAchievements(){
  floatLabel(granted.unlocked.length===1?granted.unlocked[0].title:'BADGES +'+granted.unlocked.length,210,207,C.yellow);
  sound.play('upgrade');
 }
-function openCollection(tab='fish'){collectionTab=tab;collectionPage=0;sceneTransition=null;state='collection';age=0;}
+function openCollection(tab='fish'){collectionTab=tab;collectionScroll={fish:0,badges:0};collectionDrag=null;sceneTransition=null;state='collection';age=0;}
 let expeditionReturn='more';
 function openExpeditions(){expeditionReturn=state;sceneTransition=null;state='expeditions';age=0;}
 function stageCue(_kind){sceneTransition=null;} // Go straight into each phase: no full-screen interruptions.
@@ -1865,6 +1865,14 @@ function expeditionBoard(){
  text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,686,12,C.white,'center',900,0,370);
  button('← BACK',70,718,280,53,()=>{state=expeditionReturn;age=0;},C.yellow);
 }
+const COLLECTION_LIST_TOP=228,COLLECTION_LIST_BOTTOM=695,COLLECTION_CARD_TOP=232,COLLECTION_ROW=105;
+function collectionListBounds(){return [COLLECTION_LIST_TOP,COLLECTION_LIST_BOTTOM];}
+function collectionItemCount(tab=collectionTab){return tab==='fish'?species.length:ACHIEVEMENTS.length;}
+function collectionMaxScroll(tab=collectionTab){
+ const [top,bottom]=collectionListBounds();
+ return Math.max(0,collectionItemCount(tab)*COLLECTION_ROW-(bottom-top));
+}
+function collectionScrollTo(value){collectionScroll[collectionTab]=clamp(value,0,collectionMaxScroll());}
 function bookCard(kind,x,y){
  const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
  const width=370,height=99;
@@ -1876,7 +1884,10 @@ function bookCard(kind,x,y){
  text(found?meta.name:'UNKNOWN SPECIES',x+122,y+24,19,C.white,'left',900,0,232);
  text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,14,found?C.yellow:'#b0c2c8','left',900,0,232);
  text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,14,C.white,'left',900,0,232);
- hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+ // Clip the touch region too; rows partly offscreen must not block fixed controls.
+ const hitY=Math.max(y,COLLECTION_LIST_TOP),hitBottom=Math.min(y+height,COLLECTION_LIST_BOTTOM);
+ if(hitBottom>hitY)hits.push({x,y:hitY,w:width,h:hitBottom-hitY,
+  action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
 }
 function collection(){
  ambient(clock);
@@ -1885,21 +1896,23 @@ function collection(){
  text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,17,C.white,'center',900,0,365);
  roundRect(49,138,322,8,0,'#071828');
  roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
- button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
- button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
- const pageSize=4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
- const pages=Math.ceil(total/pageSize);
- collectionPage=clamp(collectionPage,0,pages-1);
- if(collectionTab==='fish'){
-  for(let i=0;i<pageSize;i++){
-   const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
-   bookCard(kind,25,227+i*105);
-  }
- }else{
-  for(let i=0;i<4;i++){
-   const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
-   const unlocked=save.collection.achievements[badge.id]===true;
-   const y=227+i*105;
+ button('FISH',29,163,175,42,()=>{collectionTab='fish';},collectionTab==='fish'?C.yellow:C.cream);
+ button('BADGES',216,163,175,42,()=>{collectionTab='badges';},collectionTab==='badges'?C.yellow:C.cream);
+ text('SWIPE / SCROLL',383,216,11,C.white,'right',900,0,195);
+ const [top,bottom]=collectionListBounds(),height=bottom-top,total=collectionItemCount();
+ collectionScrollTo(collectionScroll[collectionTab]);
+ const offset=collectionScroll[collectionTab];
+ // Keep tab navigation and the back button outside the clipped scrolling catalogue.
+ ctx.save();ctx.beginPath();ctx.rect(17,top,380,height);ctx.clip();
+ const first=Math.max(0,Math.floor(offset/COLLECTION_ROW));
+ const last=Math.min(total-1,Math.ceil((offset+height)/COLLECTION_ROW));
+ for(let index=first;index<=last;index++){
+  const y=COLLECTION_CARD_TOP+index*COLLECTION_ROW-offset;
+  if(y>=bottom||y+99<=top)continue;
+  if(collectionTab==='fish'){
+   bookCard(index,25,y);
+  }else{
+   const badge=ACHIEVEMENTS[index],unlocked=save.collection.achievements[badge.id]===true;
    pixelPlate(29,y,362,97,unlocked?'#154355':'#203648',unlocked?'#ffd45c':'#66859a',6);
    text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
    text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
@@ -1907,11 +1920,18 @@ function collection(){
    text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,17,C.white,'left',900,0,291);
   }
  }
- if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
- text((collectionPage+1)+' / '+pages,210,682,15,C.cream);
- if(collectionPage<pages-1)button('NEXT →',279,659,111,42,()=>collectionPage++,C.cream);
+ ctx.restore();
+ // Thin track + thumb make the full collection's depth visible without pagination.
+ const maxScroll=collectionMaxScroll();
+ if(maxScroll>0){
+  const contentHeight=total*COLLECTION_ROW;
+  const thumb=Math.max(34,height*height/contentHeight);
+  ctx.fillStyle='#33566b';ctx.fillRect(403,top,3,height);
+  ctx.fillStyle=C.yellow;ctx.fillRect(401,top+(height-thumb)*offset/maxScroll,5,thumb);
+ }
  button('← BACK',90,717,240,48,()=>{state='menu';age=0;},C.yellow);
 }
+
 function fishDetail(){
  ambient(clock);
  const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
@@ -2143,15 +2163,33 @@ function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX
 function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
  if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
+ if(state==='collection'){const q=pos(e),[a,b]=collectionListBounds();if(q.y>=a&&q.y<=b){sound.unlock();collectionDrag={startY:q.y,startScroll:collectionScroll[collectionTab],moved:false};return;}}
  sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
 canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
- if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
-canvas.addEventListener('pointerup',e=>{if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}pointerDown=false;});
-canvas.addEventListener('pointercancel',()=>{shopDrag=null;pointerDown=false;});
-canvas.addEventListener('wheel',e=>{if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}},{passive:false});
+ if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}
+ if(collectionDrag){const dy=pointer.y-collectionDrag.startY;if(Math.abs(dy)>7)collectionDrag.moved=true;if(collectionDrag.moved)collectionScrollTo(collectionDrag.startScroll-dy);return;}
+ if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
+canvas.addEventListener('pointerup',e=>{
+ if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
+ if(collectionDrag){const dragged=collectionDrag.moved;collectionDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
+ pointerDown=false;
+});
+canvas.addEventListener('pointercancel',()=>{shopDrag=null;collectionDrag=null;pointerDown=false;});
+canvas.addEventListener('wheel',e=>{
+ if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}
+ if(state==='collection'){const q=pos(e),[a,b]=collectionListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();const factor=e.deltaMode===1?26:e.deltaMode===2?b-a:1;collectionScrollTo(collectionScroll[collectionTab]+e.deltaY*factor);}}
+},{passive:false});
 window.addEventListener('keydown',e=>{
  sound.unlock();
  if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(state==='collection'&&['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.code)){
+  e.preventDefault();
+  const [top,bottom]=collectionListBounds(),page=bottom-top-60;
+  const delta=e.code==='ArrowUp'?-COLLECTION_ROW:e.code==='ArrowDown'?COLLECTION_ROW:
+   e.code==='PageUp'?-page:e.code==='PageDown'?page:0;
+  collectionScrollTo(e.code==='Home'?0:e.code==='End'?collectionMaxScroll():collectionScroll[collectionTab]+delta);
+  return;
+ }
  if(e.code==='Escape'||e.key.toLowerCase()==='p'){
   if(paused)resumeGame();else pauseGame('MANUAL');return;
  }
