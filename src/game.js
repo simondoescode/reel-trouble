@@ -1,4 +1,3 @@
-import '@fontsource/press-start-2p/400.css';
 import { tiltAxis, tiltVelocity } from './tilt.js';
 import { paintShopBackdrop, paintSkipper, paintShopItem } from './shop-art.js';
 import { SHOP_SECRETS, unlockedShopSecrets, nextShopSecret } from './shop-secrets.js';
