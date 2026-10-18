@@ -314,8 +314,8 @@ test('shopfront is a readable in-world scene with individual merchandise and all
  assert.match(game,/function shopWrap\(/);
  assert.match(game,/function shopTabButton\(/);
  assert.match(game,/shopItemCard\(\)/);
- assert.match(game,/shopSupplyCard\('charge',452\)/);
- assert.match(game,/shopSupplyCard\('light',577\)/);
+ assert.match(game,/function shopSupplies\(/);
+ assert.match(game,/shopTierList\('light',545,693\)/);
  assert.match(game,/shopTab==='nets'\?'net'/);
  assert.match(game,/purchase\(type\)/);
  assert.match(game,/save\.upgrades\.net\*13/);
