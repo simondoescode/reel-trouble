@@ -147,7 +147,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(game,/Math\.max\(16,size\)/);
  assert.match(game,/Press Start 2P/);
  assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
- assert.match(game,/text\(biome\.name,97,130,13/);
+ assert.match(game,/ctx\.fillText\(zoneNotice\.name,W\/2,center\+13,375\)/);
  assert.match(ocean,/SUNSKIP SHELF/);
  assert.match(ocean,/KELP KNUCKLES/);
  assert.match(ocean,/BLACKGLASS DROP/);
