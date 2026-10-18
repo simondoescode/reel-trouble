@@ -1279,6 +1279,7 @@ function results(){
  text('NICE CATCH!',210,123,43,C.white,'center',1000,-.8);
  text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
  if(missionsCompletedThisCast)text('MISSION CLEARED +$'+missionRewardThisCast,210,195,17,C.yellow,'center',900,0,354);
+ else if(discoveriesThisCast)text('OCEAN SECRETS FOUND: '+discoveriesThisCast,210,195,17,C.yellow,'center',900,0,354);
  else if(newFishThisCast||newBadgesThisCast)
   text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
  neonPanel(35,217,350,291,C.yellow,21);
