@@ -279,7 +279,7 @@ test('rare discoveries and bespoke deep creature art are integrated without inte
  const game=read('src/game.js'),worker=read('sw.js');
  assert.match(game,/import \{ isDeepCreature, drawDeepCreature \}/);
  assert.match(game,/import \{ createDiscoveryStream, drawDiscovery \}/);
- assert.match(game,/discoveryStream\.claimAt\(depth,hookX\)/);
+ assert.ok(game.includes('discoveryStream?.claimAt(depth,hookX)'));
  assert.match(game,/discoveriesThisCast\+\+/);
  assert.match(game,/drawDiscovery\(ctx,item,y,waveT/);
  assert.match(game,/const camera=cameraY/);
