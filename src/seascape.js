@@ -57,6 +57,29 @@ export function drawSeaScape(ctx,camera,{width=420,height=780,sea=192,time=0,low
   }
   ctx.restore();
  }
+ // Rare immense silhouettes drift behind the scenery. They are sightings,
+ // never obstacles or copied boss encounters. No unbounded history is retained.
+ const firstSight=Math.max(0,Math.floor((camera-sea-240)/CHUNK_DEPTH));
+ const lastSight=Math.max(firstSight,Math.floor((camera+height-sea+240)/CHUNK_DEPTH));
+ for(let i=firstSight;i<=lastSight;i++){
+  if(i%13!==6||i*CHUNK_DEPTH<6480)continue;
+  const r=seededRandom((seed>>>0)^Math.imul(i+71,0x27d4eb2d));
+  const yy=sea+i*CHUNK_DEPTH+300-camera;
+  if(yy< -180||yy>height+180)continue;
+  const side=r()<.5?0:1,cx=side===0?95:width-95;
+  ctx.save();ctx.globalAlpha=.11;
+  ctx.fillStyle='#4b77a0';
+  // Broad blocky body, tapered tail and asymmetric dorsal ridges.
+  ctx.fillRect(cx-56,yy-23,112,46);
+  ctx.fillRect(cx-42,yy-35,67,12);
+  ctx.fillRect(cx-12,yy-49,24,14);
+  for(let k=0;k<3;k++)ctx.fillRect(cx-38+k*28,yy-39-k%2*11,16,18);
+  const tailX=side===0?cx-83:cx+52;
+  ctx.fillRect(tailX,yy-8,33,16);ctx.fillRect(tailX,yy-29,13,24);
+  ctx.fillRect(tailX,yy+9,13,24);
+  ctx.fillStyle='#b7f9ef';ctx.fillRect(cx+(side===0?36:-37),yy-7,5,5);
+  ctx.restore();
+ }
  // Fine marine snow exists in world space, not screen space.
  ctx.save();
  const spacing=lowFx?150:95;
