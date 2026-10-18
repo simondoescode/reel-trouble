@@ -1377,51 +1377,56 @@ function titleActionGlow(){ /* Primary buttons no longer have a rectangular halo
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
- // The player and their boat are the focus, rather than a wall of dashboard cards.
  const seaY=438+(lowFx?0:Math.sin(t*1.15)*4);
  ctx.save();
  const glow=ctx.createRadialGradient(210,seaY-95,18,210,seaY-95,230);
  glow.addColorStop(0,'#65ffe139');glow.addColorStop(1,'#65ffe100');
- ctx.fillStyle=glow;ctx.fillRect(0,205,W,370);
- ctx.restore();
+ ctx.fillStyle=glow;ctx.fillRect(0,205,W,370);ctx.restore();
  const bob=lowFx?0:Math.sin(t*1.1)*3;
  if(titleLogo.complete&&titleLogo.naturalWidth){
   const width=Math.min(330,188*titleLogo.naturalWidth/titleLogo.naturalHeight);
   const height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
   ctx.drawImage(titleLogo,(W-width)/2,64+bob,width,height);
- }else{
-  text('REEL',210,128+bob,65,C.white);
-  text('TROUBLE!',210,195+bob,49,C.white);
- }
- // Enlarged original pixel-art angler as an identifiable mascot.
+ }else{ text('REEL',210,128+bob,65,C.white);text('TROUBLE!',210,195+bob,49,C.white); }
  ctx.save();ctx.translate(210,seaY);ctx.scale(2.1,2.1);ctx.translate(-210,-seaY);
- boat(210,seaY);
- ctx.restore();
- const progress=collectionProgress(save.collection);
- roundRect(25,20,153,42,14,'#082734dd','#ffffff26',1);
- text('$'+save.cash,101,41,23,C.white,'center',900,0,136);
- button('☰',345,19,51,43,()=>{state='more';age=0;},C.teal);
- const job=currentJob();
-  text(job.label+' • '+job.title,210,497,16,C.yellow,'center',900,0,375);
-  text(job.task+'  '+job.progress+'/'+job.goal,210,521,16,C.white,'center',900,0,377);
+ boat(210,seaY);ctx.restore();
+ const progress=collectionProgress(save.collection),job=currentJob();
+ pixelPlate(18,19,155,43,'#092c41','#49d8cc',7);
+ text('$'+save.cash,94,41,19,C.yellow,'center',900,0,137);
+ // One MORE destination: the old duplicate hamburger is a collection badge.
+ pixelPlate(236,19,166,43,'#092c41','#49d8cc',7);
+ text(progress.discovered+'/'+progress.total+' FISH',319,41,13,C.white,'center',900,0,150);
+ pixelPlate(28,486,364,50,'#082b40df','#3e9e9b',7,false);
+ text(job.label+'  '+job.title,210,500,13,C.yellow,'center',900,0,332);
+ text(job.task+'  '+job.progress+'/'+job.goal,210,521,13,C.white,'center',900,0,338);
  titleActionGlow(t,50,544,320,83);
  button('CAST LINE',50,544,320,83,beginCast,C.yellow,'DIVE INTO THE DEEP');
  button('GEAR SHOP',50,649,210,59,()=>{enterShop();},C.teal);
  button('MORE',272,649,98,59,()=>{state='more';age=0;},C.cream);
- text('BEST $'+save.best+'  •  '+progress.discovered+'/'+progress.total+' FISH FOUND',210,743,16,C.white,'center',900,0,372);
+ text('BEST $'+save.best+'  •  '+progress.discovered+'/'+progress.total+' FISH FOUND',210,743,13,C.white,'center',900,0,372);
+}
+function cabinRow(index,title,subtitle,y,action,accent=C.teal){
+ const x=35,w=350,h=94;
+ pixelPlate(x,y,w,h,'#0d2d44','#477c88',9);
+ pixelPlate(x+13,y+16,48,48,'#103d51',accent,5,false);
+ text(index,x+37,y+40,18,C.white,'center',900,0,40);
+ text(title,x+78,y+34,19,C.white,'left',900,0,255);
+ storyCopy(subtitle,x+209,y+67,248,14,'#c0e2e3',18,1);
+ hits.push({x,y,w,h,action});
 }
 function moreMenu(){
  titleBackdrop(lowFx?0:clock*.35);
- text('CAPTAIN\'S CABIN',210,103,37,C.white,'center',900,0,380);
- text('CHOOSE WHERE TO HEAD NEXT',210,145,17,C.white);
- // Use open space instead of a large framed dashboard.
- button('SKIPPER\'S EXPEDITIONS',56,214,308,66,openExpeditions,C.yellow);
- button('FISH BOOK & BADGES',56,296,308,66,()=>openCollection('fish'),C.teal);
- button('SETTINGS',56,378,308,66,()=>{state='settings';age=0;},C.cream);
- if(!isInstalled())button('INSTALL APP',56,460,308,66,installGame,C.pink);
- else button('APP INSTALLED',56,460,308,66,()=>{state='settings';age=0;},C.pink);
- text('YOUR PROGRESS IS SAVED AUTOMATICALLY',210,583,16,C.white,'center',900,0,316);
- button('← BACK TO FISHING',60,665,300,67,()=>{state='menu';age=0;},C.yellow);
+ text('CAPTAIN\'S CABIN',210,94,30,C.white,'center',900,0,385);
+ text('YOUR NEXT ADVENTURE STARTS HERE',210,130,12,C.yellow,'center',900,0,380);
+ ctx.save();ctx.translate(295,189);ctx.scale(.65,.65);ctx.translate(-210,-438);
+ boat(210,438);ctx.restore();
+ cabinRow('01','EXPEDITIONS','Bounties and story missions',211,openExpeditions,C.yellow);
+ cabinRow('02','FISH BOOK','Discoveries and badges',316,()=>openCollection('fish'),C.teal);
+ cabinRow('03','SETTINGS','Controls, sound and display',421,()=>{state='settings';age=0;},C.pink);
+ if(!isInstalled())button('INSTALL APP',56,539,308,60,installGame,C.cream);
+ else button('APP INSTALLED',56,539,308,60,()=>{state='settings';age=0;},C.cream);
+ text('PROGRESS SAVES AUTOMATICALLY',210,637,12,C.white,'center',900,0,360);
+ button('← BACK TO FISHING',52,679,316,68,()=>{state='menu';age=0;},C.yellow);
 }
 function results(){
  titleBackdrop(clock*.38);
