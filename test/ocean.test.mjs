@@ -28,7 +28,7 @@ test('colour gradients blend at boundaries, remain dim, and fade with depth',()=
  assert.ok(oceanVisibility(7000*3)<.02);
 });
 test('fish identities stay compatible with prior saved collections',()=>{
- assert.equal(SPECIES.length,14);
+ assert.equal(SPECIES.length,20);
  assert.equal(SPECIES[13].rare,true);
  assert.ok(SPECIES[13].value>SPECIES[12].value);
  assert.equal(chooseSpecies(540,()=>0),13);
