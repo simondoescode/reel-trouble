@@ -150,7 +150,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/SUNSKIP SHELF/);
  assert.match(ocean,/KELP KNUCKLES/);
  assert.match(ocean,/BLACKGLASS DROP/);
- assert.match(read('sw.js'),/reel-trouble-offline-v20/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v21/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
@@ -323,4 +323,33 @@ test('shopfront is a readable in-world scene with individual merchandise and all
  for(const type of ["type==='line'","type==='net'","type==='gun'","type==='light'","type==='charge'"])
   assert.ok(art.includes(type),type);
  assert.match(read('sw.js'),/src\/shop-art\.js/);
+});
+
+
+test('skipper and shop gear use matching hard-edged pixel sprites and inspection animations',()=>{
+ const game=read('src/game.js'),art=read('src/shop-art.js');
+ assert.match(art,/const cache=new Map\(\)/);
+ assert.match(art,/imageSmoothingEnabled=false/);
+ assert.match(art,/function skipperFrame\(/);
+ assert.match(art,/export function paintSkipper\(/);
+ assert.match(art,/function gearSprite\(/);
+ assert.match(art,/export function paintShopItem\(/);
+ assert.doesNotMatch(art,/portraitSvg|<svg|createRadialGradient|ctx\.ellipse|ctx\.arc\(/);
+ assert.match(game,/paintSkipper\(ctx,clock,x,y,\{mood:/);
+ assert.match(game,/function openShopInspect\(/);
+ assert.match(game,/function shopInspectOverlay\(/);
+ assert.match(game,/paintShopItem\(ctx,secret\?secret\.item:gear\.type,210,334,2\.08/);
+ assert.match(game,/hits\.length=0/);
+ assert.match(game,/shopInspect\)shopInspectOverlay\(\)/);
+});
+
+test('progressive curio shelf remembers inspected finds separately from fishing saves',()=>{
+ const game=read('src/game.js'),secrets=read('src/shop-secrets.js'),sw=read('sw.js');
+ assert.match(game,/const SHOP_SECRETS_KEY='reel-trouble-shop-secrets-v1'/);
+ assert.match(game,/function loadShopSecretsSeen\(/);
+ assert.match(game,/function saveShopSecretsSeen\(/);
+ assert.match(game,/shopSecretsSeen\.push\(selected\.id\)/);
+ assert.match(game,/function shopStoryButton\(/);
+ assert.match(secrets,/export function nextShopSecret/);
+ assert.match(sw,/src\/shop-secrets\.js/);
 });

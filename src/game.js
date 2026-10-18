@@ -1,5 +1,6 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
 import { paintShopBackdrop, paintSkipper, paintShopItem } from './shop-art.js';
+import { SHOP_SECRETS, unlockedShopSecrets, nextShopSecret } from './shop-secrets.js';
 import { createArcadeAudio } from './audio.js';
 import { createExpedition, normalizeExpedition, recordExpeditionDive, expeditionStatus, completeExpeditions, EXPEDITIONS } from './expeditions.js';
 import { createRumble } from './haptics.js';
@@ -1327,9 +1328,25 @@ function results(){
 }
 
 let skipperLine='',skipperLineTime=0,skipperVisits=0,skipperChats=0;
+let shopMood='neutral',shopMoodUntil=0,shopInspect=null;
+const SHOP_SECRETS_KEY='reel-trouble-shop-secrets-v1';
+function loadShopSecretsSeen(){try{
+ const raw=JSON.parse(localStorage.getItem(SHOP_SECRETS_KEY)||'[]');
+ return Array.isArray(raw)?raw.filter(id=>SHOP_SECRETS.some(s=>s.id===id)):[];
+ }catch(_){return [];}}
+let shopSecretsSeen=loadShopSecretsSeen();
+function saveShopSecretsSeen(){try{localStorage.setItem(SHOP_SECRETS_KEY,JSON.stringify(shopSecretsSeen));}catch(_){}}
+
 const SHOP_TABS=[['lines','REELS'],['nets','NETS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
-function skipperSpeak(line){skipperLine=line;skipperLineTime=clock;}
-function enterShop(){state='shop';shopTab='lines';age=0;skipperVisits++;skipperSpeak(skipperGreeting());}
+function skipperSpeak(line,mood='neutral'){
+ skipperLine=line;skipperLineTime=clock;
+ if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
+}
+function enterShop(){
+ state='shop';shopTab='lines';shopInspect=null;age=0;skipperVisits++;
+ const find=nextShopSecret(save,shopSecretsSeen);
+ skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
+}
 function skipperGreeting(){
  const dives=save.total||0,deep=save.best||0;
  if(save.upgrades.light===0&&save.upgrades.line>=2)return "Past the reef? Buy a lamp. The deep don't forgive.";
@@ -1338,6 +1355,7 @@ function skipperGreeting(){
  return skipperVisits===1?"Welcome aboard! Name's Skipper. Don't touch the eel.":currentJob().story;
 }
 function skipperReply(category,success){
+ shopMood=success?'excited':'grumpy';shopMoodUntil=clock+3;
  if(!success){
   if(category==='charge'&&save.charges>=3)skipperSpeak("Three charges is plenty! I'm running a tackle shop, not a war.");
   else if(category==='light'&&save.upgrades.light>=LIGHT_MAXLVL)skipperSpeak("Even a lighthouse would be jealous of that kit.");
@@ -1377,8 +1395,8 @@ function shopButton(label,x,y,w,h,action,affordable=true){
  // Tactile wooden checkout keys. Hits stay active when short of coin so
  // the skipper can explain why the upgrade isn't available yet.
  const active=affordable;
- roundRect(x,y+3,w,h,7,'#3b241b','#29150f',1);
- roundRect(x,y,w,h,7,active?'#f1c56e':'#b2a18c',active?'#fff0b6':'#c8bb9f',2);
+ roundRect(x,y+3,w,h,0,'#3b241b','#29150f',1);
+ roundRect(x,y,w,h,0,active?'#f1c56e':'#b2a18c',active?'#fff0b6':'#c8bb9f',2);
  ctx.fillStyle=active?'#ab662d':'#77685b';ctx.fillRect(x+6,y+5,3,h-10);
  shopInk(label,x+w/2,y+h/2,17,active?'#302219':'#51463e','center',w-21);
  hits.push({x,y,w,h,action});
@@ -1386,7 +1404,7 @@ function shopButton(label,x,y,w,h,action,affordable=true){
 function skipperPortrait(x,y){
  ctx.save();
  ctx.beginPath();ctx.rect(12,102,222,194);ctx.clip();
- if(!paintSkipper(ctx,clock,x,y)){
+ if(!paintSkipper(ctx,clock,x,y,{mood:clock<shopMoodUntil?shopMood:'neutral',talking:clock-skipperLineTime<2.8,lowFx})){
   roundRect(29,145,177,151,10,'#23435b','#e0ad5b',3);
   shopInk('SKIPPER',117,232,22,'#ffffff','center',165);
  }
@@ -1447,8 +1465,8 @@ function shopItemCard(){
  roundRect(12,453,396,242,8,'#f1dfb9','#8c5934',3);
  ctx.fillStyle='#ccad7c';ctx.fillRect(21,464,378,2);
  roundRect(24,481,118,147,4,'#473029','#a3774b',2);
- paintShopItem(ctx,type,83,554,1.04,lvl,clock,lowFx);
- shopInk('EQUIPPED',83,610,13,'#f8e5bd','center',111);
+ paintShopItem(ctx,type,83,545,.89,lvl,clock,lowFx);
+ shopInk('TAP TO VIEW',83,610,13,'#f8e5bd','center',111);
  shopInk(type==='line'?'FISHING REEL':type==='net'?'HOOK & NET':'DECK WEAPON',158,476,14,'#7c5032','left',239);
  shopInk(name,158,508,21,'#32241e','left',232);
  shopInk('LEVEL '+(lvl+1)+' / '+(max+1),158,536,15,'#755135','left',223);
@@ -1469,7 +1487,8 @@ function shopItemCard(){
  if(capped)shopButton('FULLY UPGRADED',155,633,238,46,()=>skipperReply(type,false),false);
  else shopButton((afford?'BUY UPGRADE  $':'NEED  $')+cfg.cost,155,633,238,46,()=>purchase(type),afford);
  // The next tier is shown as a meaningful piece of gear, not just a number.
- shopInk(capped?'SKIPPER\'S FINEST':'NEXT UP: '+next,25,664,14,'#705139','left',118);
+ shopInk(capped?'TOP TIER':'INSPECT GEAR ↑',25,664,14,'#705139','left',118);
+ hits.push({x:24,y:481,w:118,h:147,action:()=>openShopInspect(type)});
 }
 function shopSupplyCard(type,y){
  const light=type==='light',lvl=save.upgrades.light;
@@ -1480,6 +1499,7 @@ function shopSupplyCard(type,y){
  roundRect(12,y,396,114,8,'#f1dfb9','#8c5934',2);
  roundRect(20,y+10,92,94,5,'#473029','#9b7049',1.5);
  paintShopItem(ctx,type,66,y+55,.72,light?lvl:save.charges,clock,lowFx);
+ hits.push({x:20,y:y+10,w:92,h:94,action:()=>openShopInspect(type)});
  shopInk(light?'LANTERNS':'BLAST CHARGES',122,y+21,18,'#352720','left',274);
  shopInk(light?lamps[lvl]:'IN BAG  '+save.charges+' / 3',122,y+46,15,'#765037','left',273);
  shopInk(light?'LIGHT UP THE DEEP':'IGNORE ONE FISH HIT',122,y+68,15,'#765037','left',272);
@@ -1489,6 +1509,92 @@ function shopSupplyCard(type,y){
   else {const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);}
  },afford);
 }
+
+function openShopInspect(type){
+ shopInspect={kind:'gear',type,openedAt:clock};
+ skipperSpeak({
+  line:"Feel that spool. It wants to see what's below.",
+  net:"Wider than my last catch. And he was a liar.",
+  gun:"Look closely. It's got all the safety features I could afford.",
+  light:"Don't stare into it. Your eyes aren't under warranty.",
+  charge:"Careful! That's the end that goes bang."
+ }[type]||"Go on, take a closer look.",'curious');
+}
+function shopStoryButton(){
+ const unseen=nextShopSecret(save,shopSecretsSeen),unlocked=unlockedShopSecrets(save);
+ const selected=unseen||unlocked[unlocked.length-1];
+ if(!selected)return;
+ roundRect(235,282,171,26,0,unseen?'#efc679':'#53372a','#352219',2);
+ paintShopItem(ctx,selected.item,250,295,.22,0,clock,lowFx);
+ shopInk(unseen?'NEW CURIO! TAP':'SKIPPER\'S SECRETS',261,295,14,unseen?'#32241e':'#f4dfb0','left',139);
+ hits.push({x:235,y:282,w:171,h:26,action:()=>{
+  shopInspect={kind:'secret',id:selected.id,openedAt:clock};
+  if(!shopSecretsSeen.includes(selected.id)){
+   shopSecretsSeen.push(selected.id);saveShopSecretsSeen();
+  }
+  skipperSpeak(selected.hint,'curious');
+ }});
+}
+function inspectGearInfo(type){
+ const u=save.upgrades;
+ const lvl=type==='charge'?save.charges:u[type]||0;
+ const limit=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:type==='charge'?3:MAXLVL;
+ const names=type==='line'?LINE_NAMES:type==='gun'?GUN_NAMES:
+ type==='net'?['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP']:
+ type==='light'?['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP']:
+ ['BLAST CHARGE','BLAST CHARGE','BLAST CHARGE','BLAST CHARGE'];
+ const cost=type==='charge'?110:type==='light'?[180,420,900,1800,3700][lvl]||0:upgradeConfig(type).cost;
+ const description={
+  line:"Longer line explores new depths and strange regions.",
+  net:"A wider hook collects more fish on the way up.",
+  gun:"Each gun has unlimited ammo and its own spread.",
+  light:"Your lantern cuts through the deepest darkness.",
+  charge:"One charge ignores a fish collision on the descent."
+ }[type];
+ const benefit=type==='line'?'REACH '+meter(maxLineDepth(lvl)):
+ type==='net'?'CATCH RADIUS '+(24+13*lvl)+'px':
+ type==='gun'?weaponForLevel(lvl).maxHits+' FISH PER SHOT':
+ type==='light'?'LIGHT LEVEL '+lvl+' / '+LIGHT_MAXLVL:'CHARGES '+lvl+' / 3';
+ return {type,lvl,full:lvl>=limit,cost,name:names[lvl]||type.toUpperCase(),description,benefit};
+}
+function buyInspectedGear(type){
+ if(type==='charge'){
+  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
+ }else if(type==='light')buyLight();
+ else purchase(type);
+}
+function shopInspectOverlay(){
+ const item=shopInspect;if(!item)return;
+ // An open inspection owns every hitbox, blocking unintended purchases behind it.
+ hits.length=0;
+ ctx.save();ctx.fillStyle='#091724e6';ctx.fillRect(0,0,W,H);
+ roundRect(21,126,378,557,0,'#251f24','#b8894e',4);
+ roundRect(31,136,358,535,0,'#f1dfb9','#8c5934',3);
+ ctx.fillStyle='#bd8857';ctx.fillRect(41,145,338,3);
+ const secret=item.kind==='secret'?SHOP_SECRETS.find(s=>s.id===item.id):null;
+ const gear=secret?null:inspectGearInfo(item.type);
+ shopInk(secret?'SKIPPER\'S FIND':'FROM THE TACKLE CASE',210,163,15,'#785137','center',326);
+ shopInk(secret?secret.title:gear.name,210,194,24,'#30241e','center',331);
+ roundRect(60,211,300,245,0,'#432e28','#a27346',3);
+ paintShopItem(ctx,secret?secret.item:gear.type,210,334,2.08,gear?gear.lvl:0,clock,lowFx);
+ ctx.fillStyle='#bd8857';ctx.fillRect(58,469,304,3);
+ if(secret){
+  const rows=shopWrap(secret.story,312,17,3);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,507+i*24,17,'#3b2d25','center',318);
+  shopInk('A SECRET FOR YOUR LOGBOOK',210,592,16,'#7c5032','center',320);
+  shopButton('BACK TO COUNTER',77,612,266,45,()=>{shopInspect=null;});
+ }else{
+  shopInk(gear.benefit,210,492,19,'#3b2d25','center',314);
+  const rows=shopWrap(gear.description,304,16,2);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,529+i*21,16,'#6d513d','center',319);
+  shopInk(gear.full?'FULLY UPGRADED':'NEXT UPGRADE $'+gear.cost,210,586,17,'#704a32','center',325);
+  shopButton('← BACK',40,612,127,46,()=>{shopInspect=null;});
+  shopButton(gear.full?'MAX LEVEL':save.cash>=gear.cost?'BUY $'+gear.cost:'NEED $'+gear.cost,
+    176,612,203,46,()=>buyInspectedGear(gear.type),!gear.full&&save.cash>=gear.cost);
+ }
+ ctx.restore();
+}
+
 function shop(){
  shopInterior();
  // Warm shopkeeper portrait and actual cork-board mission tracker.
