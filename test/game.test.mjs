@@ -150,7 +150,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/SUNSKIP SHELF/);
  assert.match(ocean,/KELP KNUCKLES/);
  assert.match(ocean,/BLACKGLASS DROP/);
- assert.match(read('sw.js'),/reel-trouble-offline-v18/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v19/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
@@ -273,4 +273,17 @@ test('canvas bootstrap shows refresh controls if JavaScript fails',()=>{
  assert.match(html,/location\.replace\(fresh\.href\)/);
  assert.match(css,/body\.game-ready #game-boot\{display:none\}/);
  assert.match(game,/document\.body\.classList\.add\('game-ready'\)/);
+});
+
+test('rare discoveries and bespoke deep creature art are integrated without interrupting the fishing loop',()=>{
+ const game=read('src/game.js'),worker=read('sw.js');
+ assert.match(game,/import \{ isDeepCreature, drawDeepCreature \}/);
+ assert.match(game,/import \{ createDiscoveryStream, drawDiscovery \}/);
+ assert.match(game,/discoveryStream\.claimAt\(depth,hookX\)/);
+ assert.match(game,/discoveriesThisCast\+\+/);
+ assert.match(game,/drawDiscovery\(ctx,item,y,waveT/);
+ assert.match(game,/const camera=cameraY/);
+ assert.match(game,/pointerDown\?14:9/);
+ assert.match(worker,/src\/deep-creatures\.js/);
+ assert.match(worker,/src\/discoveries\.js/);
 });
