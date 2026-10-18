@@ -205,67 +205,87 @@ function roundRect(x,y,w,h,r=0,fill,stroke,lw=2){
  if(fill){ctx.fillStyle=fill;ctx.fill();}
  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
 }
-function text(s,x,y,size=20,_color=C.white,align='center',_weight=900,_letter=0,maxWidth=null){
- // Keep the pixel font at its natural aspect ratio and fit it to the allotted space.
+function text(s,x,y,size=20,color=C.white,align='center',_weight=900,_letter=0,maxWidth=null){
  const label=String(s);
- ctx.save();
- ctx.textAlign=align;ctx.textBaseline='middle';
+ ctx.save();ctx.textAlign=align;ctx.textBaseline='middle';
  const available=maxWidth??(align==='left'?W-x-16:align==='right'?x-16:Math.min(W-32,2*x-16,2*(W-x)-16));
  const width=Math.max(20,available);
  let fontSize=Math.max(10,size);
- const setFont=()=>{ctx.font='900 '+fontSize+'px "Press Start 2P",monospace';};
- setFont();
+ const setFont=()=>{ctx.font='400 '+fontSize+'px "Press Start 2P",monospace';};setFont();
  const measured=ctx.measureText(label).width;
  if(measured>width){
-  fontSize=Math.max(10,Math.floor(fontSize*width/measured));
-  setFont();
-  while(fontSize>10&&ctx.measureText(label).width>width){fontSize--;setFont();}
+  fontSize=Math.max(13,Math.floor(fontSize*width/measured));setFont();
+  while(fontSize>13&&ctx.measureText(label).width>width){fontSize--;setFont();}
  }
  let fitted=label;
  if(ctx.measureText(fitted).width>width){
   while(fitted.length>1&&ctx.measureText(fitted+'…').width>width)fitted=fitted.slice(0,-1);
   fitted=fitted.trimEnd()+'…';
  }
- ctx.lineJoin='round';
- ctx.strokeStyle='#031523';
- ctx.lineWidth=fontSize>=32?3:fontSize>=17?2:1.5;
+ ctx.lineJoin='round';ctx.strokeStyle='#031523';
+ ctx.lineWidth=fontSize>=32?3:fontSize>=17?2:1.2;
  ctx.strokeText(fitted,x,y);
- ctx.fillStyle='#ffffff';
- ctx.fillText(fitted,x,y);
+ ctx.fillStyle=color||C.white;ctx.fillText(fitted,x,y);
+ ctx.restore();
+}
+// Readable narrative lettering, while Press Start 2P owns headings and controls.
+function storyCopy(message,x,y,maxWidth=320,size=16,ink='#f8eed2',lineHeight=23,maxLines=3){
+ ctx.save();ctx.font='700 '+size+'px Verdana,Geneva,sans-serif';
+ ctx.fillStyle=ink;ctx.textAlign='center';ctx.textBaseline='middle';
+ const lines=[''];
+ for(const word of String(message).split(/\s+/)){
+  const i=lines.length-1,next=(lines[i]+' '+word).trim();
+  if(ctx.measureText(next).width>maxWidth&&lines[i]){
+   if(lines.length===maxLines){lines[i]+=' '+word;break;}
+   lines.push(word);
+  }else lines[i]=next;
+ }
+ const last=lines.length-1;
+ while(lines[last].length>1&&ctx.measureText(lines[last]).width>maxWidth)
+  lines[last]=lines[last].slice(0,-2).trimEnd()+'…';
+ for(let i=0;i<lines.length;i++)ctx.fillText(lines[i],x,y+i*lineHeight);
  ctx.restore();
 }
 function line(x1,y1,x2,y2,color,width=2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}
 function circle(x,y,r,color){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();}
 function polygon(points,fill){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle=fill;ctx.fill();}
+// Crisp stepped-corner buttons and panels shared by the entire arcade.
+function pixelPlate(x,y,w,h,fill='#102b43',edge='#72dace',cut=8,shadow=true){
+ const c=Math.max(0,Math.min(cut,w/5,h/4));
+ const shape=(yy)=>{ctx.beginPath();ctx.moveTo(x+c,yy);ctx.lineTo(x+w-c,yy);
+  ctx.lineTo(x+w,yy+c);ctx.lineTo(x+w,yy+h-c);
+  ctx.lineTo(x+w-c,yy+h);ctx.lineTo(x+c,yy+h);
+  ctx.lineTo(x,yy+h-c);ctx.lineTo(x,yy+c);ctx.closePath();};
+ ctx.save();
+ if(shadow){ctx.translate(0,4);shape(y);ctx.fillStyle='#031221a8';ctx.fill();ctx.translate(0,-4);}
+ shape(y);ctx.fillStyle=fill;ctx.fill();
+ if(edge){ctx.strokeStyle=edge;ctx.lineWidth=2;ctx.stroke();}
+ ctx.fillStyle='#ffffff20';ctx.fillRect(x+c+5,y+4,Math.max(0,w-2*c-10),2);
+ ctx.restore();
+}
 function button(title,x,y,w,h,action,accent=C.coral,secondary=''){
- // Solid, accessible arcade navigation: no glowing blue bezels or bevelled tiles.
- const radius=h>=60?17:12;
  const primary=accent===C.yellow;
- const base=primary?'#efb92e':'#122b38';
- const outline=primary?null:'#ffffff22';
- roundRect(x,y+3,w,h,radius,'#04192399');
- roundRect(x,y,w,h,radius,base,outline,1);
- if(!primary){
-  ctx.save();ctx.globalAlpha=.85;
-  roundRect(x+1,y+5,4,Math.max(4,h-10),2,accent);
-  ctx.restore();
- }
- const labelY=y+h/2-(secondary?9:0);
- text(title,x+w/2,labelY,secondary?23:(h<41?16:h>=60?21:18),primary?'#152633':C.white,'center',900,0,w-25);
- if(secondary)text(secondary,x+w/2,y+h/2+17,15,primary?'#253440':C.white,'center',850,0,w-22);
+ const base=primary?'#ffd45c':'#0e3048';
+ const edge=primary?'#fff0aa':accent===C.cream?'#c2d9e3':accent;
+ pixelPlate(x,y,w,h,base,edge,Math.min(9,Math.round(h/7)));
+ if(!primary){ctx.fillStyle=accent===C.cream?'#b5d1dc':accent;ctx.fillRect(x+8,y+12,4,Math.max(0,h-24));}
+ else{ctx.fillStyle='#c88524';ctx.fillRect(x+13,y+h-7,w-26,3);}
+ const labelY=y+h/2-(secondary?10:0);
+ text(title,x+w/2,labelY,secondary?21:(h<41?14:h>=60?20:17),primary?'#152637':C.white,'center',900,0,w-32);
+ if(secondary)text(secondary,x+w/2,y+h/2+16,12,primary?'#263548':'#e2f3f8','center',800,0,w-32);
  hits.push({x,y,w,h,action});
 }
 function neonPanel(x,y,w,h,accent=C.teal,radius=17){
- // Quiet matte surfaces make the actual game artwork stand out.
- roundRect(x,y,w,h,radius,'#092936e8','#ffffff20',1);
+ pixelPlate(x,y,w,h,'#09253bea','#3a9ea8',Math.min(10,radius));
 }
 function panel(x,y,w,h){neonPanel(x,y,w,h);}
 function arcadePill(label,x,y,w,accent=C.teal){
- roundRect(x,y,w,32,13,'#082734df','#ffffff22',1);
- text(label,x+w/2,y+16,16,C.white,'center',900,0,w-18);
+ pixelPlate(x,y,w,32,'#123a51',accent,5,false);
+ text(label,x+w/2,y+16,13,C.white,'center',900,0,w-20);
 }
 function arcadeRule(x1,y,x2,accent=C.teal){
- ctx.fillStyle='#ffffff44';ctx.fillRect(x1,y,x2-x1,1);
+ ctx.fillStyle='#bdd5d852';ctx.fillRect(x1,y,x2-x1,2);
+ ctx.fillStyle=accent;ctx.fillRect(x1,y,Math.min(48,x2-x1),2);
 }
 function ambient(t,submerged=true){
  const bands=submerged?
