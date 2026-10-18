@@ -1445,11 +1445,34 @@ function results(){
  else if(discoveriesThisCast)text('OCEAN SECRETS FOUND: '+discoveriesThisCast,210,195,17,C.yellow,'center',900,0,354);
  else if(newFishThisCast||newBadgesThisCast)
   text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
- neonPanel(35,217,350,291,C.yellow,21);
- text('YOUR ARCADE PAYOUT',210,259,18,C.white,'center',900,0,310);
+ pixelPlate(35,217,350,291,'#102c42','#ffcf62',12);
+ text('YOUR ARCADE PAYOUT',210,259,16,C.white,'center',900,0,310);
  const reveal=lowFx?1:easeOutCubic(Math.min(1,age/.95));
  const counted=Math.round(roundEarnings*reveal);
- text('+$'+counted,210,327,68,C.white,'center',1000,-3,320);
+ text('+,'center',1000,-3,320);
+ for(let i=0;i<8;i++){
+  const x=210+(i%2?-1:1)*(85+(i%4)*23);
+  const bounce=lowFx?0:Math.sin(Math.min(1,age/1.2)*Math.PI)*11;
+  drawPixelCoin(x,310+(i%3)*29-bounce,9+(i%3)*2,lowFx?0:clock*8+i,Math.min(1,age*3));
+ }
+ arcadeRule(64,373,356,C.yellow);
+ text('HITS / SHOTS',77,405,16,C.white,'left',900,0,185);
+ text(landed+' / '+fired,343,405,18,C.white,'right',900,0,75);
+ text('BEST COMBO',77,439,16,C.white,'left',900,0,185);
+ text('x'+Math.max(1,bestRoundCombo),343,439,18,C.white,'right',900,0,75);
+ text('DEEPEST DIVE',77,479,16,C.white,'left',900,0,185);
+ text(meter(deepestCast),343,479,18,C.white,'right',900,0,75);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
+ pixelPlate(91,508,238,43,'#10364a','#47e5d7',7);
+ text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
+ titleActionGlow(clock,64,567,292,62);
+ button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
+ button('GEAR SHOP',25,647,178,53,()=>{enterShop();},C.cream);
+ button('MISSIONS',217,647,178,53,openExpeditions,C.teal);
+ button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
+}
+
++counted,210,327,60,C.yellow,'center',1000,-3,320);
  for(let i=0;i<8;i++){
   const x=210+(i%2?-1:1)*(85+(i%4)*23);
   const bounce=lowFx?0:Math.sin(Math.min(1,age/1.2)*Math.PI)*11;
@@ -1838,40 +1861,39 @@ function shop(){
 function expeditionBoard(){
  titleBackdrop(lowFx?0:clock*.35);
  const job=currentJob(),status=save.expedition;
- text("SKIPPER'S LOG",210,75,36,C.white,'center',900,0,390);
- text('A NEW REASON TO CAST AGAIN',210,114,16,C.white,'center',900,0,382);
- neonPanel(23,147,374,315,C.yellow,19);
- arcadePill(job.label,95,162,230,C.yellow);
- text(job.title,210,228,27,C.white,'center',950,0,339);
- text(job.task,210,281,19,C.white,'center',900,0,340);
- text(job.progress+' / '+job.goal,210,331,31,C.yellow,'center',950);
- roundRect(58,360,304,13,6,'#031627','#78959b',1);
- roundRect(61,363,Math.round(298*Math.min(1,job.progress/job.goal)),7,4,C.yellow);
- text('REWARD  $'+job.reward,210,410,22,C.white,'center',900,0,331);
- text('SKIPPER SAYS:',210,488,16,C.yellow,'center',900,0,360);
- text(job.story,210,519,16,C.white,'center',900,0,382);
- text('STORY CHAPTERS  '+Math.min(status.chapter,EXPEDITIONS.length)+' / '+EXPEDITIONS.length,210,574,18,C.white,'center',900,0,381);
+ text("SKIPPER'S LOG",210,76,34,C.white,'center',900,0,390);
+ text('A MESSAGE FROM THE OLD SALT',210,114,13,C.yellow,'center',900,0,382);
+ // Weathered bounty notice: mission progress and dialogue are part of the world.
+ pixelPlate(23,150,374,517,'#efdcb5','#aa8050',12);
+ pixelPlate(52,172,316,44,'#5e4430','#e0b977',6,false);
+ text(job.label,210,194,17,'#fff2cf','center',900,0,288);
+ text(job.title,210,255,23,'#30241b','center',900,0,335);
+ text(job.task,210,307,16,'#59402a','center',900,0,335);
+ text(job.progress+' / '+job.goal,210,361,29,'#31483d','center',950);
+ roundRect(58,392,304,14,0,'#7e674a');
+ roundRect(61,395,Math.round(298*Math.min(1,job.progress/job.goal)),8,0,'#3d8968');
+ text('REWARD  $'+job.reward,210,454,21,'#3f5845','center',900,0,329);
+ ctx.fillStyle='#b99b74';ctx.fillRect(53,486,314,2);
+ text('A WORD FROM SKIPPER',210,512,14,'#624729','center',900,0,340);
+ storyCopy(job.story,210,545,320,16,'#332b25',22,2);
+ text('CHAPTER '+Math.min(status.chapter,EXPEDITIONS.length)+' / '+EXPEDITIONS.length,210,609,15,'#59402a','center',900,0,340);
  const recent=EXPEDITIONS[Math.max(0,Math.min(EXPEDITIONS.length-1,status.chapter-1))];
  const next=EXPEDITIONS[Math.min(EXPEDITIONS.length-1,status.chapter+1)];
- text('✓ '+(status.chapter?recent.title:'FIRST MISSION AWAITS'),210,613,16,C.white,'center',900,0,370);
- text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,649,16,C.white,'center',900,0,370);
- button('← BACK',70,707,280,55,()=>{state=expeditionReturn;age=0;},C.yellow);
+ text('✓ '+(status.chapter?recent.title:'FIRST MISSION AWAITS'),210,641,12,'#345e48','center',900,0,330);
+ text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,686,12,C.white,'center',900,0,370);
+ button('← BACK',70,718,280,53,()=>{state=expeditionReturn;age=0;},C.yellow);
 }
 function bookCard(kind,x,y){
  const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
  const width=370,height=99;
- roundRect(x+3,y+4,width,height,0,'#041328');
- roundRect(x,y,width,height,0,'#072940',found?'#69ffe5':'#658a9e',2);
- ctx.fillStyle=found?'#29dfce':'#68899e';
- ctx.fillRect(x+4,y+5,6,height-10);
+ pixelPlate(x,y,width,height,found?'#102f43':'#192c3a',found?'#58cbb5':'#5c7580',6);
+ ctx.fillStyle=found?'#e5be61':'#6b7c86';ctx.fillRect(x+6,y+13,5,height-26);
  ctx.save();
  if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.62;}
- fish(x+64,y+49,kind,1,1.15,clock*1.3);
- ctx.restore();
- // One column provides actual room for long names and readable 17–21px labels.
- text(found?meta.name:'UNKNOWN SPECIES',x+122,y+23,21,C.white,'left',900,0,232);
- text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,17,C.white,'left',900,0,232);
- text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,17,C.white,'left',900,0,232);
+ fish(x+64,y+49,kind,1,1.15,clock*1.3);ctx.restore();
+ text(found?meta.name:'UNKNOWN SPECIES',x+122,y+24,19,C.white,'left',900,0,232);
+ text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,14,found?C.yellow:'#b0c2c8','left',900,0,232);
+ text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,14,C.white,'left',900,0,232);
  hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
 }
 function collection(){
@@ -1896,7 +1918,7 @@ function collection(){
    const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
    const unlocked=save.collection.achievements[badge.id]===true;
    const y=227+i*105;
-   roundRect(29,y,362,97,0,unlocked?'#135369':'#123e55',unlocked?C.yellow:'#75adbc',2);
+   pixelPlate(29,y,362,97,unlocked?'#154355':'#203648',unlocked?'#ffd45c':'#66859a',6);
    text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
    text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
    text(badge.description,80,y+45,16,C.white,'left',900,0,291);
@@ -1913,7 +1935,7 @@ function fishDetail(){
  const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
  text('FISH FILE',210,78,32,C.cream,'center',1000);
  text('#'+String(selectedFish+1).padStart(2,'0')+' / '+species.length,210,121,14,C.mint,'center',800);
- panel(31,155,358,453);
+ pixelPlate(31,155,358,453,'#102c40','#59c7bb',10);
  ctx.save();if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
  fish(210,252,selectedFish,1,3.2,clock*2);
  ctx.restore();
@@ -1937,7 +1959,7 @@ function installScene(){
  titleBackdrop(lowFx?0:clock);
  text('INSTALL THE GAME',210,91,33,C.white,'center',900,0,380);
  text('PLAY FULLSCREEN • WORKS OFFLINE',210,130,16,C.white,'center',900,0,380);
- panel(24,157,372,405);
+ pixelPlate(24,157,372,405,'#102c40','#59c7bb',10);
  const guide=installGuide();
  text('FOR '+guide.platform.toUpperCase(),210,197,21,C.white,'center',900,0,343);
  text('BROWSER INSTALL STEPS',210,240,17,C.white,'center',900,0,339);
@@ -1963,7 +1985,7 @@ function settings(){
  ambient(clock);
  text('SETTINGS',210,85,42,C.cream,'center',1000);
  text('PHONE & INPUT',210,127,13,C.mint,'center',900,1.5);
- panel(23,151,374,488);
+ pixelPlate(23,151,374,488,'#102c40','#59c7bb',10);
  text('STEERING',210,181,18,C.yellow,'center',950);
  button('TOUCH',43,206,161,48,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
  button('TILT',215,206,161,48,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
@@ -1990,7 +2012,7 @@ function pausedScene(){
  const glow=ctx.createRadialGradient(210,380,20,210,380,290);
  glow.addColorStop(0,'#19aaa929');glow.addColorStop(1,'#071a3200');
  ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
- neonPanel(35,219,350,368,C.teal,23);
+ pixelPlate(35,219,350,368,'#0a2a3f','#58cabc',12);
  arcadePill('BREAK TIME',133,239,154,C.teal);
  text('PAUSED',210,313,52,C.white,'center',1000);
  text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'PAUSED AUTOMATICALLY',210,356,17,C.white,'center',900,0,309);
