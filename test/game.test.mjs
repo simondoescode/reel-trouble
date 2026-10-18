@@ -144,9 +144,10 @@ test('collection routes and rewards are wired into gameplay and save migration',
 
 test('brighter canvas typography and new ocean palette stay enabled',()=>{
  const game=read('src/game.js'),ocean=read('src/ocean.js');
- assert.match(game,/Math\.max\(16,size\)/);
+ assert.match(game,/Math\.max\(10,size\)/);
+ assert.match(game,/ctx\.measureText\(label\)\.width/);
  assert.match(game,/Press Start 2P/);
- assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
+ assert.match(game,/ctx\.strokeText\(fitted,x,y\)/);
  assert.match(game,/ctx\.fillText\(zoneNotice\.name,W\/2,center\+13,375\)/);
  assert.match(ocean,/SUNSKIP SHELF/);
  assert.match(ocean,/KELP KNUCKLES/);
@@ -158,14 +159,14 @@ test('readable high-contrast cards and typography across screens',()=>{
  const game=read('src/game.js');
  assert.match(game,/ctx\.fillStyle='#ffffff'/);
  assert.match(game,/ctx\.font='900 '/);
- assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
+ assert.match(game,/ctx\.strokeText\(fitted,x,y\)/);
  assert.match(game,/const pageSize=4/);
  assert.match(game,/const width=370,height=99/);
  assert.match(game,/text\(badge\.description,80,y\+45,16/);
  assert.match(game,/function shopInterior\(/);
  assert.match(game,/function skipperPortrait\(/);
  assert.match(game,/function skipperBubble\(/);
- assert.match(game,/text\('HITS \/ SHOTS',77,405,17/);
+ assert.match(game,/text\('HITS \/ SHOTS',77,405,16/);
  assert.match(game,/text\(p\.discovered\+'\/'\+p\.total\+' SPECIES/);
  assert.doesNotMatch(game,/PIXEL=2|pixelCanvas\.width=W\/PIXEL/);
 });
