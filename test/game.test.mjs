@@ -309,7 +309,7 @@ test('fishing HUD is a compact strip and keeps the world-anchored edge ruler',()
 });
 
 test('shopfront is a readable in-world scene with individual merchandise and all upgrades accessible',()=>{
- const game=read('src/game.js'),art=read('src/shop-art.js');
+ const game=read('src/game.js'),art=read('src/shop-art.js'),assets=read('src/shop-item-assets.js');
  assert.match(game,/function shopInterior\(/);
  assert.match(game,/function shopJobBoard\(/);
  assert.match(game,/function skipperBubble\(/);
@@ -324,18 +324,19 @@ test('shopfront is a readable in-world scene with individual merchandise and all
  assert.match(game,/save\.upgrades\.net\*13/);
  assert.match(art,/export function paintShopItem\(/);
  for(const type of ["type==='line'","type==='net'","type==='gun'","type==='light'","type==='charge'"])
-  assert.ok(art.includes(type),type);
+  assert.ok(assets.includes(type),type);
  assert.match(read('sw.js'),/src\/shop-art\.js/);
+ assert.match(read('sw.js'),/src\/shop-item-assets\.js/);
 });
 
 
 test('skipper and shop gear use matching hard-edged pixel sprites and inspection animations',()=>{
- const game=read('src/game.js'),art=read('src/shop-art.js');
- assert.match(art,/const cache=new Map\(\)/);
+ const game=read('src/game.js'),art=read('src/shop-art.js'),assets=read('src/shop-item-assets.js');
+ assert.match(assets,/const cache=new Map\(\)/);
  assert.match(art,/imageSmoothingEnabled=false/);
  assert.match(art,/function skipperFrame\(/);
  assert.match(art,/export function paintSkipper\(/);
- assert.match(art,/function gearSprite\(/);
+ assert.match(assets,/function getShopItemSprite\(/);
  assert.match(art,/export function paintShopItem\(/);
  assert.doesNotMatch(art,/portraitSvg|<svg|createRadialGradient|ctx\.ellipse|ctx\.arc\(/);
  assert.match(game,/paintSkipper\(ctx,clock,x,y,\{mood:/);
