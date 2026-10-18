@@ -661,9 +661,16 @@ function shootAt(x,y){
  shotEffects.push({x:muzzleX,y:muzzleY,targets:actual.length
    ?actual.map(f=>({x:f.x,y:f.y})):[{x,y}],life:.25,max:.25,color:gun.color,tier:gun.tier});
  if(actual.length){
-  landed++;
   for(const f of actual){
-   f.shot=true;
+    f.hp=Math.max(0,(f.hp??1)-Math.max(1,gun.tier+1));
+    if(f.hp>0){
+      burst(f.x,f.y,C.white,9);
+      impactRings.push({x:f.x,y:f.y,radius:4,speed:120,life:.23,max:.23,color:C.white});
+      floatLabel('ARMOUR '+f.hp+' LEFT',f.x,f.y-30,C.white);
+      continue;
+    }
+    landed++;
+    f.shot=true;
    const money=shotPayout(f.value,streak.multiplier);
    roundEarnings+=money;save.cash+=money;save.total+=money;
    recordShot(save.collection,f.kind,money,streak.multiplier);
@@ -680,8 +687,8 @@ function shootAt(x,y){
   sceneFlash=Math.max(sceneFlash,streak.multiplier>=3?.2:.11);
   sound.play('hit',{pitch:gun.tier});rumble.play(combo>=2?'combo':'hit');
   updateAchievements();
-  if(combo>=2){
-   floatLabel('COMBO x'+streak.multiplier+'!',210,230,C.yellow);
+  if(combo>=2&&defeated.length){
+    floatLabel('COMBO x'+streak.multiplier+'!',210,230,C.yellow);
    sound.play('combo');
    if(streak.multiplier>=3)burst(210,250,C.yellow,26);
   }
