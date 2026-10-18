@@ -231,7 +231,7 @@ test('gear shop offers persistent lines, distinct guns and one-use blast charges
  const game=read('src/game.js'), guns=read('src/shooting.js');
  assert.match(game,/shopTab='lines'/);
  assert.match(game,/\['lines','REELS'\]/);
- assert.match(game,/\['nets','NETS'\]/);
+ assert.match(game,/\['nets','HOOKS'\]/);
  assert.match(game,/\['guns','WEAPONS'\]/);
  assert.match(game,/\['gadgets','SUPPLIES'\]/);
  assert.match(game,/function skipperGreeting\(/);
