@@ -7,7 +7,7 @@ export const ACHIEVEMENTS=Object.freeze([
  {id:'first',title:'FIRST DISCOVERY',description:'Catch your first species',reward:50},
  {id:'explorer',title:'SHELFWALKER',description:'Discover 5 fish species',reward:100},
  {id:'naturalist',title:'OCEAN NATURALIST',description:'Discover 10 fish species',reward:200},
- {id:'complete',title:'MASTER COLLECTOR',description:'Discover all 14 species',reward:1000},
+ {id:'complete',title:'MASTER COLLECTOR',description:'Discover all 20 species',reward:1000},
  {id:'hooked',title:'HOOKED!',description:'Catch 10 fish',reward:100},
  {id:'veteran',title:'MASTER ANGLER',description:'Catch 50 fish',reward:250},
  {id:'combo',title:'SHARP SHOOTER',description:'Reach a 4x shooting combo',reward:150},
