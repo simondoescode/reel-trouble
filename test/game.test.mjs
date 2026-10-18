@@ -151,7 +151,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/SUNSKIP SHELF/);
  assert.match(ocean,/KELP KNUCKLES/);
  assert.match(ocean,/BLACKGLASS DROP/);
- assert.match(read('sw.js'),/const CACHE='reel-trouble-offline-v\\d+'/);
+ assert.match(read('sw.js'),/const CACHE='reel-trouble-offline-v\d+'/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
