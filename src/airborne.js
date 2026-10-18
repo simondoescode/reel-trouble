@@ -82,4 +82,41 @@ export function stepSkyCamera(current, target, dt, launching = false) {
   return current + (clamp(target, -455, 0) - current) * amount;
 }
 export const skyScreenY = (worldY, cameraOffset) => worldY - cameraOffset;
+
+// The weapon is installed on the starboard deck, not attached to the viewport.
+// Its world-space height matches the boat deck at SHOOT_WATERLINE-25.
+export const SHOOT_GUN_X = 260;
+export const SHOOT_GUN_WORLD_Y = SHOOT_WATERLINE - 25;
+export const SHOOT_GUN_SCALE = 0.55;
+export function shootGunPose(cameraOffset, aimX, aimY, bob = 0) {
+  const x = SHOOT_GUN_X;
+  const y = skyScreenY(SHOOT_GUN_WORLD_Y, cameraOffset) + bob;
+  const dx = aimX - x, dy = aimY - y;
+  const length = Math.hypot(dx, dy);
+  const ux = length > 0.00001 ? dx / length : 0;
+  const uy = length > 0.00001 ? dy / length : -1;
+  const muzzleDistance = 89 * SHOOT_GUN_SCALE;
+  return {
+    x, y, angle: Math.atan2(uy, ux) + Math.PI / 2,
+    muzzleX: x + ux * muzzleDistance,
+    muzzleY: y + uy * muzzleDistance
+  };
+}
+
+// Tracers still originate at the actual cannon when it is beneath the view.
+// Only the *visible segment* starts at the screen edge; no phantom aerial gun.
+export function visibleShotTrailStart(startX, startY, endX, endY, height = 780) {
+  if (![startX,startY,endX,endY,height].every(Number.isFinite) || height <= 0) return null;
+  if (startY > height) {
+    if (endY >= height) return null;
+    const t = (height - startY) / (endY - startY);
+    return { x: startX + (endX-startX)*t, y: height };
+  }
+  if (startY < 0) {
+    if (endY <= 0) return null;
+    const t = -startY / (endY-startY);
+    return { x: startX + (endX-startX)*t, y: 0 };
+  }
+  return {x:startX,y:startY};
+}
 export const allCatchResolved = fishes => fishes.every(fish => fish.shot || fish.lost);

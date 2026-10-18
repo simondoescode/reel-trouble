@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  AIR_GRAVITY, SHOOT_WATERLINE, SHOOT_SURFACE_INSET,
+  AIR_GRAVITY, SHOOT_WATERLINE, SHOOT_SURFACE_INSET, SHOOT_GUN_X,
+  SHOOT_GUN_WORLD_Y, SHOOT_GUN_SCALE, shootGunPose, visibleShotTrailStart,
   makeAirborneCatch, stepAirborneCatch, targetSkyCamera,
   stepSkyCamera, skyScreenY, allCatchResolved
 } from '../src/airborne.js';
@@ -88,4 +89,36 @@ test('no target launches, moves or pays twice after being shot', () => {
   b.lost=true;
   assert.equal(allCatchResolved([a,b]),true);
   assert.equal(allCatchResolved([]),true);
+});
+
+test('boat-mounted gun preserves a world position while the camera climbs', () => {
+  const initialOffset=SHOOT_WATERLINE-192;
+  const start=shootGunPose(initialOffset,210,40);
+  const midway=shootGunPose(0,210,40);
+  const high=shootGunPose(-455,210,40);
+  assert.equal(start.x,SHOOT_GUN_X);
+  assert.equal(start.y,SHOOT_GUN_WORLD_Y-initialOffset);
+  assert.equal(midway.y-start.y,initialOffset);
+  assert.equal(high.y,SHOOT_GUN_WORLD_Y+455);
+  assert.ok(high.y>780,'gun leaves camera along with its deck');
+  assert.equal(SHOOT_GUN_SCALE,.55);
+});
+
+test('muzzle stays on the cannon barrel and points toward the tap', () => {
+  const p=shootGunPose(0,120,150,1);
+  const distance=Math.hypot(p.muzzleX-p.x,p.muzzleY-p.y);
+  assert.ok(Math.abs(distance-SHOOT_GUN_SCALE*89)<1e-8);
+  assert.ok(p.muzzleY<p.y);
+  assert.ok(p.muzzleX<p.x);
+  assert.equal(shootGunPose(0,SHOOT_GUN_X,SHOOT_GUN_WORLD_Y).angle,0,'zero-distance target aims up');
+});
+
+test('shots enter from the viewport edge when the deck cannon is offscreen', () => {
+  const from=visibleShotTrailStart(260,1100,130,240);
+  assert.equal(from.y,780);
+  assert.ok(from.x<260&&from.x>130);
+  assert.deepEqual(visibleShotTrailStart(260,600,130,240),{x:260,y:600});
+  assert.equal(visibleShotTrailStart(260,1100,130,960),null);
+  assert.deepEqual(visibleShotTrailStart(200,-80,200,200),{x:200,y:0});
+  assert.equal(visibleShotTrailStart(NaN,100,200,200),null);
 });

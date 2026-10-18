@@ -12,7 +12,7 @@ import { createDiscoveryStream, drawDiscovery } from './discoveries.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus, refreshGameFiles } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
-import { SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, targetSkyCamera, stepSkyCamera, skyScreenY, allCatchResolved } from './airborne.js';
+import { SHOOT_WATERLINE, SHOOT_GUN_SCALE, shootGunPose, visibleShotTrailStart, makeAirborneCatch, stepAirborneCatch, targetSkyCamera, stepSkyCamera, skyScreenY, allCatchResolved } from './airborne.js';
 import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } from './arcade-ui.js';
 (() => {
 'use strict';
@@ -639,6 +639,8 @@ function catchFish(f){
 function beginShoot(){
  state='shoot';age=0;shootTime=16;endDelay=0;
  shootCameraOffset=SHOOT_WATERLINE-SEA;
+ // Point toward the sky at breach instead of into the ocean.
+ pointer={x:W/2,y:SEA-100};
  combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;
  shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];
  finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;
@@ -664,11 +666,12 @@ function shootAt(x,y){
   const streak=nextCombo(combo,lastComboHit,clock,defeated.length);
  combo=streak.count;lastComboHit=streak.lastHit;
  bestRoundCombo=Math.max(bestRoundCombo,combo);
- const baseX=210,baseY=663;
- const a=Math.atan2(y-baseY,x-baseX);
- const muzzleX=baseX+Math.cos(a)*86,muzzleY=baseY+Math.sin(a)*86;
- shotEffects.push({x:muzzleX,y:muzzleY,targets:actual.length
-   ?actual.map(f=>({x:f.x,y:airScreenY(f.y)})):[{x,y}],life:.25,max:.25,color:gun.color,tier:gun.tier});
+ // Fire from the boat itself. Store the muzzle and targets in world space
+ // so bullet traces remain correctly anchored while the sky camera travels.
+ const mount=shootGunPose(shootCameraOffset,x,y,Math.sin(waveT*2)*2);
+ shotEffects.push({x:mount.muzzleX,y:mount.muzzleY+shootCameraOffset,targets:actual.length
+   ?actual.map(f=>({x:f.x,y:f.y})):[{x,y:y+shootCameraOffset}],
+   life:.25,max:.25,color:gun.color,tier:gun.tier});
  if(actual.length){
   for(const f of actual){
     const hitY=airScreenY(f.y);
@@ -1125,9 +1128,12 @@ function drawBulletTrail(x1,y1,x2,y2,alpha,color,tier=0){
  ctx.restore();
 }
 function drawGun(){
- const gun=weaponForLevel(save.upgrades.gun),x=210,y=663;
- const angle=Math.atan2(pointer.y-y,pointer.x-x)+Math.PI/2;
- ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+ const gun=weaponForLevel(save.upgrades.gun);
+ const mount=shootGunPose(shootCameraOffset,pointer.x,pointer.y,Math.sin(waveT*2)*2);
+ // Move with the deck. A cannon offscreen stays offscreen.
+ if(mount.y>H+65||mount.y<-65)return;
+ ctx.save();ctx.translate(mount.x,mount.y);ctx.rotate(mount.angle);
+ ctx.scale(SHOOT_GUN_SCALE,SHOOT_GUN_SCALE);
  ctx.translate(0,recoil*12);
  const barrel=gun.tier===2?19:gun.tier===1?16:11;
  ctx.fillStyle='#071a2b';ctx.fillRect(-barrel-4,-91,barrel*2+8,90);
@@ -1204,7 +1210,13 @@ function shootScene(){
  }
  drawShotCelebration();
  for(const trail of shotEffects){
-  for(const end of trail.targets)drawBulletTrail(trail.x,trail.y,end.x,end.y,trail.life/trail.max,trail.color,trail.tier);
+  const originY=airScreenY(trail.y);
+  for(const end of trail.targets){
+   const endY=airScreenY(end.y);
+   // Only the streak enters from the screen edge when the boat is below.
+   const start=visibleShotTrailStart(trail.x,originY,end.x,endY,H);
+   if(start)drawBulletTrail(start.x,start.y,end.x,endY,trail.life/trail.max,trail.color,trail.tier);
+  }
  }
  drawGun();
  const gun=weaponForLevel(save.upgrades.gun);
