@@ -24,7 +24,7 @@ test('discovery pays exactly once for each species',()=>{
  assert.deepEqual(recordCatch(c,3),{discovered:true,reward:DISCOVERY_BONUS});
  assert.deepEqual(recordCatch(c,3),{discovered:false,reward:0});
  assert.equal(c.fish[3].caught,2);
- assert.equal(collectionProgress(c).percentage,7);
+ assert.equal(collectionProgress(c).percentage,5);
 });
 test('shooting statistics include earnings and best combo',()=>{
  const c=createCollection();
@@ -55,7 +55,7 @@ test('long-term caught and successful shot totals unlock separate badges',()=>{
  assert.equal(grantAchievements(c).reward,0);
 });
 test('rarity, habitats and achievement count are defined',()=>{
- assert.equal(SPECIES.length,14);assert.equal(ACHIEVEMENTS.length,9);
+ assert.equal(SPECIES.length,20);assert.equal(ACHIEVEMENTS.length,9);
  for(let i=0;i<SPECIES.length;i++){
   assert.ok(['COMMON','UNCOMMON','RARE','LEGENDARY'].includes(fishRarity(i)));
   assert.ok(fishHabitat(i).length>0);
