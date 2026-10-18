@@ -62,3 +62,14 @@ test('mission parchment and collection still offer every navigation route',()=>{
  assert.match(game,/function settings\(/);
  assert.match(game,/function pausedScene\(/);
 });
+
+test('secondary buttons have no decorative edge bars',()=>{
+ const button=scene('function button(','function neonPanel(');
+ const shopButton=scene('function shopButton(','function skipperPortrait(');
+ assert.doesNotMatch(button,/ctx\.fillRect\(x\+8,y\+12/);
+ assert.doesNotMatch(shopButton,/ctx\.fillRect\(x\+9,y\+8/);
+ assert.match(button,/pixelPlate\(x,y,w,h,base,edge/);
+ assert.match(shopButton,/pixelPlate\(x,y,w,h,active/);
+ assert.match(button,/hits\.push\(\{x,y,w,h,action\}\)/);
+ assert.match(shopButton,/hits\.push\(\{x,y,w,h,action\}\)/);
+});
