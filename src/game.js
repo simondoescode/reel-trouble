@@ -1,4 +1,5 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
+import { BOAT_HULLS, BOAT_FLAGS, boatOptions, normalizeBoatStyle, boatPurchase } from './boat-customisation.js';
 import { paintShopBackdrop, paintSkipper, paintShopItem } from './shop-art.js';
 import { SHOP_SECRETS, unlockedShopSecrets, nextShopSecret } from './shop-secrets.js';
 import { createArcadeAudio } from './audio.js';
@@ -32,9 +33,9 @@ display.imageSmoothingEnabled=true; // Smooth final presentation, not font raste
 // Saturated colours remain in the art and outlines. UI labels are solid white.
 const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#ffffff',white:'#ffffff',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#ffffff',ink:'#071b31'};
 
-const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,collection:createCollection(),expedition:createExpedition()};
+const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,boatStyle:normalizeBoatStyle(),collection:createCollection(),expedition:createExpedition()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
-return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
+return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},boatStyle:normalizeBoatStyle(d.boatStyle),collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -150,6 +151,8 @@ function pauseGame(reason='MANUAL'){
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sceneTransition=null;sound.pause(false);rumble.stop();}
 let shopTab='lines',shopView='counter',chargeArmed=false;
+let boatYardTab='hull',boatYardScroll={hull:0,flag:0},boatYardDrag=null;
+let captainLine='',captainLineUntil=0,captainLineNext=5,captainLineIndex=0;
 let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionScroll={fish:0,badges:0},collectionDrag=null,selectedFish=0;
 let sceneTransition=null;
@@ -163,6 +166,29 @@ function expeditionStats(){
   line:save.upgrades.line,earned:save.total};
 }
 function currentJob(){return expeditionStatus(save.expedition,expeditionStats());}
+function captainSay(line,duration=5){
+ captainLine=line;captainLineUntil=clock+duration;captainLineNext=clock+21+captainLineIndex%3*3;
+}
+function captainQuip(){
+ const quotes=[
+  'A good day to catch bad decisions!',
+  'Mind the hooks. I only have two hands.',
+  'Skipper says I owe him three anchors.',
+  'That shadow was probably just a fish...',
+  'This boat has more stories than planks.',
+  'If it glows, bring a bigger lantern.',
+  'The ocean keeps what we forget.',
+  'Fish first. Questions later!'
+ ];
+ if(save.boatStyle.hull!=='coral'&&captainLineIndex%4===1)return 'New paint. Same questionable captain!';
+ if(save.upgrades.light===0&&save.upgrades.line>=2&&captainLineIndex%4===2)return 'We need a light down there, mate!';
+ return quotes[captainLineIndex%quotes.length];
+}
+function updateCaptainQuips(){
+ if(state!=='menu'||clock<captainLineNext)return;
+ captainSay(captainQuip());
+ captainLineIndex++;
+}
 function settleExpedition(){
  save.expedition=recordExpeditionDive(save.expedition,deepestCast/DEPTH_PIXELS_PER_METRE);
  const result=completeExpeditions(save.expedition,expeditionStats());
@@ -460,85 +486,107 @@ function fish(x,y,kind=0,dir=1,scale=1,phase=0){
  ctx.fillRect(-1*step,2*step,1.8*step,Math.max(1,step*.5));
  ctx.restore();
 }
-function boat(x,seaY){
- // Compact, hand-drawn pixel trawler: shaped hull, wheelhouse and working deck.
+function boat(x,seaY,style=save.boatStyle){
+ // Hand-built pixel trawler: strong stepped bow, layered hull, shaded cabin,
+ // animated captain and optional player-owned paintwork/pennant.
+ const paint=BOAT_HULLS.find(item=>item.id===style?.hull)||BOAT_HULLS[0];
+ const flag=BOAT_FLAGS.find(item=>item.id===style?.flag)||BOAT_FLAGS[0];
  ctx.save();
- ctx.translate(Math.round(x),Math.round(seaY+Math.sin(waveT*2)*2));
+ ctx.translate(Math.round(x),Math.round(seaY+(lowFx?0:Math.sin(waveT*2)*2)));
  const rect=(c,x,y,w,h)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
  const poly=(c,points)=>{ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++)ctx.lineTo(...points[i]);ctx.closePath();ctx.fill();};
- // Dark cutout under the hull adds weight against the bright sea.
- poly('#082639',[[-73,-5],[72,-5],[64,15],[49,24],[-44,24],[-64,15]]);
- poly('#152b45',[[-69,-3],[68,-3],[60,12],[47,19],[-44,19],[-59,11]]);
- // Painted hull, pixel-stepped prow, and separate shadow band.
- poly('#f05b60',[[-68,-4],[69,-4],[61,10],[45,17],[-44,17],[-59,10]]);
- poly('#ad345b',[[-59,10],[61,10],[45,19],[-44,19]]);
- rect('#ff9591',-63,-3,125,4);
- rect('#ffe2a3',-55,7,108,3);
- rect('#762b50',-38,15,78,4);
- // Gunwale and open fishing deck.
- rect('#0b3045',-69,-10,139,7);
- rect('#f7d390',-65,-11,130,3);
- rect('#347d89',-56,-8,112,4);
- rect('#fef2d5',-52,-13,9,3);
- rect('#fef2d5',47,-13,9,3);
- // Rub rail, bolts, portholes and painted name stripe.
- rect('#132f4b',-53,3,106,3);
- for(const px of [-44,-23,0,23,44]){
-  rect('#10283d',px-4,1,9,8);
-  rect('#8eeaf1',px-2,2,5,4);
-  rect('#fff5dc',px-2,2,2,1);
+ // Below-water keel, deep underside and distinctive raised prow/stern.
+ poly('#071a2b',[[-84,-8],[77,-8],[75,6],[66,18],[49,26],[-49,26],[-72,17],[-83,5]]);
+ poly('#132a3b',[[-78,-7],[73,-7],[69,7],[61,16],[46,22],[-47,22],[-68,13]]);
+ poly(paint.shade,[[-77,-8],[73,-8],[69,5],[60,15],[45,20],[-47,20],[-68,12]]);
+ poly(paint.main,[[-76,-9],[72,-9],[67,3],[60,10],[46,15],[-48,15],[-68,7]]);
+ // Shaded double-plank paint gives the hull volume without any gradients.
+ rect(paint.shine,-70,-7,136,4);
+ rect(paint.trim,-61,7,120,3);
+ rect('#25394b',-56,12,112,3);
+ for(let i=0;i<5;i++)rect('#ffe4b0',-47+i*23,14,3,3);
+ // Crisp, stepped gunwale and deck planks (not a single rectangular slab).
+ rect('#071c2c',-82,-16,161,7);
+ rect('#f6dfaa',-75,-16,150,3);
+ rect('#805f43',-73,-12,146,4);
+ for(let i=-65;i<=55;i+=21)rect('#332c2a',i,-12,2,5);
+ rect(paint.main,-81,-14,5,8);rect(paint.main,74,-14,5,8);
+ // Hull portholes remain distinct at handheld screen sizes.
+ for(const px of [-48,-23,2,27,52]){
+  rect('#092439',px-5,-4,11,11);
+  rect('#e1b97e',px-4,-3,9,9);
+  rect('#0a5573',px-2,-1,5,5);
+  rect('#a6f6ff',px-2,-1,2,2);
  }
- // Tall little wheelhouse with roof overhang, tinted panes and doorway.
- rect('#172f47',-35,-44,67,33);
- rect('#fff3d4',-32,-43,61,30);
- rect('#edca9b',-32,-17,61,4);
- rect('#13344c',-39,-49,75,7);
- rect('#f96169',-38,-51,72,5);
- rect('#ffb77a',-31,-50,55,2);
- rect('#216074',-26,-37,22,16);
- rect('#216074',3,-37,20,16);
- rect('#80dce3',-24,-35,18,12);
- rect('#80dce3',5,-35,16,12);
- rect('#d8ffff',-23,-34,6,6);
- rect('#d8ffff',6,-34,5,5);
- rect('#10394e',-1,-41,3,27);
- rect('#203950',24,-28,4,15);
- rect('#ffecb9',-29,-12,59,3);
- // Wheelhouse roof beacon and radio aerial.
- rect('#173149',-9,-59,4,9);
- rect('#ffe29b',-12,-62,10,5);
- rect('#fff5d4',-7,-66,3,4);
- rect('#173149',18,-68,3,18);
- rect('#fef2d5',17,-71,5,3);
- // Deck fittings: rope spool and tackle box on the bow.
- rect('#17334b',-62,-25,5,15);
- rect('#ffe4ab',-66,-25,12,4);
- rect('#f7bf6b',-61,-19,13,8);
- rect('#1c4555',-63,-21,17,3);
- rect('#ffde8b',-51,-20,10,7);
- rect('#143e4d',-52,-14,13,3);
- // A lively angler at the stern with a moving reeling hand.
+ // Cab silhouette, strong roof profile, door and reflection panes.
+ rect('#071b2d',-41,-53,83,40);
+ rect('#193a4b',-37,-51,75,35);
+ rect(paint.cabin,-34,-49,68,32);
+ rect('#cbad81',-32,-22,66,5);
+ rect('#102f45',-44,-56,91,7);
+ rect(paint.shine,-40,-56,83,4);
+ rect(paint.trim,-37,-54,78,2);
+ rect('#123446',-30,-45,28,21);
+ rect('#123446',5,-45,27,21);
+ rect('#369aa9',-27,-42,22,15);
+ rect('#369aa9',8,-42,21,15);
+ rect('#adf2ee',-25,-41,8,6);
+ rect('#adf2ee',10,-41,7,6);
+ rect('#d8ffff',-24,-40,3,3);
+ rect('#d8ffff',11,-40,3,3);
+ rect('#0d2939',0,-49,4,31);
+ rect('#184351',30,-36,5,18);
+ rect(paint.trim,-37,-19,72,3);
+ // Cabin roof navigation lamp and aerial.
+ rect('#09273a',-8,-70,5,14);
+ rect('#ffe39a',-12,-73,13,6);
+ rect('#fffbea',-9,-76,6,4);
+ rect('#132b3a',20,-82,4,27);
+ rect('#fff1c2',19,-84,6,4);
+ // Upgradeable pennant has a recognisable pixel shape, never generic text.
+ if(flag.id!=='none'){
+  const flutter=lowFx?0:Math.round(Math.sin(clock*3)*2);
+  poly('#071827',[[24,-82],[53+flutter,-80],[49+flutter,-70],[24,-68]]);
+  poly(flag.main,[[25,-80],[50+flutter,-78],[47+flutter,-72],[25,-70]]);
+  rect(flag.mark,31,-77,7,3);
+  if(flag.id==='skull'){rect(flag.mark,39,-77,3,4);rect('#071827',40,-76,1,1);}
+  if(flag.id==='fish'){rect(flag.mark,39,-75,6,2);rect(flag.mark,44,-77,2,6);}
+  if(flag.id==='sun'){rect(flag.mark,42,-79,4,6);}
+  if(flag.id==='glow'){rect(flag.mark,40,-78,5,5);rect('#fffbd6',42,-76,2,2);}
+ }
+ // Rail posts, coiled rope, anchor and timber tackle box.
+ for(const px of [-70,-51,59,70]){rect('#132b39',px,-27,4,15);rect(paint.trim,px,-27,4,3);}
+ rect('#19384a',-67,-28,24,12);
+ rect('#f0ce83',-64,-25,16,6);rect('#ad764b',-59,-25,3,6);
+ rect('#f7e1a9',-71,-21,10,2);
+ rect('#152e3e',-51,-23,16,12);rect('#bf8958',-48,-20,10,7);
+ rect('#eac88a',-48,-19,10,2);
+ // Captain: hat brim, readable face, shirt and moving reeling hand.
  const arm=Math.round(Math.sin(clock*8)*4);
- rect('#10263d',39,-36,17,23);
- rect('#2de0cb',41,-34,13,17);
- rect('#14283d',41,-18,5,11);
- rect('#14283d',49,-18,5,11);
- rect('#ffd49d',41,-51,12,15);
- rect('#ff6870',37,-56,21,7);
- rect('#ffd9a0',53,-52,7,3);
- rect('#10263d',49,-46,3,3);
- rect('#ffd49d',52,-30+arm,6,10);
- rect('#ffebae',53,-22+arm,7,4);
- // Rod, line guide and tackle hook silhouette stay clear of the cabin.
- rect('#182c42',59,-30,3,14);
- rect('#fff1bd',61,-37,2,12);
- rect('#fff1bd',63,-45,2,10);
- rect('#fff1bd',65,-51,2,8);
- // Tiny sparkling wake, kept behind the boat rather than obscuring the game.
- const wake=Math.round(Math.sin(waveT*3)*2);
- rect('#dcfff0',-79,12+wake,12,2);
- rect('#dcfff0',70,9-wake,11,2);
- rect('#9ce8e8',-86,17+wake,9,2);
+ rect('#0a293b',39,-40,20,31);
+ rect('#208d9c',42,-37,14,20);
+ rect('#37e2cb',44,-34,10,14);
+ rect('#092438',42,-18,5,11);rect('#092438',51,-18,5,11);
+ rect('#d28e70',41,-54,17,19);
+ rect('#ffd4a0',43,-53,12,15);
+ rect('#132c40',38,-60,24,5);
+ rect('#e55959',37,-59,24,6);
+ rect(paint.trim,42,-59,14,2);
+ rect('#171f2c',53,-47,3,3);
+ rect('#ffd4a0',55,-50,5,4);
+ rect('#d28e70',55,-31+arm,7,12);
+ rect('#ffdeb0',56,-30+arm,5,9);
+ rect('#0d2c3d',60,-28,4,7);
+ // Angled rod and small bobber are separate pixels with dark edging.
+ rect('#0d293c',62,-32,4,17);
+ rect('#fff0b2',65,-45,2,18);
+ rect('#fff0b2',67,-54,2,12);
+ rect('#fff0b2',70,-60,2,7);
+ rect('#0e3548',71,-56,2,7);
+ // Occasional textured spray, kept below the deck and in the existing palette.
+ const wake=lowFx?0:Math.round(Math.sin(waveT*3)*2);
+ rect('#d9fff0',-89,10+wake,14,3);rect('#d9fff0',76,8-wake,15,3);
+ rect('#8ce2de',-96,17+wake,10,2);rect('#a5eff1',92,17-wake,8,2);
  ctx.restore();
 }
 function hook(x,y){
@@ -851,6 +899,7 @@ function update(dt){
   return;
  }
  clock+=realDt;if(!lowFx)waveT+=dt;age+=realDt;
+ updateCaptainQuips();
  shake=lowFx?0:Math.max(0,shake-realDt*23);if(messageTimer>0)messageTimer-=realDt;
  sceneFlash=Math.max(0,sceneFlash-dt*1.7);
  for(const splash of splashes)splash.life-=dt;
@@ -1372,6 +1421,18 @@ function titleSeaLife(t){
   ctx.restore();
  }
 }
+function captainBubble(){
+ if(clock>=captainLineUntil||!captainLine)return;
+ const remaining=captainLineUntil-clock;
+ const alpha=lowFx?1:Math.min(1,(remaining)/.45,(captainLineUntil-clock>4.4?5-(captainLineUntil-clock):1)*3);
+ ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,alpha));
+ pixelPlate(45,252,326,65,'#f2e2be','#a57b50',7,false);
+ // A stepped tail points to the crew instead of covering the hull.
+ ctx.fillStyle='#a57b50';ctx.fillRect(296,316,13,8);
+ ctx.fillStyle='#f2e2be';ctx.fillRect(298,315,9,7);
+ storyCopy(captainLine,206,269,303,15,'#34271c',19,2);
+ ctx.restore();
+}
 function titleActionGlow(){ /* Primary buttons no longer have a rectangular halo. */ }
 function menu(){
  const t=lowFx?0:clock;
@@ -1389,6 +1450,9 @@ function menu(){
  }else{ text('REEL',210,128+bob,65,C.white);text('TROUBLE!',210,195+bob,49,C.white); }
  ctx.save();ctx.translate(210,seaY);ctx.scale(2.1,2.1);ctx.translate(-210,-seaY);
  boat(210,seaY);ctx.restore();
+ captainBubble();
+ // Tapping the captain triggers another line, without interrupting the menu.
+ hits.push({x:78,y:320,w:275,h:164,action:()=>{captainSay(captainQuip());captainLineIndex++;}});
  const progress=collectionProgress(save.collection),job=currentJob();
  pixelPlate(18,19,155,43,'#092c41','#49d8cc',7);
  text('$'+save.cash,94,41,19,C.yellow,'center',900,0,137);
@@ -1488,7 +1552,7 @@ function skipperSpeak(line,mood='neutral'){
  if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
 }
 function enterShop(){
- state='shop';shopTab='lines';shopView='counter';shopInspect=null;age=0;skipperVisits++;
+ state='shop';shopTab='lines';shopView='counter';shopInspect=null;boatYardDrag=null;age=0;skipperVisits++;
  shopScrollTo(save.upgrades.line*SHOP_ROW-SHOP_ROW);
  const find=nextShopSecret(save,shopSecretsSeen);
  skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
@@ -1642,12 +1706,13 @@ function shopCounter(){
   skipperSpeak(lines[skipperChats++%lines.length],'curious');
  }});
  skipperBubble();
- shopInk('WHAT ARE YE AFTER?',18,444,18,'#fff0c2','left',381);
+ shopInk('PICK YER GEAR',18,443,14,'#fff0c2','left',192);
  shopCategoryCard('lines','REELS',13,460);
  shopCategoryCard('nets','HOOKS',215,460);
  shopCategoryCard('guns','WEAPONS',13,558);
  shopCategoryCard('gadgets','SUPPLIES',215,558);
  shopButton('BOUNTY',13,660,192,43,()=>{shopInspect={kind:'bounty',openedAt:clock};});
+ shopButton('BOAT YARD',215,660,192,43,()=>{shopView='boat';boatYardTab='hull';boatYardScrollTo(0);skipperSpeak('New coats of paint and flags! All style, no speed.');});
  shopStoryButton();
  shopButton('← BACK TO WATER',13,715,394,49,()=>{
   state=castNumber&&save.total?'results':'menu';age=0;
@@ -1742,7 +1807,7 @@ function openShopInspect(type,tier=null){
 function shopStoryButton(){
  const unseen=nextShopSecret(save,shopSecretsSeen),unlocked=unlockedShopSecrets(save);
  const selected=unseen||unlocked[unlocked.length-1];
- shopButton(unseen?'NEW SECRET!':'SECRETS',215,660,192,43,()=>{
+ shopButton(unseen?'NEW SECRET!':'SECRETS',215,431,192,28,()=>{
   if(!selected){skipperSpeak("No curios today. Dive deeper and see what washes in.",'curious');return;}
   shopInspect={kind:'secret',id:selected.id,openedAt:clock};
   if(!shopSecretsSeen.includes(selected.id)){
@@ -1779,8 +1844,44 @@ function buyInspectedGear(type){
  }else if(type==='light')buyLight();
  else purchase(type);
 }
+
+function boatInspectOverlay(){
+ const request=shopInspect;
+ const item=boatOptions(request.slot).find(option=>option.id===request.id);
+ if(!item){shopInspect=null;return;}
+ hits.length=0;
+ ctx.save();ctx.fillStyle='#071321e8';ctx.fillRect(0,0,W,H);
+ pixelPlate(18,72,384,635,'#f3e3c3','#c49a61',11);
+ shopInk("SKIPPER'S BOAT YARD",210,110,17,'#765033','center',335);
+ shopInk(item.name,210,153,23,'#30231b','center',344);
+ pixelPlate(38,195,344,241,'#183e52','#bd986d',8,false);
+ ctx.fillStyle='#347b8d';ctx.fillRect(51,379,318,28);
+ ctx.save();ctx.translate(210,346);ctx.scale(1.65,1.65);ctx.translate(-210,-346);
+ boat(210,346,{...save.boatStyle,[request.slot]:item.id});ctx.restore();
+ shopInk(item.detail,210,462,15,'#674730','center',331);
+ shopInk('LOOKS ONLY • NO GAMEPLAY ADVANTAGE',210,495,11,'#765b42','center',332);
+ const owned=request.slot==='hull'?save.boatStyle.ownedHulls.includes(item.id):save.boatStyle.ownedFlags.includes(item.id);
+ const equipped=save.boatStyle[request.slot]===item.id;
+ shopInk(equipped?'ALREADY EQUIPPED':owned?'READY TO EQUIP':'COST $'+item.price,210,548,17,'#3b7053','center',333);
+ shopInk('BALANCE $'+save.cash,210,580,13,'#735337','center',310);
+ shopButton('← BACK',35,627,140,57,()=>{shopInspect=null;});
+ shopButton(equipped?'EQUIPPED':owned?'EQUIP':save.cash>=item.price?'BUY $'+item.price:'NEED $'+item.price,
+  185,627,199,57,()=>{
+   if(equipped){shopInspect=null;return;}
+   const result=boatPurchase(save,request.slot,item.id);
+   if(result==='funds'){skipperSpeak('A fine choice, but yer purse says otherwise.');return;}
+   if(result==='invalid')return;
+   persist();sound.play('upgrade');rumble.play('upgrade');
+   skipperSpeak(result==='purchased'?'Look at that beauty! Even the gulls are jealous.':'Nice choice. Shall I fetch the polish?','excited');
+   captainLine=result==='purchased'?'We are the fanciest wreck on the sea!':'New look, same old captain!';
+   captainLineUntil=clock+6;captainLineNext=clock+27;
+   shopInspect=null;
+  },equipped||owned||save.cash>=item.price);
+ ctx.restore();
+}
 function shopInspectOverlay(){
  const item=shopInspect;if(!item)return;
+ if(item.kind==='boat'){boatInspectOverlay();return;}
  // The detail sheet, not the catalogue, owns purchasing actions.
  hits.length=0;
  ctx.save();ctx.fillStyle='#071321e8';ctx.fillRect(0,0,W,H);
@@ -1835,8 +1936,60 @@ function shopInspectOverlay(){
  }
  ctx.restore();
 }
+
+const BOAT_YARD_TOP=485,BOAT_YARD_BOTTOM=706,BOAT_YARD_ROW=91;
+function boatYardOptions(){return boatOptions(boatYardTab);}
+function boatYardMaxScroll(){return Math.max(0,boatYardOptions().length*BOAT_YARD_ROW-(BOAT_YARD_BOTTOM-BOAT_YARD_TOP));}
+function boatYardScrollTo(value){boatYardScroll[boatYardTab]=clamp(value,0,boatYardMaxScroll());}
+function boatYard(){
+ shopInterior();
+ shopButton('← SHOP COUNTER',13,101,394,48,()=>{shopView='counter';boatYardDrag=null;});
+ shopInk('THE BOAT YARD',210,170,23,'#ffe1ac','center',370);
+ pixelPlate(22,186,376,223,'#143c4c','#a9d4b7',8,false);
+ ctx.fillStyle='#22637d';ctx.fillRect(36,362,348,31);
+ ctx.save();ctx.translate(210,339);ctx.scale(1.55,1.55);ctx.translate(-210,-339);
+ boat(210,339);ctx.restore();
+ shopInk('COSMETIC ONLY • NO STAT BOOSTS',210,398,12,'#fff0c2','center',342);
+ const tabs=[['hull','HULL PAINT'],['flag','FLAGS']];
+ for(let i=0;i<tabs.length;i++){
+  const [id,label]=tabs[i],chosen=boatYardTab===id,x=25+i*194;
+  pixelPlate(x,428,179,46,chosen?'#f4d69d':'#382f34',chosen?'#ffe9b7':'#886f5f',6,false);
+  shopInk(label,x+89,450,13,chosen?'#33251d':'#f4e2c6','center',161);
+  hits.push({x,y:428,w:179,h:46,action:()=>{boatYardTab=id;boatYardScrollTo(boatYardScroll[id]);}});
+ }
+ const options=boatYardOptions(),top=BOAT_YARD_TOP,bottom=BOAT_YARD_BOTTOM,height=bottom-top;
+ const offset=boatYardScroll[boatYardTab];
+ ctx.save();ctx.beginPath();ctx.rect(12,top,393,height);ctx.clip();
+ for(let i=Math.max(0,Math.floor(offset/BOAT_YARD_ROW));i<options.length&&i<=Math.ceil((offset+height)/BOAT_YARD_ROW);i++){
+  const item=options[i],y=top+i*BOAT_YARD_ROW-offset;
+  const owned=boatYardTab==='hull'?save.boatStyle.ownedHulls.includes(item.id):save.boatStyle.ownedFlags.includes(item.id);
+  const equipped=save.boatStyle[boatYardTab]===item.id;
+  pixelPlate(20,y+3,375,84,equipped?'#f7e6c1':owned?'#e7e2c6':'#c8b7a0',
+   equipped?'#ffe1a2':owned?'#86ab93':'#8d755e',6,false);
+  ctx.save();ctx.translate(85,y+55);ctx.scale(.38,.38);ctx.translate(-85,-y-55);
+  boat(85,y+55,boatYardTab==='hull'?{...save.boatStyle,hull:item.id}:{...save.boatStyle,flag:item.id});
+  ctx.restore();
+  shopInk(item.name,144,y+23,14,'#30231d','left',236);
+  shopInk(item.detail,144,y+46,11,'#6f523c','left',228);
+  shopInk(equipped?'EQUIPPED':owned?'OWNED • TAP TO EQUIP':'BUY FOR $'+item.price,144,y+70,12,
+   equipped?'#266749':'#785339','left',235);
+  const hitY=Math.max(top,y+3),hitBottom=Math.min(bottom,y+87);
+  if(hitBottom>hitY)hits.push({x:20,y:hitY,w:375,h:hitBottom-hitY,
+   action:()=>{shopInspect={kind:'boat',slot:boatYardTab,id:item.id,openedAt:clock};}});
+ }
+ ctx.restore();
+ const max=boatYardMaxScroll();
+ if(max>0){
+  const thumb=Math.max(27,height*height/(options.length*BOAT_YARD_ROW));
+  ctx.fillStyle='#5b4b46';ctx.fillRect(399,top,3,height);
+  ctx.fillStyle='#f7d38f';ctx.fillRect(397,top+(height-thumb)*offset/max,7,thumb);
+ }
+ shopButton('← BACK TO WATER',13,717,394,48,()=>{state=castNumber&&save.total?'results':'menu';age=0;boatYardDrag=null;});
+}
+
 function shop(){
  if(shopView==='counter')shopCounter();
+ else if(shopView==='boat')boatYard();
  else shopCatalogue();
  if(shopInspect)shopInspectOverlay();
 }
@@ -2163,25 +2316,33 @@ function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX
 function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
  if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
+ if(state==='shop'&&shopView==='boat'&&!shopInspect){const q=pos(e);if(q.y>=BOAT_YARD_TOP&&q.y<=BOAT_YARD_BOTTOM){boatYardDrag={startY:q.y,startScroll:boatYardScroll[boatYardTab],moved:false};return;}}
  if(state==='collection'){const q=pos(e),[a,b]=collectionListBounds();if(q.y>=a&&q.y<=b){sound.unlock();collectionDrag={startY:q.y,startScroll:collectionScroll[collectionTab],moved:false};return;}}
  sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
 canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
  if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}
+ if(boatYardDrag){const dy=pointer.y-boatYardDrag.startY;if(Math.abs(dy)>7)boatYardDrag.moved=true;if(boatYardDrag.moved)boatYardScrollTo(boatYardDrag.startScroll-dy);return;}
  if(collectionDrag){const dy=pointer.y-collectionDrag.startY;if(Math.abs(dy)>7)collectionDrag.moved=true;if(collectionDrag.moved)collectionScrollTo(collectionDrag.startScroll-dy);return;}
  if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
 canvas.addEventListener('pointerup',e=>{
  if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
+ if(boatYardDrag){const dragged=boatYardDrag.moved;boatYardDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
  if(collectionDrag){const dragged=collectionDrag.moved;collectionDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
  pointerDown=false;
 });
-canvas.addEventListener('pointercancel',()=>{shopDrag=null;collectionDrag=null;pointerDown=false;});
+canvas.addEventListener('pointercancel',()=>{shopDrag=null;boatYardDrag=null;collectionDrag=null;pointerDown=false;});
 canvas.addEventListener('wheel',e=>{
  if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}
+ if(state==='shop'&&shopView==='boat'&&!shopInspect){const q=pos(e);if(q.y>=BOAT_YARD_TOP&&q.y<=BOAT_YARD_BOTTOM){e.preventDefault();const factor=e.deltaMode===1?26:e.deltaMode===2?BOAT_YARD_BOTTOM-BOAT_YARD_TOP:1;boatYardScrollTo(boatYardScroll[boatYardTab]+e.deltaY*factor);}}
  if(state==='collection'){const q=pos(e),[a,b]=collectionListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();const factor=e.deltaMode===1?26:e.deltaMode===2?b-a:1;collectionScrollTo(collectionScroll[collectionTab]+e.deltaY*factor);}}
 },{passive:false});
 window.addEventListener('keydown',e=>{
  sound.unlock();
  if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(state==='shop'&&shopView==='boat'&&!shopInspect&&['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.code)){
+  e.preventDefault();const jump=e.code==='ArrowUp'?-BOAT_YARD_ROW:e.code==='ArrowDown'?BOAT_YARD_ROW:e.code==='PageUp'?-190:e.code==='PageDown'?190:0;
+  boatYardScrollTo(e.code==='Home'?0:e.code==='End'?boatYardMaxScroll():boatYardScroll[boatYardTab]+jump);return;
+ }
  if(state==='collection'&&['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.code)){
   e.preventDefault();
   const [top,bottom]=collectionListBounds(),page=bottom-top-60;
