@@ -210,7 +210,7 @@ function text(s,x,y,size=20,_color=C.white,align='center',_weight=900,_letter=0,
  const label=String(s),fontSize=Math.max(16,size);
  ctx.save();
  ctx.textAlign=align;ctx.textBaseline='middle';
- ctx.font='900 '+fontSize+'px 'Press Start 2P',monospace';
+ ctx.font='900 '+fontSize+'px "Press Start 2P",monospace';
  const available=maxWidth??(align==='left'?W-x-16:align==='right'?x-16:Math.min(W-32,2*x-16,2*(W-x)-16));
  const width=Math.max(20,available);
  let fitted=label;
@@ -993,16 +993,16 @@ function depthReadout(){
  ctx.lineTo(138,y+65);ctx.lineTo(0,y+65);ctx.closePath();ctx.fill();
  ctx.shadowBlur=0;ctx.shadowOffsetY=0;
  ctx.fillStyle='#4a83e5';ctx.fillRect(12,y+45,94,2);
- ctx.font='900 30px 'Press Start 2P',monospace';
+ ctx.font='900 30px "Press Start 2P",monospace';
  ctx.textAlign='left';ctx.textBaseline='middle';
  ctx.fillText(meter(depth),11,y+23,124);
- ctx.font='900 14px 'Press Start 2P',monospace';
+ ctx.font='900 14px "Press Start 2P",monospace';
  ctx.fillText('OF '+meter(maxDepth),12,y+56,121);
  ctx.restore();
  // Avoid a full-width status bar: the moving ocean should remain the star.
  ctx.save();ctx.shadowColor='#071526';ctx.shadowBlur=5;
  ctx.textAlign='left';ctx.textBaseline='middle';
- ctx.font='900 17px 'Press Start 2P',monospace';ctx.fillStyle='#ffffff';
+ ctx.font='900 17px "Press Start 2P",monospace';ctx.fillStyle='#ffffff';
  ctx.fillText(state==='descent'?'DIVING ↓':'REELING ↑',165,45,164);
  ctx.restore();
 }
@@ -1024,12 +1024,12 @@ function sideDepthGauge(){
   const y=markerY+(metres-currentMetres)*pixelsPerMetre,major=metres%50===0;
   line(x-(major?10:5),y,x,y,'#ffffff',major?1.5:1);
   if(major&&Math.abs(y-markerY)>23){
-   ctx.font='900 12px 'Press Start 2P',monospace';ctx.fillStyle='#ffffff';
+   ctx.font='900 12px "Press Start 2P",monospace';ctx.fillStyle='#ffffff';
    ctx.fillText(metres+'m',x-14,y);
   }
  }
  line(x-14,markerY,x,markerY,'#ffffff',2.5);
- ctx.font='900 16px 'Press Start 2P',monospace';ctx.fillStyle='#ffffff';
+ ctx.font='900 16px "Press Start 2P",monospace';ctx.fillStyle='#ffffff';
  ctx.fillText(meter(depth),x-16,markerY-15);
  ctx.restore();
 }
@@ -1446,13 +1446,13 @@ function skipperReply(category,success){
 }
 function shopInk(value,x,y,size=18,color='#f8e5bd',align='left',width=380){
  ctx.save();ctx.textAlign=align;ctx.textBaseline='middle';
- ctx.font='900 '+size+'px 'Press Start 2P',monospace';ctx.fillStyle=color;
+ ctx.font='900 '+size+'px "Press Start 2P",monospace';ctx.fillStyle=color;
  ctx.lineJoin='round';
  if(color==='#f8e5bd'||color==='#ffffff'){ctx.shadowColor='#251612';ctx.shadowBlur=2;ctx.shadowOffsetY=1;}
  ctx.fillText(String(value),x,y,width);ctx.restore();
 }
 function shopWrap(message,maxWidth,size=16,maxLines=2){
- ctx.save();ctx.font='900 '+size+'px 'Press Start 2P',monospace';
+ ctx.save();ctx.font='900 '+size+'px "Press Start 2P",monospace';
  const rows=[''];for(const word of String(message).split(/\s+/)){
   const n=rows.length-1,next=(rows[n]+' '+word).trim();
   if(ctx.measureText(next).width>maxWidth&&rows[n]&&rows.length<maxLines)rows.push(word);
