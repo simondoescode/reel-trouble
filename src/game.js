@@ -1609,11 +1609,12 @@ function shop(){
    "If it starts glowing, bring it back in one piece.",
    currentJob().story
   ];
-  skipperSpeak(lines[skipperChats++%lines.length]);
+  skipperSpeak(lines[skipperChats++%lines.length],'curious');
  }});
  roundRect(255,94,151,30,4,'#f1dfb9','#85572f',2);
  shopInk('COINS  $'+save.cash,329,109,18,'#32241e','center',143);
  skipperBubble();
+ shopStoryButton();
  for(let i=0;i<SHOP_TABS.length;i++)shopTabButton(...SHOP_TABS[i],i);
  if(shopTab==='gadgets'){
   shopSupplyCard('charge',452);
@@ -1622,6 +1623,7 @@ function shop(){
  shopButton('←  BACK TO THE WATER',14,714,392,52,()=>{
   state=castNumber&&save.total?'results':'menu';age=0;
  },true);
+ if(shopInspect)shopInspectOverlay();
 }
 
 function expeditionBoard(){
