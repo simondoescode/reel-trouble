@@ -1422,6 +1422,18 @@ function titleSeaLife(t){
  }
 }
 function titleActionGlow(){ /* Primary buttons no longer have a rectangular halo. */ }
+function captainBubble(){
+ if(clock>=captainLineUntil||!captainLine)return;
+ const remaining=captainLineUntil-clock;
+ const alpha=lowFx?1:Math.min(1,(remaining)/.45,(captainLineUntil-clock>4.4?5-(captainLineUntil-clock):1)*3);
+ ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,alpha));
+ pixelPlate(45,252,326,65,'#f2e2be','#a57b50',7,false);
+ // A stepped tail points to the crew instead of covering the hull.
+ ctx.fillStyle='#a57b50';ctx.fillRect(296,316,13,8);
+ ctx.fillStyle='#f2e2be';ctx.fillRect(298,315,9,7);
+ storyCopy(captainLine,206,269,303,15,'#34271c',19,2);
+ ctx.restore();
+}
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
@@ -1438,6 +1450,9 @@ function menu(){
  }else{ text('REEL',210,128+bob,65,C.white);text('TROUBLE!',210,195+bob,49,C.white); }
  ctx.save();ctx.translate(210,seaY);ctx.scale(2.1,2.1);ctx.translate(-210,-seaY);
  boat(210,seaY);ctx.restore();
+ captainBubble();
+ // Tapping the captain triggers another line, without interrupting the menu.
+ hits.push({x:78,y:320,w:275,h:164,action:()=>{captainSay(captainQuip());captainLineIndex++;}});
  const progress=collectionProgress(save.collection),job=currentJob();
  pixelPlate(18,19,155,43,'#092c41','#49d8cc',7);
  text('$'+save.cash,94,41,19,C.yellow,'center',900,0,137);
@@ -1691,12 +1706,13 @@ function shopCounter(){
   skipperSpeak(lines[skipperChats++%lines.length],'curious');
  }});
  skipperBubble();
- shopInk('WHAT ARE YE AFTER?',18,444,18,'#fff0c2','left',381);
+ shopInk('PICK YER GEAR',18,443,14,'#fff0c2','left',192);
  shopCategoryCard('lines','REELS',13,460);
  shopCategoryCard('nets','HOOKS',215,460);
  shopCategoryCard('guns','WEAPONS',13,558);
  shopCategoryCard('gadgets','SUPPLIES',215,558);
  shopButton('BOUNTY',13,660,192,43,()=>{shopInspect={kind:'bounty',openedAt:clock};});
+ shopButton('BOAT YARD',215,660,192,43,()=>{shopView='boat';boatYardTab='hull';boatYardScrollTo(0);skipperSpeak('New coats of paint and flags! All style, no speed.');});
  shopStoryButton();
  shopButton('← BACK TO WATER',13,715,394,49,()=>{
   state=castNumber&&save.total?'results':'menu';age=0;
@@ -1791,7 +1807,7 @@ function openShopInspect(type,tier=null){
 function shopStoryButton(){
  const unseen=nextShopSecret(save,shopSecretsSeen),unlocked=unlockedShopSecrets(save);
  const selected=unseen||unlocked[unlocked.length-1];
- shopButton(unseen?'NEW SECRET!':'SECRETS',215,660,192,43,()=>{
+ shopButton(unseen?'NEW SECRET!':'SECRETS',215,431,192,28,()=>{
   if(!selected){skipperSpeak("No curios today. Dive deeper and see what washes in.",'curious');return;}
   shopInspect={kind:'secret',id:selected.id,openedAt:clock};
   if(!shopSecretsSeen.includes(selected.id)){
