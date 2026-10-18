@@ -38,7 +38,7 @@ test('hook proximity claims each relic only once across chunk unloads',()=>{
   world.near(d);
   assert.ok(world.chunkCount<=7);
  }
- assert.equal(world.near(curio.d)[0]?.found,true);
+ assert.equal(world.near(curio.d).find(item=>item.id===curio.id)?.found,true);
  assert.equal(world.foundCount,1);
 });
 test('each discovery renders using inexpensive pixel geometry',()=>{
