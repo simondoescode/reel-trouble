@@ -291,20 +291,21 @@ test('rare discoveries and bespoke deep creature art are integrated without inte
 });
 
 
-test('fishing depth HUD uses an angular current/limit readout and smooth hook-anchored edge ruler',()=>{
+test('fishing HUD is a compact strip and keeps the world-anchored edge ruler',()=>{
  const game=read('src/game.js');
  const hud=game.slice(game.indexOf('function depthReadout()'),game.indexOf('function gameplay()'));
- assert.match(hud,/ctx\.moveTo\(0,y\)/);
- assert.match(hud,/ctx\.fillText\(meter\(depth\),11,y\+23,124\)/);
- assert.match(hud,/ctx\.fillText\('OF '\+meter\(maxDepth\)/);
+ assert.match(hud,/const y=12,h=39/);
+ assert.match(hud,/meter\(depth\)/);
+ assert.match(hud,/caught\.length/);
+ assert.match(hud,/save\.cash/);
  assert.match(hud,/const markerY=clamp\(SEA\+depth-cameraY/);
  assert.match(hud,/metres%50===0/);
- assert.match(hud,/metres-currentMetres/);
  assert.match(hud,/const x=W-2/);
  assert.match(game,/sideDepthGauge\(\);\s*depthReadout\(\);/);
+ assert.match(game,/zoneAnnouncement\(\);/);
+ assert.match(game,/zoneNotice=\{name:region\.name/);
  assert.doesNotMatch(game,/360\*depth\/maxDepth/);
 });
-
 
 test('shopfront is a readable in-world scene with individual merchandise and all upgrades accessible',()=>{
  const game=read('src/game.js'),art=read('src/shop-art.js');
