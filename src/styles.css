@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body {
@@ -8,7 +9,7 @@ body {
   display: flex; justify-content: center; align-items: center;
   width: 100%; height: 100vh; height: 100dvh;
   padding: 0;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Press Start 2P', monospace;
   background: radial-gradient(ellipse at 50% 35%, #258eaa 0%, #146688 46%, #092c50 100%);
 }
 #game {
@@ -49,7 +50,7 @@ body {
 #rotate-notice p { font-size: 17px; font-weight: 800; line-height: 1.4; }
 #play-landscape {
   margin-top: 9px; padding: 12px 20px; border: 2px solid #06182c;
-  font: 900 18px Arial, Helvetica, sans-serif; color: #ffffff;
+  font: 900 18px 'Press Start 2P', monospace; color: #ffffff;
   background: #082841; cursor: pointer; min-height: 48px;
 }
 @media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
@@ -68,7 +69,7 @@ body {
  display:flex;align-items:center;justify-content:center;
  padding:24px;
  background:radial-gradient(circle at 50% 25%,#155a76,#06182f 70%);
- color:#fff;font-family:Arial,Helvetica,sans-serif;
+ color:#fff;font-family:'Press Start 2P',monospace;
 }
 body.game-ready #game-boot{display:none}
 #game-boot .boot-panel{
@@ -83,7 +84,7 @@ body.game-ready #game-boot{display:none}
  display:block;width:100%;margin:18px 0 0;
  padding:16px 12px;min-height:52px;
  border:3px solid #ffd861;background:#083149;color:#fff;
- font:900 17px Arial,Helvetica,sans-serif;cursor:pointer;
+ font:900 17px 'Press Start 2P',monospace;cursor:pointer;
 }
 #recover-game[hidden]{display:none}
 #recover-game:disabled{opacity:.6;cursor:wait}
