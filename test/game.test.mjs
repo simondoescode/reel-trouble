@@ -145,7 +145,7 @@ test('collection routes and rewards are wired into gameplay and save migration',
 test('brighter canvas typography and new ocean palette stay enabled',()=>{
  const game=read('src/game.js'),ocean=read('src/ocean.js');
  assert.match(game,/Math\.max\(16,size\)/);
- assert.match(game,/Arial,Helvetica,sans-serif/);
+ assert.match(game,/Press Start 2P/);
  assert.match(game,/ctx\.strokeText\(fitted,x,y,width\)/);
  assert.match(game,/text\(biome\.name,97,130,13/);
  assert.match(ocean,/SUNSKIP SHELF/);
