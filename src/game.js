@@ -152,7 +152,7 @@ let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0,missionRewardThisCast=0,missionsCompletedThisCast=0;
-let deepestCast=0,discoveriesThisCast=0,lastBiomeId='sunskip',cameraY=0;
+let deepestCast=0,discoveriesThisCast=0,lastBiomeId='sunskip',cameraY=0,zoneNotice=null;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function expeditionStats(){
@@ -602,7 +602,7 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const worldSeed=Math.floor(Math.random()*0xffffffff);
  oceanStream=createOceanStream(maxDepth,worldSeed);
  discoveryStream=createDiscoveryStream(maxDepth,worldSeed);
@@ -885,8 +885,11 @@ function update(dt){
   const region=biomeAtDepth(depth);
   if(region.id!==lastBiomeId){
    lastBiomeId=region.id;
-   message='ENTERING '+region.name;messageTimer=2.5;
-   if(!lowFx)sceneFlash=.09;
+   const regionIndex=BIOMES.findIndex(item=>item.id===region.id);
+   const nextRegion=BIOMES[regionIndex+1];
+   const rangeStart=Math.round(region.start/DEPTH_PIXELS_PER_METRE);
+   const rangeEnd=nextRegion?Math.round(nextRegion.start/DEPTH_PIXELS_PER_METRE)-1:null;
+   zoneNotice={name:region.name,range:rangeEnd===null?rangeStart+'m +':rangeStart+'–'+rangeEnd+'m',started:clock};
   }
  }
  }
@@ -982,27 +985,41 @@ function bottomHint(hint){
  text(hint,210,744,14,C.white,'center',900,0,298);
 }
 function depthReadout(){
- // EX-inspired angular typography, drawn from scratch for Reel Trouble.
- // Current depth and the upgraded line limit are both always readable.
- const y=15;
+ // One slim, high-contrast status strip; retain the separate depth ruler.
+ const y=12,h=39;
  ctx.save();
- ctx.shadowColor='#031625';ctx.shadowBlur=6;ctx.shadowOffsetY=3;
- ctx.fillStyle='#f5faff';
- ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(130,y);ctx.lineTo(151,y+31);
- ctx.lineTo(138,y+65);ctx.lineTo(0,y+65);ctx.closePath();ctx.fill();
- ctx.shadowBlur=0;ctx.shadowOffsetY=0;
- ctx.fillStyle='#4a83e5';ctx.fillRect(12,y+45,94,2);
- ctx.font='900 30px "Press Start 2P",monospace';
- ctx.textAlign='left';ctx.textBaseline='middle';
- ctx.fillText(meter(depth),11,y+23,124);
- ctx.font='900 14px "Press Start 2P",monospace';
- ctx.fillText('OF '+meter(maxDepth),12,y+56,121);
+ ctx.fillStyle='rgba(5,22,38,.88)';ctx.fillRect(0,y,W,h);
+ ctx.fillStyle='#82f8e5';ctx.fillRect(0,y+h-2,W,2);
+ ctx.textBaseline='middle';ctx.shadowColor='#04111b';ctx.shadowBlur=3;
+ const items=[
+  {label:'▼ '+meter(depth),x:12,width:139,align:'left',color:'#ffffff'},
+  {label:'♥ '+caught.length,x:161,width:68,align:'left',color:'#ff9bad'},
+  {label:'$ '+Math.floor(save.cash+roundEarnings).toLocaleString('en-GB'),x:W-11,width:179,align:'right',color:payoutPulse>0?'#fff1a5':'#ffffff'}
+ ];
+ for(const item of items){
+  ctx.font='11px "Press Start 2P",monospace';
+  ctx.fillStyle=item.color;ctx.textAlign=item.align;
+  ctx.fillText(item.label,item.x,y+h/2,item.width);
+ }
  ctx.restore();
- // Avoid a full-width status bar: the moving ocean should remain the star.
- ctx.save();ctx.shadowColor='#071526';ctx.shadowBlur=5;
- ctx.textAlign='left';ctx.textBaseline='middle';
- ctx.font='900 17px "Press Start 2P",monospace';ctx.fillStyle='#ffffff';
- ctx.fillText(state==='descent'?'DIVING ↓':'REELING ↑',165,45,164);
+}
+function zoneAnnouncement(){
+ if(!zoneNotice||state!=='descent')return;
+ const elapsed=clock-zoneNotice.started,duration=lowFx?2:3;
+ if(elapsed>=duration)return;
+ const alpha=lowFx?1:clamp(Math.min(elapsed/.38,(duration-elapsed)/.55),0,1);
+ const rise=lowFx?0:Math.round((1-clamp(elapsed/.5,0,1))*12);
+ const center=H*.43-rise;
+ ctx.save();ctx.globalAlpha=alpha;
+ ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.shadowColor='#041422';ctx.shadowBlur=8;ctx.shadowOffsetY=3;
+ ctx.fillStyle='#f3ffff';ctx.font='10px "Press Start 2P",monospace';
+ ctx.fillText('NEW DEPTH DISCOVERED',W/2,center-43,370);
+ ctx.fillStyle='#a6fff1';ctx.fillRect(72,center-16,276,2);
+ ctx.font='19px "Press Start 2P",monospace';ctx.fillStyle='#ffffff';
+ ctx.fillText(zoneNotice.name,W/2,center+13,375);
+ ctx.font='10px "Press Start 2P",monospace';ctx.fillStyle='#d5eaf5';
+ ctx.fillText(zoneNotice.range,W/2,center+49,310);
  ctx.restore();
 }
 function sideDepthGauge(){
@@ -1067,11 +1084,10 @@ for(const h of hazards){
  depthReadout();
  if(chargeArmed&&state==='descent')arcadePill('BLAST READY',242,154,162,C.yellow);
  const biome=biomeAtDepth(depth);
- roundRect(18,112,159,37,0,'#08253bf5','#76fae2',2);
- text(biome.name,97,130,13,biome.id==='unmarked'?'#e4caff':C.cream,'center',950,0,145);
- // Depth is conveyed by the angular readout and the right-edge ruler; no duplicate progress bar.
- if(state==='ascent'){roundRect(191,112,162,37,0,'#08253bf0','#ffed76',2);text('HOOKED '+caught.length,272,130,16,C.yellow,'center',950,0,148);}
- if(messageTimer>0){roundRect(67,164,286,42,0,'#07243df5','#86fff2',2);text(message,210,185,16,C.cream,'center',950,0,269);}
+ // Region names appear as centre-screen discoveries, not permanent cards.
+ // The concise HUD and edge ruler carry the persistent information.
+ if(messageTimer>0&&!(zoneNotice&&clock-zoneNotice.started<3)){roundRect(67,164,286,42,0,'#07243df5','#86fff2',2);text(message,210,185,16,C.cream,'center',950,0,269);}
+ zoneAnnouncement();
  bottomHint(hazardSlow>0?'JELLYFISH! SLOW REEL':(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
  button('II',357,112,51,46,()=>pauseGame('MANUAL'),C.cream);
 }
