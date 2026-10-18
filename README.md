@@ -60,6 +60,20 @@ save slots, currencies, achievements and the indices of the original 14 fish
 remain compatible. Deep-sea light gradually fades, with upgraded lanterns
 expanding visibility around the hook.
 
+### Rare life and underwater secrets
+
+The deep-water species **Hushwisp**, **Riftglimmer**, and **Blackglass Lurker**
+now have separate hand-designed pixel silhouettes, animated organs and different
+forms rather than a recoloured generic fish. Rare distant megafauna shapes can
+appear behind the scenery.
+
+Each expedition can contain uncommon, deterministic relics such as a
+**Whistleshell**, **Lumen Nest**, or **Unmarked Cipher**. Steer the hook close
+to collect them, earn bonus cash, and uncover a new secret. Relics are recorded
+once per cast and retained if the scenery streams out of view. A discovery
+notification and result-screen count track the rewards. The compact mobile
+guidance automatically fades after the dive begins.
+
 ## Play
 
 1. Choose **CAST LINE** to start diving.
