@@ -296,7 +296,7 @@ test('rare discoveries and bespoke deep creature art are integrated without inte
 test('fishing HUD is a compact strip and keeps the world-anchored edge ruler',()=>{
  const game=read('src/game.js');
  const hud=game.slice(game.indexOf('function depthReadout()'),game.indexOf('function gameplay()'));
- assert.match(hud,/const y=12,h=39/);
+ assert.match(hud,/const y=0,h=51/);
  assert.match(hud,/meter\(depth\)/);
  assert.match(hud,/caught\.length/);
  assert.match(hud,/save\.cash/);
