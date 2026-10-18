@@ -1,4 +1,5 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
+import { BOAT_HULLS, BOAT_FLAGS, boatOptions, normalizeBoatStyle, boatPurchase } from './boat-customisation.js';
 import { paintShopBackdrop, paintSkipper, paintShopItem } from './shop-art.js';
 import { SHOP_SECRETS, unlockedShopSecrets, nextShopSecret } from './shop-secrets.js';
 import { createArcadeAudio } from './audio.js';
@@ -32,9 +33,9 @@ display.imageSmoothingEnabled=true; // Smooth final presentation, not font raste
 // Saturated colours remain in the art and outlines. UI labels are solid white.
 const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#ffffff',white:'#ffffff',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#ffffff',ink:'#071b31'};
 
-const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,collection:createCollection(),expedition:createExpedition()};
+const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,boatStyle:normalizeBoatStyle(),collection:createCollection(),expedition:createExpedition()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
-return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
+return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},boatStyle:normalizeBoatStyle(d.boatStyle),collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -150,6 +151,8 @@ function pauseGame(reason='MANUAL'){
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sceneTransition=null;sound.pause(false);rumble.stop();}
 let shopTab='lines',shopView='counter',chargeArmed=false;
+let boatYardTab='hull',boatYardScroll={hull:0,flag:0},boatYardDrag=null;
+let captainLine='',captainLineUntil=0,captainLineNext=5,captainLineIndex=0;
 let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionScroll={fish:0,badges:0},collectionDrag=null,selectedFish=0;
 let sceneTransition=null;
@@ -163,6 +166,29 @@ function expeditionStats(){
   line:save.upgrades.line,earned:save.total};
 }
 function currentJob(){return expeditionStatus(save.expedition,expeditionStats());}
+function captainSay(line,duration=5){
+ captainLine=line;captainLineUntil=clock+duration;captainLineNext=clock+21+captainLineIndex%3*3;
+}
+function captainQuip(){
+ const quotes=[
+  'A good day to catch bad decisions!',
+  'Mind the hooks. I only have two hands.',
+  'Skipper says I owe him three anchors.',
+  'That shadow was probably just a fish...',
+  'This boat has more stories than planks.',
+  'If it glows, bring a bigger lantern.',
+  'The ocean keeps what we forget.',
+  'Fish first. Questions later!'
+ ];
+ if(save.boatStyle.hull!=='coral'&&captainLineIndex%4===1)return 'New paint. Same questionable captain!';
+ if(save.upgrades.light===0&&save.upgrades.line>=2&&captainLineIndex%4===2)return 'We need a light down there, mate!';
+ return quotes[captainLineIndex%quotes.length];
+}
+function updateCaptainQuips(){
+ if(state!=='menu'||clock<captainLineNext)return;
+ captainSay(captainQuip());
+ captainLineIndex++;
+}
 function settleExpedition(){
  save.expedition=recordExpeditionDive(save.expedition,deepestCast/DEPTH_PIXELS_PER_METRE);
  const result=completeExpeditions(save.expedition,expeditionStats());
@@ -851,6 +877,7 @@ function update(dt){
   return;
  }
  clock+=realDt;if(!lowFx)waveT+=dt;age+=realDt;
+ updateCaptainQuips();
  shake=lowFx?0:Math.max(0,shake-realDt*23);if(messageTimer>0)messageTimer-=realDt;
  sceneFlash=Math.max(0,sceneFlash-dt*1.7);
  for(const splash of splashes)splash.life-=dt;
@@ -1488,7 +1515,7 @@ function skipperSpeak(line,mood='neutral'){
  if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
 }
 function enterShop(){
- state='shop';shopTab='lines';shopView='counter';shopInspect=null;age=0;skipperVisits++;
+ state='shop';shopTab='lines';shopView='counter';shopInspect=null;boatYardDrag=null;age=0;skipperVisits++;
  shopScrollTo(save.upgrades.line*SHOP_ROW-SHOP_ROW);
  const find=nextShopSecret(save,shopSecretsSeen);
  skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
