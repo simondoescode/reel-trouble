@@ -1,47 +1,91 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AIR_GRAVITY, SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, allCatchResolved } from '../src/airborne.js';
+import {
+  AIR_GRAVITY, SHOOT_WATERLINE, SHOOT_SURFACE_INSET,
+  makeAirborneCatch, stepAirborneCatch, targetSkyCamera,
+  stepSkyCamera, skyScreenY, allCatchResolved
+} from '../src/airborne.js';
 
-test('launches with upwards velocity and accelerating gravity, then falls', () => {
- const fish=makeAirborneCatch({kind:2,value:40},0,1,()=>.5);
- assert.equal(fish.launched,false);
- assert.ok(fish.vy<0);
- stepAirborneCatch(fish,.1);
- assert.equal(fish.launched,true);
- const vy=fish.vy;
- stepAirborneCatch(fish,.1);
- assert.ok(Math.abs(fish.vy-vy-AIR_GRAVITY*.1)<.0001);
- let descended=false;
- for(let i=0;i<120&&!fish.lost;i++){
-  const previousY=fish.y;
-  stepAirborneCatch(fish,.05);
-  if(fish.y>previousY)descended=true;
- }
- assert.ok(descended,'fish passes the apex and descends');
- assert.equal(fish.lost,true,'fish eventually splashes down');
- assert.equal(fish.y,SHOOT_WATERLINE-12);
- assert.equal(stepAirborneCatch(fish,1),false,'landing fires only once');
+const fish = (i=0, n=1, size=18) => makeAirborneCatch(
+  {kind:i, value:40, size}, i, n, () => .5, {x:210,reelSpeed:205}
+);
+
+test('a catch erupts close to the real hook rather than spawning across the sky', () => {
+  const school = Array.from({length:24}, (_, i) => fish(i,24));
+  assert.ok(school.every(f => f.y > SHOOT_WATERLINE && Math.abs(f.x-210) <= 21));
+  assert.ok(school.every(f => f.launchDelay <= .07));
+  assert.ok(school.some(f => f.vx<0) && school.some(f => f.vx>0));
 });
 
-test('staggered launches remain invisible and untargetable before taking flight', () => {
- const f=makeAirborneCatch({kind:0,value:10},5,8,()=>.5);
- assert.ok(f.launchDelay>.6);
- assert.equal(stepAirborneCatch(f,.2),false);
- assert.equal(f.launched,false);
- assert.equal(f.y,SHOOT_WATERLINE+15);
- stepAirborneCatch(f,1);
- assert.equal(f.launched,true);
+test('gravity creates an arc, upward launch, apex and single water return', () => {
+  const f=fish();
+  assert.ok(f.vy<0);
+  let apex=false, splash=0, previousY=f.y;
+  for(let i=0;i<800;i++){
+    const before=f.vy;
+    if(stepAirborneCatch(f,.01)) splash++;
+    if(before<0&&f.vy>=0) apex=true;
+    previousY=f.y;
+  }
+  assert.ok(apex);
+  assert.equal(splash,1);
+  assert.equal(f.lost,true);
+  assert.equal(previousY,SHOOT_WATERLINE-SHOOT_SURFACE_INSET);
+  assert.equal(stepAirborneCatch(f,1),false);
 });
 
-test('shot fish stop moving and splash-downs can finish a round', () => {
- const a=makeAirborneCatch({kind:0,value:10},0,2,()=>.5);
- const b=makeAirborneCatch({kind:1,value:20},1,2,()=>.5);
- a.shot=true;
- const x=a.x,y=a.y;
- assert.equal(stepAirborneCatch(a,3),false);
- assert.deepEqual([a.x,a.y],[x,y]);
- assert.equal(allCatchResolved([a,b]),false);
- b.lost=true;
- assert.equal(allCatchResolved([a,b]),true);
- assert.equal(allCatchResolved([]),true);
+test('fish positions are effectively frame-rate independent', () => {
+  const positions=[30,60,120].map(fps=>{
+    const f=fish();
+    for(let i=0;i<fps*2;i++)stepAirborneCatch(f,1/fps);
+    return {x:f.x,y:f.y,vx:f.vx,vy:f.vy,angle:f.angle};
+  });
+  for(const p of positions.slice(1))
+    for(const k of Object.keys(p))assert.ok(Math.abs(p[k]-positions[0][k])<.0001,k);
+});
+
+test('larger fish have less launch energy and spin than light fish', () => {
+  const small=fish(0,1,12), huge=fish(0,1,57);
+  assert.ok(small.vy<huge.vy);
+  assert.ok(Math.abs(small.spin)>=Math.abs(huge.spin));
+});
+
+test('reel momentum affects the launch, and starts at the actual hook', () => {
+  const slow=makeAirborneCatch({kind:0,value:10},0,1,()=>.5,{x:90,reelSpeed:120});
+  const fast=makeAirborneCatch({kind:0,value:10},0,1,()=>.5,{x:90,reelSpeed:250});
+  assert.equal(slow.x,90);
+  assert.ok(fast.vy<slow.vy);
+});
+
+test('camera opens on the reel waterline and smoothly follows aerial targets', () => {
+  const f=fish();
+  let camera=SHOOT_WATERLINE-192;
+  assert.equal(skyScreenY(SHOOT_WATERLINE,camera),192);
+  stepAirborneCatch(f,.5);
+  for(let i=0;i<35;i++)camera=stepSkyCamera(camera,targetSkyCamera([f]),1/60,true);
+  assert.ok(camera<SHOOT_WATERLINE-192);
+  assert.ok(Number.isFinite(skyScreenY(f.y,camera)));
+  assert.ok(targetSkyCamera([])===0);
+});
+
+test('24 fish remain within the viewport throughout their flight', () => {
+  const school=Array.from({length:24},(_,i)=>fish(i,24,i%2?57:12));
+  for(let i=0;i<600;i++){
+    for(const f of school)stepAirborneCatch(f,.01);
+    assert.ok(school.every(f=>f.x>=34&&f.x<=386));
+  }
+  assert.ok(allCatchResolved(school));
+});
+
+test('no target launches, moves or pays twice after being shot', () => {
+  const a=fish(0,2), b=fish(1,2);
+  stepAirborneCatch(a,.5);
+  a.shot=true;
+  const prev=[a.x,a.y];
+  stepAirborneCatch(a,.2);
+  assert.deepEqual([a.x,a.y],prev);
+  assert.equal(allCatchResolved([a,b]),false);
+  b.lost=true;
+  assert.equal(allCatchResolved([a,b]),true);
+  assert.equal(allCatchResolved([]),true);
 });

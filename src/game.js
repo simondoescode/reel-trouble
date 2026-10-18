@@ -12,7 +12,7 @@ import { createDiscoveryStream, drawDiscovery } from './discoveries.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus, refreshGameFiles } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
-import { SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, allCatchResolved } from './airborne.js';
+import { SHOOT_WATERLINE, makeAirborneCatch, stepAirborneCatch, targetSkyCamera, stepSkyCamera, skyScreenY, allCatchResolved } from './airborne.js';
 import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } from './arcade-ui.js';
 (() => {
 'use strict';
@@ -138,6 +138,8 @@ window.addEventListener('deviceorientation', event=>{
   if(sensorStatus==='WAITING FOR MOTION SENSOR'||sensorStatus==='NO SENSOR DATA - DRAG TO STEER'||sensorStatus==='ENABLE TILT TO STEER')sensorStatus='TILT READY';
 });
 let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, escaped=0, shotEffects=[], recoil=0, muzzleFlash=0;
+let shootCameraOffset=SHOOT_WATERLINE-192;
+const airScreenY=worldY=>skyScreenY(worldY,shootCameraOffset);
 let finisherSlow=0, hitFreeze=0, impactRings=[], impactGhosts=[], coinBursts=[], payoutPulse=0;
 let paused=false,pauseReason='';
 function liveRound(){return state==='descent'||state==='ascent'||state==='shoot';}
@@ -636,23 +638,27 @@ function catchFish(f){
 }
 function beginShoot(){
  state='shoot';age=0;shootTime=16;endDelay=0;
+ shootCameraOffset=SHOOT_WATERLINE-SEA;
  combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;
  shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];
  finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;
  const gun=weaponForLevel(save.upgrades.gun);
  message=gun.tier===0?'SHOOT BEFORE THEY SPLASH!':gun.name+' READY!';
  messageTimer=2;
- airborne=caught.map((f,i)=>({...makeAirborneCatch(f,i,caught.length),hp:species[f.kind].hp||1}));
+ airborne=caught.map((f,i)=>({...makeAirborneCatch({...f,size:species[f.kind].size},i,caught.length,Math.random,{x:hookX,reelSpeed:hazardSlow>0?125:205}),hp:species[f.kind].hp||1}));
  if(!caught.length){endRound();return;}
  stageCue('shoot');
- emitSplash(210,SHOOT_WATERLINE,C.teal,1.5);sceneFlash=.23;sound.play('splash');
+ emitSplash(hookX,SHOOT_WATERLINE,C.cream,Math.min(3,1.4+caught.length*.11),true);
+ burst(hookX,SEA,C.white,Math.min(48,14+caught.length*2));
+ shake=lowFx?0:Math.min(10,3+caught.length*.38);
+ rumble.play('cast');sceneFlash=.23;sound.play('splash');
 }
 function shootAt(x,y){
  if(state!=='shoot'||endDelay>0||sceneTransition)return;
  const gun=weaponForLevel(save.upgrades.gun);
  fired++;recoil=1;muzzleFlash=.16;sound.play('shot',{pitch:gun.tier});
  pointer={x,y};
- const targets=pickShotTargets(airborne.map(f=>({...f,size:species[f.kind].size,original:f})),x,y,gun);
+ const targets=pickShotTargets(airborne.map(f=>({...f,y:airScreenY(f.y),size:species[f.kind].size,original:f})),x,y,gun);
  const actual=targets.map(t=>t.original);
  const defeated=actual.filter(f=>f.hp<=Math.max(1,gun.tier+1));
   const streak=nextCombo(combo,lastComboHit,clock,defeated.length);
@@ -662,14 +668,15 @@ function shootAt(x,y){
  const a=Math.atan2(y-baseY,x-baseX);
  const muzzleX=baseX+Math.cos(a)*86,muzzleY=baseY+Math.sin(a)*86;
  shotEffects.push({x:muzzleX,y:muzzleY,targets:actual.length
-   ?actual.map(f=>({x:f.x,y:f.y})):[{x,y}],life:.25,max:.25,color:gun.color,tier:gun.tier});
+   ?actual.map(f=>({x:f.x,y:airScreenY(f.y)})):[{x,y}],life:.25,max:.25,color:gun.color,tier:gun.tier});
  if(actual.length){
   for(const f of actual){
+    const hitY=airScreenY(f.y);
     f.hp=Math.max(0,(f.hp??1)-Math.max(1,gun.tier+1));
     if(f.hp>0){
-      burst(f.x,f.y,C.white,9);
-      impactRings.push({x:f.x,y:f.y,radius:4,speed:120,life:.23,max:.23,color:C.white});
-      floatLabel('ARMOUR '+f.hp+' LEFT',f.x,f.y-30,C.white);
+      burst(f.x,hitY,C.white,9);
+      impactRings.push({x:f.x,y:hitY,radius:4,speed:120,life:.23,max:.23,color:C.white});
+      floatLabel('ARMOUR '+f.hp+' LEFT',f.x,hitY-30,C.white);
       continue;
     }
     landed++;
@@ -677,13 +684,13 @@ function shootAt(x,y){
    const money=shotPayout(f.value,streak.multiplier);
    roundEarnings+=money;save.cash+=money;save.total+=money;payoutPulse=Math.min(1.25,payoutPulse+.5);
    recordShot(save.collection,f.kind,money,streak.multiplier);
-   burst(f.x,f.y,species[f.kind].color,streak.multiplier>=3?38:27);
-   coinBurst(f.x,f.y,streak.multiplier,gun.tier);
-   impactRings.push({x:f.x,y:f.y,radius:5,speed:streak.multiplier>=3?330:235,
+   burst(f.x,hitY,species[f.kind].color,streak.multiplier>=3?38:27);
+   coinBurst(f.x,hitY,streak.multiplier,gun.tier);
+   impactRings.push({x:f.x,y:hitY,radius:5,speed:streak.multiplier>=3?330:235,
      life:.43,max:.43,color:streak.multiplier>=3?C.yellow:gun.color});
-   impactGhosts.push({x:f.x,y:f.y,kind:f.kind,vx:f.vx*.25,vy:-65,
+   impactGhosts.push({x:f.x,y:hitY,kind:f.kind,vx:f.vx*.25,vy:-65,
      angle:f.angle||0,life:.42,max:.42});
-   floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,f.y-29,C.yellow);
+   floatLabel('+$'+money+(streak.multiplier>1?' x'+streak.multiplier:''),f.x,hitY-29,C.yellow);
   }
   shake=lowFx?0:clamp(shake+3+actual.length*2+(streak.multiplier>=3?2:0),0,12);
   hitFreeze=lowFx?0:.045;
@@ -918,14 +925,16 @@ function update(dt){
    const waiting=!f.launched;
    if(stepAirborneCatch(f,dt)){
     escaped++;
-    emitSplash(f.x,SHOOT_WATERLINE,species[f.kind].color,1.15);
-    burst(f.x,SHOOT_WATERLINE-6,C.teal,11);
-    if(escaped<=4)floatLabel('SPLASH!',f.x,SHOOT_WATERLINE-36,C.white);
+    const force=Math.min(2.7,.8+f.mass*.85+Math.max(0,f.vy)*.0012);
+    emitSplash(f.x,SHOOT_WATERLINE,species[f.kind].color,force,true);
+    burst(f.x,airScreenY(SHOOT_WATERLINE)-6,C.teal,lowFx?5:Math.round(8+force*5));
+    if(escaped<=4)floatLabel('SPLASH!',f.x,airScreenY(SHOOT_WATERLINE)-36,C.white);
     sound.play('water-return');
    }else if(waiting&&f.launched){
-    emitSplash(f.x,SHOOT_WATERLINE,C.cream,.58);
+    emitSplash(f.x,SHOOT_WATERLINE,C.cream,.35,true);
    }
   }
+  shootCameraOffset=stepSkyCamera(shootCameraOffset,targetSkyCamera(airborne),dt,age<1.0);
   if(endDelay>0){endDelay-=realDt;if(endDelay<=0)endRound();}
   else if(shootTime<=0)endRound();
   else if(allCatchResolved(airborne))setTimeoutSafe(endRound,550);
@@ -934,20 +943,20 @@ function update(dt){
  particles=particles.filter(p=>p.life>0);
  for(const l of labels){l.y-=27*dt;l.life-=dt;}labels=labels.filter(l=>l.life>0);
 }
-function emitSplash(x,y,color=C.teal,intensity=1){
- ripples.push({x,y,color,scale:intensity,life:.48,max:.48});
+function emitSplash(x,y,color=C.teal,intensity=1,shootWorld=false){
+ ripples.push({x,y,color,scale:intensity,life:.48,max:.48,shootWorld});
  const count=lowFx?5:Math.round(10*intensity);
  for(let i=0;i<count;i++){
   const a=-Math.PI/2+rand(-1.25,1.25),speed=rand(55,210)*intensity;
   const life=rand(.28,.68);
-  splashes.push({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,life,max:life,color,size:irand(3,7)});
+  splashes.push({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,life,max:life,color,size:irand(3,7),shootWorld});
  }
 }
 function drawSplashEffects(dt){
  for(const ripple of ripples){
   const progress=1-ripple.life/ripple.max;
   const radius=(10+46*progress)*ripple.scale;
-  const edgeX=Math.round(radius/4)*4, y=Math.round(ripple.y/4)*4;
+  const edgeX=Math.round(radius/4)*4, y=Math.round((ripple.y-(ripple.shootWorld?shootCameraOffset:0))/4)*4;
   ctx.globalAlpha=clamp(ripple.life/ripple.max,0,1)*.88;
   ctx.fillStyle=ripple.color;
   ctx.fillRect(Math.round(ripple.x-edgeX),y,18,4);
@@ -960,7 +969,7 @@ function drawSplashEffects(dt){
   drop.vy+=360*dt;drop.vx*=Math.pow(.75,dt);
   ctx.globalAlpha=clamp(drop.life/drop.max,0,1);
   ctx.fillStyle=drop.color;
-  ctx.fillRect(Math.round(drop.x/3)*3,Math.round(drop.y/3)*3,drop.size,drop.size);
+  ctx.fillRect(Math.round(drop.x/3)*3,Math.round((drop.y-(drop.shootWorld?shootCameraOffset:0))/3)*3,drop.size,drop.size);
  }
  ctx.globalAlpha=1;
 }
@@ -1149,31 +1158,47 @@ function drawGun(){
  ctx.restore();
 }
 function shootScene(){
- const sky=['#4257b5','#6658bf','#9664ca','#c76aba','#fa85b4','#ffa49c','#ffc680','#fff0b3'];
- for(let i=0;i<sky.length;i++){ctx.fillStyle=sky[i];ctx.fillRect(0,i*80,W,82);}
- ctx.fillStyle='#ffa79b';
- for(let j=-10;j<=10;j++){const width=85-Math.round(Math.abs(j*j)*.6);ctx.fillRect(322-width,295+j*9,width*2,10);}
- ctx.fillStyle='#fff5a4';
- for(let j=-7;j<=7;j++){const width=66-Math.round(Math.abs(j*j)*.8);ctx.fillRect(322-width,295+j*9,width*2,10);}
- for(let i=0;i<5;i++){
-  const x=i*103+Math.floor(waveT*3)%50-23,y=70+(i%3)*66;
-  ctx.fillStyle=i%2===0?'#fba3ca8a':'#ffe4bb7a';
-  ctx.fillRect(x,y,67,10);ctx.fillRect(x+13,y-9,36,11);
+ // World-anchored ocean follows the camera; distant sky layers move more slowly.
+ const seaY=airScreenY(SHOOT_WATERLINE);
+ const sky=ctx.createLinearGradient(0,0,0,H);
+ sky.addColorStop(0,'#485cba');sky.addColorStop(.33,'#8e6bc8');
+ sky.addColorStop(.67,'#f18db7');sky.addColorStop(1,'#ffd4ad');
+ ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ const sunY=276-shootCameraOffset*.23;
+ ctx.fillStyle='#ffbd9f';ctx.fillRect(236,Math.round(sunY)-65,174,130);
+ ctx.fillStyle='#fff3ad';
+ for(let j=-7;j<=7;j++){
+  const width=65-Math.round(j*j*.75);
+  ctx.fillRect(322-width,Math.round(sunY)+j*9,width*2,10);
  }
- ctx.fillStyle='#fff2c2';for(let i=0;i<16;i++){
-  const x=Math.floor(((i*137+29)%W)/4)*4,y=Math.floor(((i*91+17)%380)/4)*4;
-  ctx.fillRect(x,y,3,3);
+ for(let i=0;i<7;i++){
+  const x=((i*123+waveT*(i%2?5:-8)+W*8)%(W+140))-70;
+  const y=62+(i%4)*75-shootCameraOffset*(.15+i%3*.045);
+  ctx.fillStyle=i%2?'#ffe8c37a':'#ffbee19b';
+  ctx.fillRect(Math.round(x),Math.round(y),74,11);
+  ctx.fillRect(Math.round(x+14),Math.round(y-10),41,13);
  }
- ctx.fillStyle='#443b76';for(let x=0;x<W;x+=18){const h=38+((x*13)%50);ctx.fillRect(x,596-h,18,H-596+h);}
- ctx.fillStyle='#0a85a8';ctx.fillRect(0,644,W,H-644);
- for(let x=0;x<W;x+=24){
-  ctx.fillStyle=x%48?'#aefff0':'#36dcda';
-  ctx.fillRect(x,644+(Math.floor(waveT*2+x/24)%3)*3,15,4);
+ if(seaY>-110){
+  ctx.fillStyle='#423d77';
+  for(let x=0;x<W;x+=18){
+   const h=38+((x*13)%50);
+   ctx.fillRect(x,Math.round(seaY-48-h*.32),18,Math.max(0,H-seaY+48+h*.32));
+  }
  }
- boat(210,636);
+ if(seaY<H+32){
+  ctx.fillStyle='#087fa4';
+  ctx.fillRect(0,Math.round(seaY),W,H-seaY+4);
+  ctx.fillStyle='#0a668e';
+  for(let x=0;x<W;x+=60)ctx.fillRect(x,Math.round(seaY+18+(x%3)*8),36,Math.max(0,H-seaY));
+  for(let x=0;x<W;x+=24){
+   ctx.fillStyle=x%48?'#aefff0':'#36dcda';
+   ctx.fillRect(x,Math.round(seaY)+(Math.floor(waveT*2+x/24)%3)*3,15,4);
+  }
+  if(seaY>-45&&seaY<H+65)boat(210,seaY-8);
+ }
  for(const f of airborne){
   if(f.shot||f.lost||!f.launched)continue;
-  ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.angle);
+  ctx.save();ctx.translate(f.x,airScreenY(f.y));ctx.rotate(f.angle);
   fish(0,0,f.kind,f.vx<0?-1:1,1.55,clock*6+f.phase);
   ctx.restore();
  }
