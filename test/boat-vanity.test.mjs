@@ -79,7 +79,7 @@ test('boat silhouette uses owned colours and flags without changing gameplay',()
 });
 
 test('boat yard offers previews, scrolling and explicit buy-or-equip confirmation',()=>{
- const yard=section('function boatYard(){','function boatInspectOverlay(){');
+ const yard=section('function boatYard(){','function shop(){');
  assert.match(yard,/shopView='counter'/);
  assert.match(yard,/boatYardScroll\[boatYardTab\]/);
  assert.match(yard,/ctx\.clip\(\)/);
