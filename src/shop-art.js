@@ -1,3 +1,4 @@
+import { getShopItemSprite } from './shop-item-assets.js';
 // Shop sprites use the same high-contrast, hard-edged pixel vocabulary as fish.
 // Every character and object is built on a tiny canvas and drawn nearest-neighbour.
 const WIDTH=420,HEIGHT=780;
@@ -98,73 +99,9 @@ export function paintSkipper(ctx,clock,x=98,y=215,{mood='neutral',talking=false,
   img.width*size,img.height*size);
  ctx.restore();return true;
 }
-function gearSprite(type,level=0){
- const n=Math.max(0,Math.floor(Number(level)||0));
- return sprite('gear-'+type+'-'+n,24,24,r=>{
-  const metal=n>=3?'#a4dddb':'#aec7c9',blue=n>=3?'#6de8e2':'#397c91',
-   warm=n>=3?'#ffd77d':'#f2ad61';
-  if(type==='line'){
-   r(4,4,14,17,INK);r(2,7,20,12,INK);r(5,5,12,15,warm);
-   r(3,9,18,8,'#936240');r(5,7,12,12,metal);r(6,8,10,10,blue);
-   r(7,10,8,6,'#195166');for(let y=9;y<17;y+=3)r(7,y,9,1,'#bcebcf');
-   r(8,10,6,6,INK);r(9,11,4,4,'#dbb56c');r(10,12,2,2,CREAM);
-   r(18,7,4,4,INK);r(19,8,3,2,warm);r(19,5,2,3,INK);
-   r(20,4,3,3,metal);r(1,17,3,3,INK);r(2,18,2,2,warm);
-  }else if(type==='net'){
-   r(3,2,15,2,INK);r(2,4,3,11,INK);r(17,4,3,10,INK);
-   r(4,15,14,3,INK);r(4,4,13,11,blue);r(5,5,11,9,'#193f4e');
-   for(let y=6;y<15;y+=3)for(let x=5+y%2;x<16;x+=4)r(x,y,2,2,'#b8d3b9');
-   r(3,3,14,2,warm);r(2,5,2,9,warm);r(18,5,2,9,warm);
-   r(5,16,13,2,warm);r(9,18,5,5,INK);r(10,18,3,5,'#a7794c');
-  }else if(type==='gun'){
-   r(2,5,18,11,INK);r(4,4,12,3,INK);r(16,7,7,6,INK);
-   r(4,7,14,7,'#d57552');r(4,7,14,3,warm);r(17,9,5,3,metal);
-   r(20,9,3,2,INK);r(5,13,6,3,metal);r(12,12,5,4,blue);
-   r(9,15,9,8,INK);r(11,15,6,7,'#976847');
-   r(12,17,3,4,'#543d39');r(7,5,8,2,metal);
-   if(n>=2){r(10,3,7,2,blue);r(15,7,3,2,CREAM);}
-   if(n>=4){r(4,11,2,2,'#fff0b5');r(19,5,3,2,'#c8f9ee');}
-  }else if(type==='light'){
-   r(7,3,10,3,INK);r(10,1,4,3,INK);r(7,5,10,15,INK);
-   r(6,19,12,3,INK);r(8,6,8,12,metal);r(9,7,6,10,'#f3c66b');
-   r(10,8,4,8,CREAM);r(8,6,1,12,'#536f78');r(15,6,1,12,'#536f78');
-   r(7,19,10,2,warm);r(10,2,4,2,warm);
-   if(n>=3){r(10,10,4,4,'#fffccf');r(5,9,2,4,warm);}
-  }else if(type==='charge'){
-   r(6,4,13,18,INK);r(7,6,11,14,'#b85647');
-   r(9,6,6,14,'#dc7660');r(5,8,15,3,warm);r(5,17,15,3,warm);
-   r(9,10,7,7,INK);r(11,12,3,3,CREAM);
-   r(12,2,2,4,INK);r(13,1,4,2,warm);r(15,0,2,2,CREAM);
-  }else if(type==='map'){
-   r(3,4,19,17,INK);r(4,5,17,15,'#ddcb92');
-   r(6,6,1,12,'#ae9a6d');r(11,6,1,12,'#ae9a6d');
-   r(8,11,3,2,blue);r(12,12,3,2,blue);
-   r(16,10,3,4,'#b96951');r(17,11,1,2,INK);
-   r(2,3,20,2,warm);r(3,20,18,2,warm);
-  }else if(type==='tooth'){
-   r(7,2,10,6,INK);r(4,6,16,7,INK);r(6,10,12,8,INK);
-   r(8,16,3,6,INK);r(14,16,3,5,INK);
-   r(8,4,8,8,'#a9eadf');r(6,8,12,4,blue);
-   r(8,12,9,4,'#86caca');r(9,16,2,5,CREAM);
-   r(15,15,2,5,CREAM);r(10,5,3,3,CREAM);
-  }else if(type==='crate'){
-   r(3,5,19,16,INK);r(4,6,17,14,'#8e5b37');
-   r(5,7,15,2,warm);r(5,17,15,2,warm);
-   r(5,9,3,8,INK);r(16,9,3,8,INK);
-   r(8,11,8,3,'#deac5d');r(10,11,4,3,INK);
-   r(7,3,11,3,INK);r(8,4,9,1,metal);
-  }else if(type==='token'){
-   r(7,2,10,2,INK);r(4,4,16,4,INK);r(2,8,20,9,INK);
-   r(4,17,16,4,INK);r(7,21,10,2,INK);
-   r(6,5,12,14,'#30506d');r(4,9,16,6,blue);
-   r(9,7,6,10,'#8fb1d4');r(11,9,3,6,INK);
-   r(7,20,10,1,metal);r(8,5,7,1,metal);
-  }
- });
-}
 export function paintShopItem(ctx,type,x,y,scale=1,level=0,clock=0,lowFx=false){
- const img=gearSprite(type,level);
- const size=Math.max(2,Math.round(4.5*scale));
+ const img=getShopItemSprite(type,level);
+ const size=Math.max(1,Math.round(4.5*scale));
  const bob=lowFx?0:Math.round(Math.sin(clock*2.1+level)*1.6);
  const dx=Math.round(x-img.width*size/2),dy=Math.round(y-img.height*size/2+bob);
  ctx.save();ctx.imageSmoothingEnabled=false;
