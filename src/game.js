@@ -1579,11 +1579,10 @@ function shopInterior(){
  shopInk('$'+save.cash,335,50,19,'#3c2c22','center',108);
 }
 function skipperBubble(){
- roundRect(13,315,394,109,8,'#f3e0bb','#8d623e',2);
+ pixelPlate(13,315,394,109,'#f3e0bb','#8d623e',8);
  ctx.fillStyle='#a66d3c';ctx.fillRect(22,326,3,85);
  shopInk('SKIPPER SAYS',34,335,13,'#855633','left',360);
- const rows=shopWrap(skipperLine||skipperGreeting(),359,15,3);
- for(let i=0;i<rows.length;i++)shopInk(rows[i],34,363+i*23,15,'#372920','left',357);
+ storyCopy(skipperLine||skipperGreeting(),210,364,349,16,'#372920',22,3);
 }
 function shopJobBoard(){
  // Kept as a separate detail sheet rather than a permanent shop HUD panel.
