@@ -1,13 +1,13 @@
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body {
-  margin: 0; padding: 0; width: 100%; min-height: 100%; overflow: hidden;
+  margin: 0; padding: 0; width: 100%; height: 100%; min-height: 100%; overflow: hidden;
   background: #081a32; touch-action: none;
 }
 body {
   display: flex; justify-content: center; align-items: center;
-  width: 100%; height: 100dvh;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  width: 100%; height: 100vh; height: 100dvh;
+  padding: 0;
   font-family: Arial, Helvetica, sans-serif;
   background: radial-gradient(ellipse at 50% 35%, #258eaa 0%, #146688 46%, #092c50 100%);
 }
@@ -22,6 +22,20 @@ body {
   image-rendering: auto;
   border: 0; box-shadow: none;
 }
+/* On touch-first portrait devices, fill the complete PWA viewport rather than
+   letterboxing to the original 420:780 canvas ratio. The canvas keeps its
+   logical coordinate system for input and game rendering. */
+@media (pointer: coarse) and (orientation: portrait) {
+  #game {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+}
+
 @media (display-mode: standalone) { body { background: #092c50; } }
 
 #rotate-notice { display: none; }
