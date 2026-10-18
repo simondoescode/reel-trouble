@@ -161,7 +161,8 @@ test('readable high-contrast cards and typography across screens',()=>{
  assert.match(game,/ctx\.fillStyle='#ffffff'/);
  assert.match(game,/ctx\.font='900 '/);
  assert.match(game,/ctx\.strokeText\(fitted,x,y\)/);
- assert.match(game,/const pageSize=4/);
+ assert.match(game,/const COLLECTION_LIST_TOP=228,COLLECTION_LIST_BOTTOM=695/);
+ assert.match(game,/function collectionScrollTo\(/);
  assert.match(game,/const width=370,height=99/);
  assert.match(game,/text\(badge\.description,80,y\+45,16/);
  assert.match(game,/function shopInterior\(/);
