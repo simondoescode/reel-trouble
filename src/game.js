@@ -1546,15 +1546,23 @@ function skipperReply(category,success){
  skipperSpeak(arr[(save.upgrades.line+save.upgrades.net+save.upgrades.gun+save.charges)%arr.length]);
 }
 function shopInk(value,x,y,size=18,color='#f8e5bd',align='left',width=380){
+ // The font is 400 weight. Ellipsise when necessary; never crush pixel glyphs.
  ctx.save();ctx.textAlign=align;ctx.textBaseline='middle';
- ctx.font='900 '+size+'px "Press Start 2P",monospace';ctx.fillStyle=color;
+ const fontSize=Math.max(12,size);
+ ctx.font='400 '+fontSize+'px "Press Start 2P",monospace';
+ ctx.fillStyle=color;
  ctx.lineJoin='round';
  if(color==='#f8e5bd'||color==='#ffffff'){ctx.shadowColor='#251612';ctx.shadowBlur=2;ctx.shadowOffsetY=1;}
- ctx.fillText(String(value),x,y,width);ctx.restore();
+ let label=String(value);
+ if(ctx.measureText(label).width>width){
+  while(label.length>1&&ctx.measureText(label+'…').width>width)label=label.slice(0,-1);
+  label=label.trimEnd()+'…';
+ }
+ ctx.fillText(label,x,y);ctx.restore();
 }
 function shopWrap(message,maxWidth,size=16,maxLines=2){
  // Never cram an overflowing line into a fixed-height paper dialogue card.
- ctx.save();ctx.font='900 '+size+'px "Press Start 2P",monospace';
+ ctx.save();ctx.font='400 '+size+'px "Press Start 2P",monospace';
  const rows=[''];
  for(const word of String(message).split(/\s+/)){
   const index=rows.length-1,next=(rows[index]+' '+word).trim();
@@ -1572,13 +1580,10 @@ function shopWrap(message,maxWidth,size=16,maxLines=2){
  ctx.restore();return rows;
 }
 function shopButton(label,x,y,w,h,action,affordable=true){
- // Tactile wooden checkout keys. Hits stay active when short of coin so
- // the skipper can explain why the upgrade isn't available yet.
  const active=affordable;
- roundRect(x,y+3,w,h,0,'#3b241b','#29150f',1);
- roundRect(x,y,w,h,0,active?'#f1c56e':'#b2a18c',active?'#fff0b6':'#c8bb9f',2);
- ctx.fillStyle=active?'#ab662d':'#77685b';ctx.fillRect(x+6,y+5,3,h-10);
- shopInk(label,x+w/2,y+h/2,17,active?'#302219':'#51463e','center',w-21);
+ pixelPlate(x,y,w,h,active?'#f0cb7f':'#af9e89',active?'#ffe5ab':'#cabca6',7);
+ ctx.fillStyle=active?'#a26b32':'#86756a';ctx.fillRect(x+9,y+8,3,h-16);
+ shopInk(label,x+w/2,y+h/2,15,active?'#302219':'#51463e','center',w-27);
  hits.push({x,y,w,h,action});
 }
 function skipperPortrait(x,y){
@@ -1620,8 +1625,11 @@ function selectShopTab(id){
 }
 function shopTabButton(id,label,i){
  const x=13+i*100,y=167,w=94,h=49,selected=shopTab===id;
- roundRect(x,y,w,h,6,selected?'#f2d49b':'#2d2729',selected?'#f9e8c2':'#816046',1);
- shopInk(label,x+w/2,y+25,14,selected?'#3a2920':'#eaddc5','center',w-9);
+ // Keep the category names, but abbreviate tabs to fit the chunky display font.
+ const shortLabel=id==='guns'?'GUNS':id==='gadgets'?'TOOLS':label;
+ pixelPlate(x,y,w,h,selected?'#f4d69d':'#302b30',selected?'#ffe9af':'#8b6c57',6,false);
+ shopInk(shortLabel,x+w/2,y+25,12,selected?'#3a2920':'#f1e3ca','center',w-16);
+ if(selected){ctx.fillStyle='#8e6033';ctx.fillRect(x+18,y+42,w-36,3);}
  hits.push({x,y,w,h,action:()=>selectShopTab(id)});
 }
 const SHOP_CATEGORY_DESCRIPTIONS={
@@ -1631,7 +1639,7 @@ function shopCategoryCard(id,label,x,y){
  const type=id==='lines'?'line':id==='nets'?'net':id==='guns'?'gun':'light';
  const max=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:MAXLVL;
  const level=save.upgrades[type];
- roundRect(x,y,192,89,8,'#f0ddb8','#9a754a',2);
+ pixelPlate(x,y,192,89,'#f0ddb8','#9a754a',7);
  ctx.fillStyle='#b48c5b';ctx.fillRect(x+79,y+13,2,61);
  paintShopItem(ctx,type,x+45,y+45,.5,level,clock,lowFx);
  shopInk(label,x+89,y+25,16,'#34271e','left',95);
@@ -1676,8 +1684,8 @@ function shopCatalogue(){
  shopButton('← SHOP COUNTER',13,101,394,48,()=>{shopView='counter';});
  for(let i=0;i<SHOP_TABS.length;i++)shopTabButton(...SHOP_TABS[i],i);
  const title=SHOP_TABS.find(([id])=>id===shopTab)?.[1]||'GEAR';
- shopInk(title,19,240,23,'#fff0c2','left',227);
- shopInk('TAP TO INSPECT',394,242,13,'#f0c88d','right',177);
+ shopInk(title,19,240,20,'#fff0c2','left',227);
+ shopInk('SCROLL • INSPECT',394,242,11,'#f0c88d','right',177);
  shopItemCard();
  shopButton('← BACK TO WATER',13,717,394,48,()=>{
   state=castNumber&&save.total?'results':'menu';age=0;
@@ -1717,16 +1725,28 @@ function shopTierList(type,top,bottom){
   const cost=rowType==='charge'?110:rowType==='light'?LAMP_COSTS[priceTier]:
    Math.round(({line:65,net:90,gun:85}[rowType])*Math.pow(rowType==='line'?1.52:1.75,priceTier));
   const affordable=save.cash>=cost;
-  roundRect(21,y+4,368,96,7,current?'#f6e4bd':owned?'#dce7d8':'#c9beb0');
+  pixelPlate(21,y+4,368,96,current?'#f6e4bd':owned?'#dce7d8':'#c9beb0',current?'#ffda87':owned?'#74a58c':'#8e8278',5,false);
   ctx.fillStyle=current?'#d8a65b':owned?'#5d9d85':'#8e8278';ctx.fillRect(21,y+15,4,74);
   paintShopItem(ctx,rowType,63,y+52,.58,rowType==='charge'?0:tier,clock,lowFx);
-  shopInk(name,109,y+28,17,'#342720','left',261);
-  shopInk(detail,109,y+54,13,'#785d48','left',265);
+  shopInk(name,109,y+28,15,'#342720','left',261);
+  shopInk(detail,109,y+54,12,'#785d48','left',265);
   const status=rowType==='charge'?save.charges+'/3 IN BAG':owned?'OWNED':current?'EQUIPPED':'LOCKED';
-  shopInk(status,109,y+80,12,current?'#44775b':'#685c50','left',140);
+  shopInk(status,109,y+80,11,current?'#44775b':'#685c50','left',140);
   let price=owned?'':rowType==='charge'&&save.charges>=3?'MAXED':
    rowType!=='charge'&&current&&tier===max?'MAXED':
-   (current?(affordable?'UPGRADE $':'NEED $'):'$')+cost;
+   ';
+  shopInk(price||'✓',376,y+80,13,'#5d4938','right',122);
+  const hitY=Math.max(top,y+4),hitBottom=Math.min(bottom,y+100);
+  if(hitBottom>hitY)hits.push({x:21,y:hitY,w:368,h:hitBottom-hitY,
+   action:()=>openShopInspect(rowType,rowType==='charge'?null:tier)});
+ }
+ ctx.restore();
+ const total=all.length*SHOP_ROW,thumb=Math.min(height,Math.max(35,height*height/total));
+ const maxScroll=Math.max(1,total-height);
+ ctx.fillStyle='#594639';ctx.fillRect(398,top,5,height);
+ ctx.fillStyle='#f6d38c';ctx.fillRect(397,top+(height-thumb)*offset/maxScroll,7,thumb);
+}
++cost;
   shopInk(price||'✓',376,y+80,12,'#5d4938','right',122);
   const hitY=Math.max(top,y+4),hitBottom=Math.min(bottom,y+100);
   if(hitBottom>hitY)hits.push({x:21,y:hitY,w:368,h:hitBottom-hitY,
@@ -1802,7 +1822,7 @@ function shopInspectOverlay(){
  // The detail sheet, not the catalogue, owns purchasing actions.
  hits.length=0;
  ctx.save();ctx.fillStyle='#071321e8';ctx.fillRect(0,0,W,H);
- roundRect(18,72,384,635,9,'#f3e3c3','#c49a61',3);
+ pixelPlate(18,72,384,635,'#f3e3c3','#c49a61',11);
  const secret=item.kind==='secret'?SHOP_SECRETS.find(s=>s.id===item.id):null;
  const bounty=item.kind==='bounty';
  const gear=!secret&&!bounty?inspectGearInfo(item.type):null;
