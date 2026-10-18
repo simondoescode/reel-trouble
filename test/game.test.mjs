@@ -258,7 +258,7 @@ test('main game is a single valid script without duplicate or truncated trailing
   const needle=symbol;
   assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
  }
- assert.ok(source.includes("shopTierList('light',545,693)"), 'light purchase card exists');
+ assert.match(source,/shopTierList\(shopTab===\'gadgets\'\?\'light\':type,SHOP_LIST_TOP,SHOP_LIST_BOTTOM\)/);
  assert.match(source,/function buyLight\(\)/);
  assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
  assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
@@ -308,19 +308,16 @@ test('fishing HUD is a compact strip and keeps the world-anchored edge ruler',()
  assert.doesNotMatch(game,/360\*depth\/maxDepth/);
 });
 
-test('shopfront is a readable in-world scene with individual merchandise and all upgrades accessible',()=>{
+test('shopfront separates the character counter, catalogue, and detail sheet',()=>{
  const game=read('src/game.js'),art=read('src/shop-art.js'),assets=read('src/shop-item-assets.js');
- assert.match(game,/function shopInterior\(/);
- assert.match(game,/function shopJobBoard\(/);
- assert.match(game,/function skipperBubble\(/);
- assert.match(game,/function shopInk\(/);
- assert.match(game,/function shopWrap\(/);
- assert.match(game,/function shopTabButton\(/);
- assert.match(game,/shopItemCard\(\)/);
- assert.match(game,/function shopSupplies\(/);
- assert.match(game,/shopTierList\('light',545,693\)/);
- assert.match(game,/shopTab==='nets'\?'net'/);
- assert.match(game,/purchase\(type\)/);
+ for(const name of ['function shopInterior(','function shopJobBoard(','function skipperBubble(',
+ 'function shopTabButton(','function shopCounter(','function shopCatalogue(',
+ 'function shopCategoryCard(','function shopTierList(','function shopItemCard(',
+ 'function shopStoryButton(','function shopInspectOverlay('])assert.ok(game.includes(name),name);
+ assert.match(game,/if\(shopView==='counter'\)shopCounter\(\)/);
+ assert.match(game,/else shopCatalogue\(\)/);
+ assert.match(game,/shopView='catalog';selectShopTab\(id\)/);
+ assert.match(game,/shopTierList\(shopTab==='gadgets'\?'light':type,SHOP_LIST_TOP,SHOP_LIST_BOTTOM\)/);
  assert.match(game,/save\.upgrades\.net\*13/);
  assert.match(art,/export function paintShopItem\(/);
  for(const type of ["type==='line'","type==='net'","type==='gun'","type==='light'","type==='charge'"])
@@ -328,7 +325,6 @@ test('shopfront is a readable in-world scene with individual merchandise and all
  assert.match(read('sw.js'),/src\/shop-art\.js/);
  assert.match(read('sw.js'),/src\/shop-item-assets\.js/);
 });
-
 
 test('skipper and shop gear use matching hard-edged pixel sprites and inspection animations',()=>{
  const game=read('src/game.js'),art=read('src/shop-art.js'),assets=read('src/shop-item-assets.js');
@@ -339,10 +335,10 @@ test('skipper and shop gear use matching hard-edged pixel sprites and inspection
  assert.match(assets,/function getShopItemSprite\(/);
  assert.match(art,/export function paintShopItem\(/);
  assert.doesNotMatch(art,/portraitSvg|<svg|createRadialGradient|ctx\.ellipse|ctx\.arc\(/);
- assert.match(game,/paintSkipper\(ctx,clock,x,y,\{mood:/);
+ assert.match(game,/paintSkipper\(ctx,clock,x,y,\{/);
  assert.match(game,/function openShopInspect\(/);
  assert.match(game,/function shopInspectOverlay\(/);
- assert.match(game,/paintShopItem\(ctx,secret\?secret\.item:gear\.type,210,334,2\.08/);
+ assert.match(game,/paintShopItem\(ctx,secret\?secret\.item:gear\.type,210,301,2\.08/);
  assert.match(game,/hits\.length=0/);
  assert.match(game,/shopInspect\)shopInspectOverlay\(\)/);
 });
@@ -365,4 +361,20 @@ test('all fishing gear tiers are scrollable by touch and mouse with visible prog
  for(const state of ['OWNED','EQUIPPED','LOCKED'])assert.ok(game.includes(state),state);
  assert.match(game,/if\(!dragged\)activate\(pos\(e\)\.x,pos\(e\)\.y\)/);
  assert.match(game,/shopScrollTo\(shopDrag\.startScroll-dy\)/);
+});
+
+
+test('the shop is less crowded and scroll gestures only apply to the catalogue',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/const SHOP_ROW=104/);
+ assert.match(game,/SHOP_LIST_TOP=266,SHOP_LIST_BOTTOM=705/);
+ assert.match(game,/shopView==='catalog'&&!shopInspect/);
+ assert.match(game,/shopButton\('BOUNTY',13,660/);
+ assert.match(game,/shopButton\('← SHOP COUNTER',13,101/);
+ assert.match(game,/shopCategoryCard\('nets','HOOKS'/);
+ const counter=game.slice(game.indexOf('function shopCounter(){'),game.indexOf('function shopCatalogue(){'));
+ assert.doesNotMatch(counter,/shopTierList\(|shopJobBoard\(/,'no crowded lists or job board over the character');
+ assert.match(game,/const hitY=Math.max\(top,y\+4\),hitBottom=Math.min\(bottom,y\+100\)/);
+ assert.match(game,/hits\.length=0/,'detail sheet blocks buttons behind it');
+ assert.match(game,/if\(locked\)/,'future items cannot be bought out of sequence');
 });
