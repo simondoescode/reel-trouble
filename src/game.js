@@ -6,6 +6,8 @@ import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
 import { createOceanStream, oceanVisibility } from './ocean.js';
 import { drawSeaScape } from './seascape.js';
+import { isDeepCreature, drawDeepCreature } from './deep-creatures.js';
+import { createDiscoveryStream, drawDiscovery } from './discoveries.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus, refreshGameFiles } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
@@ -148,7 +150,7 @@ let shopTab='lines',chargeArmed=false;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0,missionRewardThisCast=0,missionsCompletedThisCast=0;
-let deepestCast=0;
+let deepestCast=0,discoveriesThisCast=0,lastBiomeId='sunskip',cameraY=0;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
 function expeditionStats(){
@@ -312,6 +314,10 @@ const fishPalette=[
  ['#a05e19','#e8a731','#ffe35b','#ffffff']  // Legendary Golden Fish
 ];
 function fish(x,y,kind=0,dir=1,scale=1,phase=0){
+ if(isDeepCreature(kind)){
+  drawDeepCreature(ctx,{x,y,kind,dir,scale,phase,size:species[kind].size,lowFx});
+  return;
+ }
  const r=species[kind].size*scale,step=r/8,palette=fishPalette[kind];
  const tail=Math.sin(phase*2.5)>0?1:-1,fin=Math.sin(phase*1.8)>0?1:-1;
  ctx.save();ctx.translate(Math.round(x),Math.round(y+Math.sin(phase)*2));ctx.scale(dir,1);
@@ -559,8 +565,10 @@ function beginCast(){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
-oceanStream=createOceanStream(maxDepth,Math.floor(Math.random()*0xffffffff));
+ castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+const worldSeed=Math.floor(Math.random()*0xffffffff);
+ oceanStream=createOceanStream(maxDepth,worldSeed);
+ discoveryStream=createDiscoveryStream(maxDepth,worldSeed);
  ({fish:fishes,hazards}=oceanStream.near(depth));hazardSlow=0;
  message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
 function startAscent(hitFish,stung=false){if(state!=='descent')return;
@@ -655,7 +663,7 @@ function shootAt(x,y){
   sound.play('miss');rumble.play('shot');
  }
 }
-let oceanStream=null;
+let oceanStream=null,discoveryStream=null;
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
 function endRound(){if(state!=='shoot')return;settleExpedition();state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');stageCue('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=(type==='line'?LINE_MAXLVL:MAXLVL)||save.cash<cfg.cost){skipperReply(type,false);return;}
@@ -763,7 +771,7 @@ function update(dt){
  if(!pointerDown&&sensorFresh())targetX+=tiltVelocity(tiltValue,tiltNeutral)*dt;
  if(keys.has('ArrowLeft')||keys.has('a'))targetX-=270*dt;
  if(keys.has('ArrowRight')||keys.has('d'))targetX+=270*dt;
- targetX=clamp(targetX,24,W-24);hookX+=(targetX-hookX)*clamp(9*dt,0,1);
+ targetX=clamp(targetX,24,W-24);hookX+=(targetX-hookX)*clamp((pointerDown?14:9)*dt,0,1);
  if(oceanStream)({fish:fishes,hazards}=oceanStream.near(depth));
  for(const f of fishes)advanceFish(f,dt);
  for(const h of hazards)advanceHazard(h,dt);
@@ -800,6 +808,25 @@ function update(dt){
  const radius=24+save.upgrades.net*13;
  for(const f of fishes)if(!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<27&&Math.abs(f.x-hookX)<radius+species[f.kind].size*.5)catchFish(f);
  if(depth<=0){depth=0;beginShoot();}
+ }
+ // Ease the world camera without artificial region-boundary snapping.
+ cameraY+=(clamp(depth-230,0,maxDepth+100)-cameraY)*clamp(dt*6.5,0,1);
+ const discovered=discoveryStream?.claimAt(depth,hookX);
+ if(discovered){
+  discoveriesThisCast++;awardBonus(discovered.reward);persist();
+  const fy=SEA+discovered.d-cameraY;
+  burst(discovered.x,fy,discovered.color,lowFx?5:16);
+  floatLabel('+$'+discovered.reward,discovered.x,fy-44,C.yellow);
+  message='FOUND '+discovered.name;messageTimer=3.2;
+  sceneFlash=.18;sound.play('upgrade');rumble.play('upgrade');
+ }
+ if(state==='descent'){
+  const region=biomeAtDepth(depth);
+  if(region.id!==lastBiomeId){
+   lastBiomeId=region.id;
+   message='ENTERING '+region.name;messageTimer=2.5;
+   if(!lowFx)sceneFlash=.09;
+  }
  }
  }
  if(state==='shoot'){
@@ -886,7 +913,12 @@ function topBar(title,left,right){
  text(right,392,47,17,C.white,'right',900,0,130);
  if(left)text(left,244,47,16,C.white,'center',900,0,66);
 }
-function bottomHint(hint){roundRect(21,711,378,51,0,'#061d34fa','#6beedc',2);text(hint,210,737,16,C.white,'center',900,0,357);}
+function bottomHint(hint){
+ // Reduce persistent touch chrome to leave room for the underwater world.
+ if(age>4&&hazardSlow<=0)return;
+ roundRect(49,725,322,38,12,'#061d34ce','#6beedc',1);
+ text(hint,210,744,14,C.white,'center',900,0,298);
+}
 function sideDepthGauge(){
  // Hairline ruler pinned to the extreme right edge. Metres are spaced by
  // actual on-screen distance; don't cram every 50m tick into a short gauge.
@@ -916,11 +948,15 @@ function sideDepthGauge(){
  ctx.fillText(meter(depth),x-15,markerY-15);
  ctx.restore();
 }
-function gameplay(){const camera=clamp(depth-230,0,maxDepth+100);
+function gameplay(){const camera=cameraY;
  bgUndersea(camera);const surf=SEA-camera;
  if(surf>45&&surf<H+60){boat(W/2,surf-7);}
  const reelY=surf-35,hy=SEA+depth-camera;
  line(W/2,Math.max(-20,reelY),hookX,hy,'#e3debbd9',1.5);
+ for(const item of discoveryStream?.near(depth,900)||[]){
+  const y=SEA+item.d-camera;
+  if(y>-72&&y<H+72)drawDiscovery(ctx,item,y,waveT,{lowFx});
+ }
  for(const f of fishes){
   if(f.caught)continue;
   const fy=SEA+f.d-camera;if(fy<-48||fy>H+48)continue;
@@ -932,6 +968,16 @@ for(const h of hazards){
 }
  caught.forEach((f,i)=>{fish(hookX+Math.sin(clock*3+i)*12,hy+35+i*20,f.kind,i%2?-1:1,.6,clock*4+i);});
  hook(hookX,hy);
+ if(!lowFx){
+  // A faint wake makes the direction of hook movement visible on small screens.
+  ctx.save();ctx.fillStyle='rgba(180,248,250,.24)';
+  for(let i=0;i<4;i++){
+   const yy=hy-23-i*17+Math.sin(waveT*2+i)*3;
+   const xx=hookX+Math.sin(waveT*1.8+i*2.4)*(3+i*2);
+   ctx.fillRect(Math.round(xx),Math.round(yy),i%2?3:2,i%2?3:2);
+  }
+  ctx.restore();
+ }
  deepDarkness(hy);
   sideDepthGauge();
  topBar(state==='descent'?'DIVING ↓':'REELING ↑','',`${meter(depth)} / ${meter(maxDepth)}`);
@@ -943,7 +989,7 @@ for(const h of hazards){
  if(state==='ascent'){roundRect(191,112,162,37,0,'#08253bf0','#ffed76',2);text('HOOKED '+caught.length,272,130,16,C.yellow,'center',950,0,148);}
  if(messageTimer>0){roundRect(67,164,286,42,0,'#07243df5','#86fff2',2);text(message,210,185,16,C.cream,'center',950,0,269);}
  bottomHint(hazardSlow>0?'JELLYFISH! SLOW REEL':(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
- button('II',362,117,42,37,()=>pauseGame('MANUAL'),C.cream);
+ button('II',357,112,51,46,()=>pauseGame('MANUAL'),C.cream);
 }
 function drawBulletTrail(x1,y1,x2,y2,alpha,color,tier=0){
  ctx.save();
