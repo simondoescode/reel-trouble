@@ -256,7 +256,7 @@ test('main game is a single valid script without duplicate or truncated trailing
   const needle=symbol;
   assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
  }
- assert.ok(source.includes("shopSupplyCard('light',577)"), 'light purchase card exists');
+ assert.ok(source.includes("shopTierList('light',545,693)"), 'light purchase card exists');
  assert.match(source,/function buyLight\(\)/);
  assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
  assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
@@ -352,4 +352,13 @@ test('progressive curio shelf remembers inspected finds separately from fishing 
  assert.match(game,/function shopStoryButton\(/);
  assert.match(secrets,/export function nextShopSecret/);
  assert.match(sw,/src\/shop-secrets\.js/);
+});
+
+
+test('all fishing gear tiers are scrollable by touch and mouse with visible progress',()=>{
+ const game=read('src/game.js');
+ for(const n of ['function shopTierList(','function shopScrollTo(','function shopTierMeta(','function shopSupplies(','shopDrag={startY:','canvas.addEventListener(\'wheel\''])assert.ok(game.includes(n),n);
+ for(const state of ['OWNED','EQUIPPED','LOCKED'])assert.ok(game.includes(state),state);
+ assert.match(game,/if\(!dragged\)activate\(pos\(e\)\.x,pos\(e\)\.y\)/);
+ assert.match(game,/shopScrollTo\(shopDrag\.startScroll-dy\)/);
 });
