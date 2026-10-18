@@ -988,7 +988,9 @@ function overlayParticles(){
  ctx.globalAlpha=1;
 }
 function topBar(title,left,right){
- roundRect(14,19,W-28,55,0,'#061d34f7','#72ffe7',2);
+ // Fill the canvas from its first pixel; a 19px inset exposed a stray
+ // band of background above the shooting status bar on installed PWAs.
+ roundRect(0,0,W,74,0,'#061d34f7','#72ffe7',2);
  text(title,27,47,18,C.white,'left',900,0,left?175:230);
  text(right,392,47,17,C.white,'right',900,0,130);
  if(left)text(left,244,47,16,C.white,'center',900,0,66);
@@ -1001,7 +1003,10 @@ function bottomHint(hint){
 }
 function depthReadout(){
  // One slim, high-contrast status strip; retain the separate depth ruler.
- const y=12,h=39;
+ // Extend the opaque HUD to the top of the canvas, not just y=12.
+ // Keep the previous text centre and bottom separator at their original
+ // positions so mobile thumb/layout alignment stays unchanged.
+ const y=0,h=51;
  ctx.save();
  ctx.fillStyle='rgba(5,22,38,.88)';ctx.fillRect(0,y,W,h);
  ctx.fillStyle='#82f8e5';ctx.fillRect(0,y+h-2,W,2);

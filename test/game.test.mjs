@@ -379,3 +379,14 @@ test('the shop is less crowded and scroll gestures only apply to the catalogue',
  assert.match(game,/hits\.length=0/,'detail sheet blocks buttons behind it');
  assert.match(game,/if\(locked\)/,'future items cannot be bought out of sequence');
 });
+
+test('game HUD status strips are flush with the top canvas edge',()=>{
+ const game=read('src/game.js');
+ const depth=game.split('function depthReadout(){')[1].split('function zoneAnnouncement(){')[0];
+ const top=game.split('function topBar(')[1].split('function bottomHint(')[0];
+ assert.match(depth,/const y=0,h=51/);
+ assert.match(depth,/ctx\.fillRect\(0,y,W,h\)/);
+ assert.match(top,/roundRect\(0,0,W,74,0/);
+ assert.doesNotMatch(depth,/const y=12,h=39/);
+ assert.doesNotMatch(top,/roundRect\(14,19,W-28,55/);
+});
