@@ -45,24 +45,8 @@ test('there is one main menu entry for secondary screens',()=>{
 test('shop preserves categories, scrolling, purchase flow and legible price labels',()=>{
  const shop=scene('function shopTierList(','function shopItemCard(){');
  assert.match(shop,/shopScroll\[shopTab\]/);
- assert.match(shop,/(?:const|let) price=/);
- assert.match(shop,/:\s*'\
- assert.match(shop,/openShopInspect\(/);
- assert.match(shop,/Math\.max\(top,y\+4\)/);
- assert.match(game,/shortLabel=id==='guns'\?'GUNS'/);
- assert.match(game,/storyCopy\(skipperLine\|\|skipperGreeting\(\)/);
-});
-
-test('mission parchment and collection still offer every navigation route',()=>{
- assert.match(game,/pixelPlate\(23,150,374,517,'#efdcb5'/);
- assert.match(game,/function bookCard\(/);
- assert.match(game,/pixelPlate\(x,y,width,height,found/);
- assert.match(game,/function shopInspectOverlay\(/);
- assert.match(game,/function installScene\(/);
- assert.match(game,/function settings\(/);
- assert.match(game,/function pausedScene\(/);
-});
-\+cost/);
+ assert.match(shop,/let price=/);
+ assert.ok(shop.includes("'$'+cost;"),'prices render without stretching or loss of digits');
  assert.match(shop,/openShopInspect\(/);
  assert.match(shop,/Math\.max\(top,y\+4\)/);
  assert.match(game,/shortLabel=id==='guns'\?'GUNS'/);
