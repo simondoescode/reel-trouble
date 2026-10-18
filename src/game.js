@@ -1734,7 +1734,7 @@ function shopTierList(type,top,bottom){
   shopInk(status,109,y+80,11,current?'#44775b':'#685c50','left',140);
   let price=owned?'':rowType==='charge'&&save.charges>=3?'MAXED':
    rowType!=='charge'&&current&&tier===max?'MAXED':
-   ';
+   '$'+cost;
   shopInk(price||'✓',376,y+80,13,'#5d4938','right',122);
   const hitY=Math.max(top,y+4),hitBottom=Math.min(bottom,y+100);
   if(hitBottom>hitY)hits.push({x:21,y:hitY,w:368,h:hitBottom-hitY,
@@ -1745,18 +1745,6 @@ function shopTierList(type,top,bottom){
  const maxScroll=Math.max(1,total-height);
  ctx.fillStyle='#594639';ctx.fillRect(398,top,5,height);
  ctx.fillStyle='#f6d38c';ctx.fillRect(397,top+(height-thumb)*offset/maxScroll,7,thumb);
-}
-+cost;
-  shopInk(price||'✓',376,y+80,12,'#5d4938','right',122);
-  const hitY=Math.max(top,y+4),hitBottom=Math.min(bottom,y+100);
-  if(hitBottom>hitY)hits.push({x:21,y:hitY,w:368,h:hitBottom-hitY,
-   action:()=>openShopInspect(rowType,rowType==='charge'?null:tier)});
- }
- ctx.restore();
- const total=all.length*SHOP_ROW,thumb=Math.min(height,Math.max(35,height*height/total));
- const maxScroll=Math.max(1,total-height);
- ctx.fillStyle='#594639';ctx.fillRect(400,top,3,height);
- ctx.fillStyle='#f6d38c';ctx.fillRect(399,top+(height-thumb)*offset/maxScroll,5,thumb);
 }
 function shopItemCard(){
  const type=shopTab==='lines'?'line':shopTab==='nets'?'net':'gun';
