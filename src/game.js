@@ -1449,7 +1449,7 @@ function results(){
  text('YOUR ARCADE PAYOUT',210,259,16,C.white,'center',900,0,310);
  const reveal=lowFx?1:easeOutCubic(Math.min(1,age/.95));
  const counted=Math.round(roundEarnings*reveal);
- text('+,'center',1000,-3,320);
+ text('+$'+counted,210,327,60,C.yellow,'center',1000,-3,320);
  for(let i=0;i<8;i++){
   const x=210+(i%2?-1:1)*(85+(i%4)*23);
   const bounce=lowFx?0:Math.sin(Math.min(1,age/1.2)*Math.PI)*11;
@@ -1464,29 +1464,6 @@ function results(){
  text(meter(deepestCast),343,479,18,C.white,'right',900,0,75);
  if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
  pixelPlate(91,508,238,43,'#10364a','#47e5d7',7);
- text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
- titleActionGlow(clock,64,567,292,62);
- button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
- button('GEAR SHOP',25,647,178,53,()=>{enterShop();},C.cream);
- button('MISSIONS',217,647,178,53,openExpeditions,C.teal);
- button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
-}
-
-+counted,210,327,60,C.yellow,'center',1000,-3,320);
- for(let i=0;i<8;i++){
-  const x=210+(i%2?-1:1)*(85+(i%4)*23);
-  const bounce=lowFx?0:Math.sin(Math.min(1,age/1.2)*Math.PI)*11;
-  drawPixelCoin(x,310+(i%3)*29-bounce,9+(i%3)*2,lowFx?0:clock*8+i,Math.min(1,age*3));
- }
- arcadeRule(64,373,356,C.yellow);
- text('HITS / SHOTS',77,405,16,C.white,'left',900,0,185);
- text(landed+' / '+fired,343,405,18,C.white,'right',900,0,75);
- text('BEST COMBO',77,439,16,C.white,'left',900,0,185);
- text('x'+Math.max(1,bestRoundCombo),343,439,18,C.white,'right',900,0,75);
- text('DEEPEST DIVE',77,479,16,C.white,'left',900,0,185);
- text(meter(deepestCast),343,479,18,C.white,'right',900,0,75);
- if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
- neonPanel(91,508,238,43,'#47e5d7',13);
  text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
  titleActionGlow(clock,64,567,292,62);
  button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
