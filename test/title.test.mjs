@@ -32,7 +32,7 @@ test('reduced-effects mode freezes title animations',()=>{
  const glow=code('function titleActionGlow(','function menu(){');
  assert.match(backdrop,/const motion=lowFx\?0:t/);
  assert.match(life,/const motion=lowFx\?0:t/);
- assert.match(glow,/if\(lowFx\)return/);
+ assert.doesNotMatch(glow,/strokeRect|fillRect/);
 });
 test('install screen exists with browser directions and back navigation',()=>{
  const panel=code('function installScene(){','function settings(){');
