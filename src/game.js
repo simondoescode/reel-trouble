@@ -204,26 +204,32 @@ function roundRect(x,y,w,h,r=0,fill,stroke,lw=2){
  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
 }
 function text(s,x,y,size=20,_color=C.white,align='center',_weight=900,_letter=0,maxWidth=null){
- // One highly readable type treatment everywhere: full-resolution, heavy white
- // lettering with dark edge separation on vibrant water and dark UI panels.
- const label=String(s),fontSize=Math.max(16,size);
+ // Keep the pixel font at its natural aspect ratio and fit it to the allotted space.
+ const label=String(s);
  ctx.save();
  ctx.textAlign=align;ctx.textBaseline='middle';
- ctx.font='900 '+fontSize+'px "Press Start 2P",monospace';
  const available=maxWidth??(align==='left'?W-x-16:align==='right'?x-16:Math.min(W-32,2*x-16,2*(W-x)-16));
  const width=Math.max(20,available);
+ let fontSize=Math.max(10,size);
+ const setFont=()=>{ctx.font='900 '+fontSize+'px "Press Start 2P",monospace';};
+ setFont();
+ const measured=ctx.measureText(label).width;
+ if(measured>width){
+  fontSize=Math.max(10,Math.floor(fontSize*width/measured));
+  setFont();
+  while(fontSize>10&&ctx.measureText(label).width>width){fontSize--;setFont();}
+ }
  let fitted=label;
- // Never compress or distort a font. Truncate an overlong label only as a last resort.
  if(ctx.measureText(fitted).width>width){
   while(fitted.length>1&&ctx.measureText(fitted+'…').width>width)fitted=fitted.slice(0,-1);
-  fitted=fitted.replace(/\s+$/,'')+'…';
+  fitted=fitted.trimEnd()+'…';
  }
  ctx.lineJoin='round';
  ctx.strokeStyle='#031523';
- ctx.lineWidth=fontSize>=32?3:2;
- ctx.strokeText(fitted,x,y,width);
+ ctx.lineWidth=fontSize>=32?3:fontSize>=17?2:1.5;
+ ctx.strokeText(fitted,x,y);
  ctx.fillStyle='#ffffff';
- ctx.fillText(fitted,x,y,width);
+ ctx.fillText(fitted,x,y);
  ctx.restore();
 }
 function line(x1,y1,x2,y2,color,width=2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}
@@ -234,9 +240,9 @@ function button(title,x,y,w,h,action,accent=C.coral,secondary=''){
  const radius=h>=60?17:12;
  const primary=accent===C.yellow;
  const base=primary?'#efb92e':'#122b38';
- const outline=primary?'#ffdf68':'#ffffff22';
+ const outline=primary?null:'#ffffff22';
  roundRect(x,y+3,w,h,radius,'#04192399');
- roundRect(x,y,w,h,radius,base,outline,primary?1.5:1);
+ roundRect(x,y,w,h,radius,base,outline,1);
  if(!primary){
   ctx.save();ctx.globalAlpha=.85;
   roundRect(x+1,y+5,4,Math.max(4,h-10),2,accent);
@@ -1308,15 +1314,7 @@ function titleSeaLife(t){
   ctx.restore();
  }
 }
-function titleActionGlow(t,x,y,w,h){
- if(lowFx)return;
- const pulse=.38+.25*(.5+.5*Math.sin(t*2.8));
- ctx.save();
- ctx.strokeStyle='rgba(255,230,126,'+pulse.toFixed(3)+')';
- ctx.lineWidth=2;ctx.strokeRect(x-5,y-5,w+10,h+10);
- ctx.fillStyle='rgba(255,230,126,'+(pulse*.09).toFixed(3)+')';
- ctx.fillRect(x-7,y-7,w+14,h+14);ctx.restore();
-}
+function titleActionGlow(){ /* Primary buttons no longer have a rectangular halo. */ }
 function menu(){
  const t=lowFx?0:clock;
  titleBackdrop(t);titleSeaLife(t);
@@ -1394,12 +1392,12 @@ function results(){
   drawPixelCoin(x,310+(i%3)*29-bounce,9+(i%3)*2,lowFx?0:clock*8+i,Math.min(1,age*3));
  }
  arcadeRule(64,373,356,C.yellow);
- text('HITS / SHOTS',77,405,17,C.white,'left',900);
- text(landed+' / '+fired,343,405,19,C.white,'right',900);
- text('BEST COMBO',77,439,17,C.white,'left',900);
- text('x'+Math.max(1,bestRoundCombo),343,439,19,C.white,'right',900);
- text('DEEPEST DIVE',77,479,17,C.white,'left',900);
- text(meter(deepestCast),343,479,21,C.white,'right',900);
+ text('HITS / SHOTS',77,405,16,C.white,'left',900,0,185);
+ text(landed+' / '+fired,343,405,18,C.white,'right',900,0,75);
+ text('BEST COMBO',77,439,16,C.white,'left',900,0,185);
+ text('x'+Math.max(1,bestRoundCombo),343,439,18,C.white,'right',900,0,75);
+ text('DEEPEST DIVE',77,479,16,C.white,'left',900,0,185);
+ text(meter(deepestCast),343,479,18,C.white,'right',900,0,75);
  if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
  neonPanel(91,508,238,43,'#47e5d7',13);
  text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
