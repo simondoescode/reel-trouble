@@ -138,7 +138,7 @@ window.addEventListener('deviceorientation', event=>{
   if(sensorStatus==='WAITING FOR MOTION SENSOR'||sensorStatus==='NO SENSOR DATA - DRAG TO STEER'||sensorStatus==='ENABLE TILT TO STEER')sensorStatus='TILT READY';
 });
 let combo=0, bestRoundCombo=0, lastComboHit=-Infinity, landed=0, escaped=0, shotEffects=[], recoil=0, muzzleFlash=0;
-let finisherSlow=0, hitFreeze=0, impactRings=[], impactGhosts=[], coinBursts=[];
+let finisherSlow=0, hitFreeze=0, impactRings=[], impactGhosts=[], coinBursts=[], payoutPulse=0;
 let paused=false,pauseReason='';
 function liveRound(){return state==='descent'||state==='ascent'||state==='shoot';}
 function pauseGame(reason='MANUAL'){
@@ -672,7 +672,7 @@ function shootAt(x,y){
     landed++;
     f.shot=true;
    const money=shotPayout(f.value,streak.multiplier);
-   roundEarnings+=money;save.cash+=money;save.total+=money;
+   roundEarnings+=money;save.cash+=money;save.total+=money;payoutPulse=Math.min(1.25,payoutPulse+.5);
    recordShot(save.collection,f.kind,money,streak.multiplier);
    burst(f.x,f.y,species[f.kind].color,streak.multiplier>=3?38:27);
    coinBurst(f.x,f.y,streak.multiplier,gun.tier);
@@ -756,12 +756,28 @@ function burst(x,y,color,count){
  }
 }
 function coinBurst(x,y,multiplier=1,tier=0){
- const count=lowFx?4:Math.min(17,5+multiplier*2+tier*2);
+ const count=lowFx?4:Math.min(19,6+multiplier*2+tier*2);
  for(let i=0;i<count;i++){
   const angle=rand(-Math.PI+.25,-.12),speed=rand(95,270)*(multiplier>=3?1.2:1);
+  const duration=rand(.8,1.22);
   coinBursts.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
-   life:rand(.7,1.1),max:1.1,spin:rand(0,6),size:rand(5,9)});
+   life:duration,max:duration,spin:rand(0,6.28),size:rand(9,14)});
  }
+}
+function drawPixelCoin(x,y,size,spin,alpha=1){
+ const width=Math.max(2,Math.round(size*Math.max(.19,Math.abs(Math.cos(spin)))));
+ const h=Math.round(size),left=Math.round(x-width/2),top=Math.round(y-h/2);
+ ctx.save();ctx.globalAlpha=alpha;
+ ctx.fillStyle='#563019';ctx.fillRect(left-2,top+2,width+4,h-2);
+ ctx.fillStyle='#a86118';ctx.fillRect(left-1,top,width+2,h);
+ ctx.fillStyle='#ffce48';ctx.fillRect(left,top+1,width,h-2);
+ ctx.fillStyle='#ffef9d';ctx.fillRect(left+1,top+2,Math.max(1,Math.floor(width*.32)),Math.max(2,h*.35));
+ ctx.fillStyle='#d88323';ctx.fillRect(left+width-2,top+2,2,h-4);
+ if(width>=7){
+  ctx.fillStyle='#92511b';ctx.font='900 '+Math.max(7,Math.floor(h*.77))+'px monospace';
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$',Math.round(x),Math.round(y)+1);
+ }
+ ctx.restore();
 }
 function drawShotCelebration(){
  for(const ghost of impactGhosts){
@@ -777,13 +793,12 @@ function drawShotCelebration(){
   ctx.restore();
  }
  for(const coin of coinBursts){
-  const size=Math.max(4,coin.size*Math.abs(Math.cos(coin.spin)));
-  const x=Math.round(coin.x),y=Math.round(coin.y);
-  ctx.save();ctx.globalAlpha=clamp(coin.life/coin.max,0,1);
-  ctx.fillStyle='#674122';ctx.fillRect(x-size/2-2,y-size/2-2,size+4,size+4);
-  ctx.fillStyle='#ffcb3d';ctx.fillRect(x-size/2,y-size/2,size,size);
-  ctx.fillStyle='#fff5a3';ctx.fillRect(x-size/2+1,y-size/2+1,Math.max(2,size*.38),Math.max(2,size*.38));
-  ctx.restore();
+  const alpha=clamp(coin.life/.2,0,1);
+  drawPixelCoin(coin.x,coin.y,coin.size,coin.spin,alpha);
+  if(!lowFx&&coin.life>coin.max*.4){
+   ctx.save();ctx.globalAlpha=alpha*.7;ctx.fillStyle='#fff5ad';
+   ctx.fillRect(Math.round(coin.x+coin.size*.6),Math.round(coin.y-coin.size*.55),2,2);ctx.restore();
+  }
  }
 }
 function floatLabel(value,x,y,color){labels.push({value,x,y,color,life:1.1});}
@@ -796,6 +811,7 @@ function update(dt){
   dt*=hitFreeze>0?.1:finisherSlow>0?.24:1;
  }
  sound.update(realDt,state,document.hidden);
+ payoutPulse=Math.max(0,payoutPulse-realDt*2.2);
  // The brief stage card freezes all gameplay timers and fish motion.
  if(sceneTransition){
   sceneTransition.elapsed+=realDt;
@@ -884,8 +900,9 @@ function update(dt){
   for(const ghost of impactGhosts){ghost.x+=ghost.vx*dt;ghost.y+=ghost.vy*dt;ghost.vy+=125*dt;ghost.life-=dt;}
   impactGhosts=impactGhosts.filter(ghost=>ghost.life>0);
   for(const coin of coinBursts){
-   coin.x+=coin.vx*dt;coin.y+=coin.vy*dt;coin.vy+=375*dt;
-   coin.vx*=Math.pow(.55,dt);coin.spin+=dt*15;coin.life-=dt;
+   coin.life-=dt;coin.spin+=dt*18;
+   if(coin.life>coin.max*.48){coin.x+=coin.vx*dt;coin.y+=coin.vy*dt;coin.vy+=330*dt;coin.vx*=Math.pow(.55,dt);}
+   else{const pull=Math.min(1,(8+18*(1-coin.life/coin.max))*dt);coin.x+=(210-coin.x)*pull;coin.y+=(190-coin.y)*pull;}
   }
   coinBursts=coinBursts.filter(coin=>coin.life>0);
   if(combo&&clock-lastComboHit>2.4){combo=0;lastComboHit=-Infinity;}
@@ -1154,8 +1171,2396 @@ function shootScene(){
   roundRect(121,127,178,36,0,'#06223ced','#ffe35b');
   text('COMBO x'+Math.min(4,combo),210,145,17,C.yellow);
  }
- roundRect(145,174,130,34,0,'#0b2939ed');
- text('EARNED $'+roundEarnings,210,190,15,C.yellow,'center',950,0,129);
+ roundRect(130,171,160,39,7,payoutPulse>0?'#5a3b15f0':'#0b2939ed',payoutPulse>0?'#ffef91':'#c99837');
+ drawPixelCoin(149,190,17,0);
+ text('
+ if(messageTimer>0&&combo<=1){
+  roundRect(80,131,260,34,0,'#061d2ce5');
+  text(message,210,147,12,C.cream,'center',900);
+ }
+ const px=Math.round(pointer.x/4)*4,py=Math.round(pointer.y/4)*4;
+ ctx.strokeStyle='#fff6cd';ctx.lineWidth=3;ctx.strokeRect(px-12,py-12,24,24);
+ ctx.fillStyle='#fff6cd';ctx.fillRect(px-23,py-2,8,4);ctx.fillRect(px+15,py-2,8,4);
+ ctx.fillRect(px-2,py-23,4,8);ctx.fillRect(px-2,py+15,4,8);
+ bottomHint('TAP FAST • FISH CAN SPLASH DOWN');
+ button('II',362,124,42,37,()=>pauseGame('MANUAL'),C.cream);
+}
+// Animated title screen: gradient water, layered parallax and playful sea life.
+// All effects render UNDER the interface, so bold white text stays clear.
+function titleWave(t,y,amplitude,frequency,fill){
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,y+Math.sin(t*.55)*amplitude);
+ for(let x=18;x<=W+18;x+=18){
+  const roll=Math.sin(x*.016*frequency+t*.55+frequency)*amplitude;
+  const ripple=Math.sin(x*.055+t*.9+frequency)*amplitude*.24;
+  ctx.lineTo(x,y+roll+ripple);
+ }
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+}
+function titleBackdrop(t){
+ const motion=lowFx?0:t;
+ const sky=ctx.createLinearGradient(0,0,0,H);
+ sky.addColorStop(0,'#071b34');
+ sky.addColorStop(.27,'#124c70');
+ sky.addColorStop(.48,'#126584');
+ sky.addColorStop(.73,'#0b4465');
+ sky.addColorStop(1,'#061d38');
+ ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ // A cool glow draws the eye to the illustrated logo, not the background.
+ const bloom=ctx.createRadialGradient(210,193,20,210,193,285);
+ bloom.addColorStop(0,'rgba(68,234,232,0.27)');
+ bloom.addColorStop(.57,'rgba(42,156,192,0.10)');
+ bloom.addColorStop(1,'rgba(15,69,117,0)');
+ ctx.fillStyle=bloom;ctx.fillRect(0,0,W,490);
+ const stars=lowFx?11:22;
+ for(let i=0;i<stars;i++){
+  const x=(i*97+31)%W,y=(i*71+29)%305;
+  const shimmer=lowFx?.24:(.23+.15*Math.sin(motion*.95+i*2.8));
+  ctx.fillStyle='rgba(207,253,254,'+shimmer.toFixed(3)+')';
+  ctx.fillRect(x,y,i%6===0?3:2,i%6===0?3:2);
+ }
+ // Gently animated sunbeams under the fish and menu cards.
+ ctx.save();ctx.beginPath();ctx.rect(0,300,W,380);ctx.clip();
+ for(let i=0;i<3;i++){
+  const x=39+i*168+Math.sin(motion*.22+i)*9;
+  const ray=ctx.createLinearGradient(0,320,0,690);
+  ray.addColorStop(0,'rgba(137,255,245,0.09)');
+  ray.addColorStop(1,'rgba(137,255,245,0)');
+  ctx.fillStyle=ray;ctx.beginPath();
+  ctx.moveTo(x-13,318);ctx.lineTo(x+28,318);
+  ctx.lineTo(x+132,690);ctx.lineTo(x+4,690);
+  ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ titleWave(motion,323,7,1.1,'rgba(42,191,207,0.30)');
+ titleWave(motion*.75,345,11,1.55,'rgba(24,110,150,0.40)');
+ titleWave(motion*.42,558,19,1.25,'rgba(9,60,90,0.46)');
+ ctx.save();ctx.globalAlpha=lowFx?.16:.25;
+ ctx.strokeStyle='#8af1e8';ctx.lineWidth=2;
+ for(let i=0;i<6;i++){
+  const x=(i*87+Math.sin(motion*.4+i)*12+15)%W;
+  const y=378+i*39+Math.sin(motion*.52+i)*9;
+  ctx.beginPath();ctx.moveTo(x-13,y);ctx.quadraticCurveTo(x,y+7,x+27,y-2);ctx.stroke();
+ }
+ ctx.restore();
+ // Edge plants and a subdued vignette frame the central interactive column.
+ ctx.save();ctx.globalAlpha=.42;
+ for(let i=0;i<8;i++){
+  const x=i<4?6+i*17:W-65+(i-4)*17;
+  const length=46+(i%4)*23;
+  ctx.fillStyle=i%2?'#0e6670':'#174e64';
+  for(let j=0;j<length;j+=15){
+   const offset=Math.round(Math.sin(motion*.55+i*.9+j*.028)*4);
+   ctx.fillRect(x+offset,H-j-15,5,16);
+   if(j>0)ctx.fillRect(x+offset+(i%2?4:-9),H-j-9,12,5);
+  }
+ }
+ ctx.restore();
+ const vignette=ctx.createRadialGradient(W*.5,H*.43,W*.18,W*.5,H*.5,H*.9);
+ vignette.addColorStop(0,'rgba(3,13,30,0)');
+ vignette.addColorStop(1,'rgba(2,12,28,0.35)');
+ ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
+}
+function titleSeaLife(t){
+ const motion=lowFx?0:t;
+ const swimmers=[
+  {kind:6,y:388,scale:.9,rate:15,offset:40,dir:1},
+  {kind:3,y:462,scale:1.1,rate:12,offset:276,dir:-1},
+  {kind:1,y:557,scale:.95,rate:21,offset:110,dir:1},
+  {kind:13,y:614,scale:.60,rate:16,offset:340,dir:-1},
+ ];
+ for(const s of swimmers){
+  const travel=(motion*s.rate+s.offset)%(W+160);
+  const x=s.dir===1?-80+travel:W+80-travel;
+  const y=s.y+Math.sin(motion*.7+s.offset)*10;
+  ctx.save();ctx.globalAlpha=s.kind===13?.73:.61;
+  fish(x,y,s.kind,s.dir,s.scale,motion*2+s.offset);
+  ctx.restore();
+ }
+ ctx.fillStyle='rgba(135,219,225,0.22)';
+ for(let i=0;i<9;i++){
+  const x=((i*25+motion*10+W*2)%(W+70))-35;
+  const y=516+Math.sin(i*.72+motion*.65)*13;
+  ctx.fillRect(x,y,9,4);ctx.fillRect(x-4,y+1,4,2);
+ }
+ for(let i=0;i<(lowFx?9:20);i++){
+  const x=18+((i*79)%383)+Math.sin(motion*.37+i)*8;
+  const lift=((motion*(5+i%5*2)+i*43)%420);
+  const y=H-18-lift,size=i%6===0?7:i%3===0?5:3;
+  ctx.save();ctx.globalAlpha=i%4===0?.32:.18;
+  ctx.strokeStyle='#ccfbff';ctx.lineWidth=1.5;
+  ctx.strokeRect(Math.round(x),Math.round(y),size,size);
+  ctx.restore();
+ }
+}
+function titleActionGlow(t,x,y,w,h){
+ if(lowFx)return;
+ const pulse=.38+.25*(.5+.5*Math.sin(t*2.8));
+ ctx.save();
+ ctx.strokeStyle='rgba(255,230,126,'+pulse.toFixed(3)+')';
+ ctx.lineWidth=2;ctx.strokeRect(x-5,y-5,w+10,h+10);
+ ctx.fillStyle='rgba(255,230,126,'+(pulse*.09).toFixed(3)+')';
+ ctx.fillRect(x-7,y-7,w+14,h+14);ctx.restore();
+}
+function menu(){
+ const t=lowFx?0:clock;
+ titleBackdrop(t);titleSeaLife(t);
+ // The player and their boat are the focus, rather than a wall of dashboard cards.
+ const seaY=438+(lowFx?0:Math.sin(t*1.15)*4);
+ ctx.save();
+ const glow=ctx.createRadialGradient(210,seaY-95,18,210,seaY-95,230);
+ glow.addColorStop(0,'#65ffe139');glow.addColorStop(1,'#65ffe100');
+ ctx.fillStyle=glow;ctx.fillRect(0,205,W,370);
+ ctx.restore();
+ const bob=lowFx?0:Math.sin(t*1.1)*3;
+ if(titleLogo.complete&&titleLogo.naturalWidth){
+  const width=Math.min(330,188*titleLogo.naturalWidth/titleLogo.naturalHeight);
+  const height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
+  ctx.drawImage(titleLogo,(W-width)/2,64+bob,width,height);
+ }else{
+  text('REEL',210,128+bob,65,C.white);
+  text('TROUBLE!',210,195+bob,49,C.white);
+ }
+ // Enlarged original pixel-art angler as an identifiable mascot.
+ ctx.save();ctx.translate(210,seaY);ctx.scale(2.1,2.1);ctx.translate(-210,-seaY);
+ boat(210,seaY);
+ ctx.restore();
+ const progress=collectionProgress(save.collection);
+ roundRect(25,20,153,42,14,'#082734dd','#ffffff26',1);
+ text('$'+save.cash,101,41,23,C.white,'center',900,0,136);
+ button('☰',345,19,51,43,()=>{state='more';age=0;},C.teal);
+ const job=currentJob();
+  text(job.label+' • '+job.title,210,497,16,C.yellow,'center',900,0,375);
+  text(job.task+'  '+job.progress+'/'+job.goal,210,521,16,C.white,'center',900,0,377);
+ titleActionGlow(t,50,544,320,83);
+ button('CAST LINE',50,544,320,83,beginCast,C.yellow,'DIVE INTO THE DEEP');
+ button('GEAR SHOP',50,649,210,59,()=>{enterShop();},C.teal);
+ button('MORE',272,649,98,59,()=>{state='more';age=0;},C.cream);
+ text('BEST $'+save.best+'  •  '+progress.discovered+'/'+progress.total+' FISH FOUND',210,743,16,C.white,'center',900,0,372);
+}
+function moreMenu(){
+ titleBackdrop(lowFx?0:clock*.35);
+ text('CAPTAIN\'S CABIN',210,103,37,C.white,'center',900,0,380);
+ text('CHOOSE WHERE TO HEAD NEXT',210,145,17,C.white);
+ // Use open space instead of a large framed dashboard.
+ button('SKIPPER\'S EXPEDITIONS',56,214,308,66,openExpeditions,C.yellow);
+ button('FISH BOOK & BADGES',56,296,308,66,()=>openCollection('fish'),C.teal);
+ button('SETTINGS',56,378,308,66,()=>{state='settings';age=0;},C.cream);
+ if(!isInstalled())button('INSTALL APP',56,460,308,66,installGame,C.pink);
+ else button('APP INSTALLED',56,460,308,66,()=>{state='settings';age=0;},C.pink);
+ text('YOUR PROGRESS IS SAVED AUTOMATICALLY',210,583,16,C.white,'center',900,0,316);
+ button('← BACK TO FISHING',60,665,300,67,()=>{state='menu';age=0;},C.yellow);
+}
+function results(){
+ titleBackdrop(clock*.38);
+ // Small celebratory glints sit behind the reward card, never over the text.
+ const motion=lowFx?0:clock;
+ for(let i=0;i<(lowFx?7:18);i++){
+  const x=(i*71+37)%W,y=116+((i*97+motion*(i%3+1)*11)%490);
+  ctx.save();ctx.globalAlpha=.22+.17*(Math.sin(motion*2+i)+1)*.5;
+  ctx.fillStyle=i%3===0?C.yellow:C.teal;ctx.fillRect(x,y,i%4===0?5:3,i%4===0?5:3);
+  ctx.restore();
+ }
+ arcadePill('RUN COMPLETE',115,51,190,C.yellow);
+ text('NICE CATCH!',210,123,43,C.white,'center',1000,-.8);
+ text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
+ if(missionsCompletedThisCast)text('MISSION CLEARED +$'+missionRewardThisCast,210,195,17,C.yellow,'center',900,0,354);
+ else if(discoveriesThisCast)text('OCEAN SECRETS FOUND: '+discoveriesThisCast,210,195,17,C.yellow,'center',900,0,354);
+ else if(newFishThisCast||newBadgesThisCast)
+  text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
+ neonPanel(35,217,350,291,C.yellow,21);
+ text('YOUR ARCADE PAYOUT',210,259,18,C.white,'center',900,0,310);
+ const reveal=lowFx?1:easeOutCubic(Math.min(1,age/.95));
+ const counted=Math.round(roundEarnings*reveal);
+ text('+
+ arcadeRule(64,373,356,C.yellow);
+ text('HITS / SHOTS',77,405,17,C.white,'left',900);
+ text(landed+' / '+fired,343,405,19,C.white,'right',900);
+ text('BEST COMBO',77,439,17,C.white,'left',900);
+ text('x'+Math.max(1,bestRoundCombo),343,439,19,C.white,'right',900);
+ text('DEEPEST DIVE',77,479,17,C.white,'left',900);
+ text(meter(deepestCast),343,479,21,C.white,'right',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
+ neonPanel(91,508,238,43,'#47e5d7',13);
+ text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
+ titleActionGlow(clock,64,567,292,62);
+ button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
+ button('GEAR SHOP',25,647,178,53,()=>{enterShop();},C.cream);
+ button('MISSIONS',217,647,178,53,openExpeditions,C.teal);
+ button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
+}
+
+let skipperLine='',skipperLineTime=0,skipperVisits=0,skipperChats=0;
+let shopMood='neutral',shopMoodUntil=0,shopInspect=null;
+const SHOP_SECRETS_KEY='reel-trouble-shop-secrets-v1';
+function loadShopSecretsSeen(){try{
+ const raw=JSON.parse(localStorage.getItem(SHOP_SECRETS_KEY)||'[]');
+ return Array.isArray(raw)?raw.filter(id=>SHOP_SECRETS.some(s=>s.id===id)):[];
+ }catch(_){return [];}}
+let shopSecretsSeen=loadShopSecretsSeen();
+function saveShopSecretsSeen(){try{localStorage.setItem(SHOP_SECRETS_KEY,JSON.stringify(shopSecretsSeen));}catch(_){}}
+
+const SHOP_TABS=[['lines','REELS'],['nets','NETS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
+function skipperSpeak(line,mood='neutral'){
+ skipperLine=line;skipperLineTime=clock;
+ if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
+}
+function enterShop(){
+ state='shop';shopTab='lines';shopInspect=null;age=0;skipperVisits++;
+ shopScrollTo(save.upgrades.line*SHOP_ROW-65);
+ const find=nextShopSecret(save,shopSecretsSeen);
+ skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
+}
+function skipperGreeting(){
+ const dives=save.total||0,deep=save.best||0;
+ if(save.upgrades.light===0&&save.upgrades.line>=2)return "Past the reef? Buy a lamp. The deep don't forgive.";
+ if(dives>5000)return "Back again, legend? Something down there remembers ye.";
+ if(dives>500)return "You're hauling serious coin. But the trench takes its toll.";
+ return skipperVisits===1?"Welcome aboard! Name's Skipper. Don't touch the eel.":currentJob().story;
+}
+function skipperReply(category,success){
+ shopMood=success?'excited':'grumpy';shopMoodUntil=clock+3;
+ if(!success){
+  if(category==='charge'&&save.charges>=3)skipperSpeak("Three charges is plenty! I'm running a tackle shop, not a war.");
+  else if(category==='light'&&save.upgrades.light>=LIGHT_MAXLVL)skipperSpeak("Even a lighthouse would be jealous of that kit.");
+  else if(category==='line'&&save.upgrades.line>=LINE_MAXLVL)skipperSpeak("Any deeper and you'll be fishing in tomorrow.");
+  else if(category==='net'&&save.upgrades.net>=MAXLVL)skipperSpeak("That's a mighty wide hook. Mind the door on yer way out.");
+  else if(category==='gun'&&save.upgrades.gun>=MAXLVL)skipperSpeak("You've already got my finest. The paperwork was a nightmare.");
+  else skipperSpeak("Short on coin? The sea owes ye a few more hauls.");
+  return;
+ }
+ const lines={
+  line:["More line? Keep going. The seabed's got secrets.","That'll take ye deeper. Just mind what follows.","Good rope. Bad decisions. My favourite pair."],
+  net:["Wider hook, bigger haul. That's my kind of arithmetic.","Mind what ye snag with that contraption.","Now that's what I call casting a wide net."],
+  gun:["She kicks like a mule. Point away from me beard.","Unlimited shots. Limited common sense.","You didn't get that from me. Understood?"],
+  light:["Dark water hides things, matey.","Let there be light! Or at least fewer surprises.","Ye can see it now. Trouble is, it can see ye."],
+  charge:["One bang to save your skin. Use it wisely.","The fish won't appreciate that. Nor will the harbourmaster.","Explosives? I never sold ye explosives."]
+ };
+ const arr=lines[category]||lines.line;
+ skipperSpeak(arr[(save.upgrades.line+save.upgrades.net+save.upgrades.gun+save.charges)%arr.length]);
+}
+function shopInk(value,x,y,size=18,color='#f8e5bd',align='left',width=380){
+ ctx.save();ctx.textAlign=align;ctx.textBaseline='middle';
+ ctx.font='900 '+size+'px Arial,Helvetica,sans-serif';ctx.fillStyle=color;
+ ctx.lineJoin='round';
+ if(color==='#f8e5bd'||color==='#ffffff'){ctx.shadowColor='#251612';ctx.shadowBlur=2;ctx.shadowOffsetY=1;}
+ ctx.fillText(String(value),x,y,width);ctx.restore();
+}
+function shopWrap(message,maxWidth,size=16,maxLines=2){
+ ctx.save();ctx.font='900 '+size+'px Arial,Helvetica,sans-serif';
+ const rows=[''];for(const word of String(message).split(/\s+/)){
+  const n=rows.length-1,next=(rows[n]+' '+word).trim();
+  if(ctx.measureText(next).width>maxWidth&&rows[n]&&rows.length<maxLines)rows.push(word);
+  else rows[n]=next;
+ }
+ ctx.restore();return rows;
+}
+function shopButton(label,x,y,w,h,action,affordable=true){
+ // Tactile wooden checkout keys. Hits stay active when short of coin so
+ // the skipper can explain why the upgrade isn't available yet.
+ const active=affordable;
+ roundRect(x,y+3,w,h,0,'#3b241b','#29150f',1);
+ roundRect(x,y,w,h,0,active?'#f1c56e':'#b2a18c',active?'#fff0b6':'#c8bb9f',2);
+ ctx.fillStyle=active?'#ab662d':'#77685b';ctx.fillRect(x+6,y+5,3,h-10);
+ shopInk(label,x+w/2,y+h/2,17,active?'#302219':'#51463e','center',w-21);
+ hits.push({x,y,w,h,action});
+}
+function skipperPortrait(x,y){
+ ctx.save();
+ ctx.beginPath();ctx.rect(12,102,222,194);ctx.clip();
+ if(!paintSkipper(ctx,clock,x,y,{mood:clock<shopMoodUntil?shopMood:'neutral',talking:clock-skipperLineTime<2.8,lowFx})){
+  roundRect(29,145,177,151,10,'#23435b','#e0ad5b',3);
+  shopInk('SKIPPER',117,232,22,'#ffffff','center',165);
+ }
+ ctx.restore();
+}
+function shopInterior(){
+ paintShopBackdrop(ctx);
+ // The weathered shop sign belongs to the wooden environment, not a neon HUD.
+ roundRect(10,10,400,77,3,'#352219','#a57647',3);
+ for(let yy=24;yy<78;yy+=12)line(15,yy,405,yy,'#62402c',1);
+ ctx.fillStyle='#d3a35b';ctx.fillRect(19,18,5,5);ctx.fillRect(394,18,5,5);
+ ctx.fillRect(19,73,5,5);ctx.fillRect(394,73,5,5);
+ shopInk("SKIPPER'S",210,38,31,'#f8e5bd','center',382);
+ shopInk('BAIT  •  TACKLE  •  TROUBLE',210,68,17,'#f8e5bd','center',380);
+}
+function skipperBubble(){
+ // Paper speech card with a two-line measured wrap, never overlapping tabs.
+ polygon([[64,308],[88,294],[104,308]],'#f3e0b7');
+ roundRect(12,307,396,76,7,'#f3e0b7','#895c36',2);
+ ctx.fillStyle='#d0a96d';ctx.fillRect(22,317,4,56);
+ shopInk('SKIPPER SAYS',34,322,14,'#784a2e','left',355);
+ const rows=shopWrap(skipperLine||skipperGreeting(),362,16,2);
+ for(let i=0;i<rows.length;i++)shopInk(rows[i],34,345+i*21,16,'#34261e','left',361);
+}
+function shopJobBoard(){
+ const job=currentJob();
+ roundRect(240,119,165,169,5,'#203a39','#d5a268',3);
+ roundRect(246,125,153,157,2,'#162d2c','#557c69',1);
+ shopInk('TODAY\'S BOUNTY',322,145,14,'#efcf88','center',146);
+ line(259,158,387,158,'#967c51',1);
+ const title=shopWrap(job.title,135,17,2);
+ for(let i=0;i<title.length;i++)shopInk(title[i],322,181+i*23,17,'#ffffff','center',143);
+ shopInk(job.progress+' / '+job.goal+' DONE',322,238,16,'#efcf88','center',138);
+ shopInk('REWARD  $'+job.reward,322,262,16,'#ffffff','center',145);
+}
+function shopTabButton(id,label,i){
+ const x=11+i*100,y=393,w=98,h=48,selected=shopTab===id;
+ roundRect(x,y+4,w,h,5,'#211810');
+ roundRect(x,y,w,h,5,selected?'#f1cb80':'#3e2a23',selected?'#fff0b3':'#9c6c45',selected?2:1);
+ shopInk(label,x+w/2,y+24,15,selected?'#3e2719':'#f8e5bd','center',w-8);
+ hits.push({x,y,w,h,action:()=>{
+  if(shopTab===id){skipperSpeak("Take yer time. The fish aren't going anywhere. Probably.");return;}
+  shopTab=id;
+  const key=id==='lines'?'line':id==='nets'?'net':id==='guns'?'gun':'light';
+  shopScrollTo(save.upgrades[key]*SHOP_ROW-65);
+  skipperSpeak({
+   lines:"I've got line that'll reach places the sun won't.",
+   nets:"The wider the hook, the bigger the haul. Mind yer fingers.",
+   guns:"Every piece tested. Well, most of 'em.",
+   gadgets:"Bring a light. Bring a charge. Bring a bit of luck."
+  }[id]);
+ }});
+}
+const NET_NAMES=['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP'];
+const LAMP_NAMES=['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP'];
+const LAMP_COSTS=[180,420,900,1800,3700];
+const SHOP_ROW=65;
+function shopListBounds(){return shopTab==='gadgets'?[545,693]:[487,693];}
+function shopTierCount(){return shopTab==='lines'?LINE_MAXLVL+1:shopTab==='gadgets'?LIGHT_MAXLVL+1:MAXLVL+1;}
+function shopScrollTo(value){
+ const [top,bottom]=shopListBounds();
+ shopScroll[shopTab]=clamp(value,0,Math.max(0,shopTierCount()*SHOP_ROW-(bottom-top)));
+}
+function shopTierMeta(type,tier){
+ if(type==='line')return [LINE_NAMES[tier],meter(maxLineDepth(tier))+' MAX DEPTH'];
+ if(type==='net')return [NET_NAMES[tier],(24+tier*13)+'px CATCH RADIUS'];
+ if(type==='gun')return [GUN_NAMES[tier],weaponForLevel(tier).maxHits+' TARGETS / AMMO ∞'];
+ return [LAMP_NAMES[tier],'LIGHT POWER '+tier+' / '+LIGHT_MAXLVL];
+}
+function shopTierList(type,top,bottom){
+ const level=save.upgrades[type],max=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:MAXLVL;
+ const offset=shopScroll[shopTab],height=bottom-top;
+ ctx.save();ctx.beginPath();ctx.rect(17,top,376,height);ctx.clip();
+ for(let tier=Math.max(0,Math.floor(offset/SHOP_ROW));tier<=Math.min(max,Math.ceil((offset+height)/SHOP_ROW));tier++){
+  const y=top+tier*SHOP_ROW-offset,owned=tier<level,current=tier===level;
+  const [name,detail]=shopTierMeta(type,tier);
+  ctx.fillStyle=current?'#fff0ca':owned?'#cbdcc9':'#c4b8a8';ctx.fillRect(20,y+2,371,SHOP_ROW-5);
+  ctx.fillStyle=current?'#e5ae48':owned?'#45937a':'#88786b';ctx.fillRect(20,y+2,5,SHOP_ROW-5);
+  paintShopItem(ctx,type,54,y+32,.43,tier,clock,lowFx);
+  shopInk(name,87,y+19,17,'#36271e','left',205);
+  shopInk(detail,87,y+44,14,'#725846','left',207);
+  shopInk(owned?'OWNED':current?'EQUIPPED':'LOCKED',376,y+16,13,'#66513d','right',83);
+  if(current&&tier<max){
+   const cost=type==='light'?LAMP_COSTS[tier]:upgradeConfig(type).cost;
+   shopInk((save.cash>=cost?'BUY $':'NEED $')+cost,377,y+44,14,'#396d55','right',85);
+  }else if(tier>level){
+   const price=type==='light'?LAMP_COSTS[tier-1]:
+    Math.round(({line:65,net:90,gun:85}[type])*Math.pow(type==='line'?1.52:1.75,tier-1));
+   shopInk('$'+price,377,y+44,14,'#66513d','right',82);
+  }
+  const hitY=Math.max(top,y+2),hitBottom=Math.min(bottom,y+SHOP_ROW-3);
+  if(hitBottom>hitY)hits.push({x:20,y:hitY,w:371,h:hitBottom-hitY,action:()=>{
+   if(current&&tier<max){if(type==='light')buyLight();else purchase(type);}
+   else openShopInspect(type,tier);
+  }});
+ }
+ ctx.restore();
+ const total=(max+1)*SHOP_ROW,thumb=Math.max(23,height*height/total);
+ const maximum=Math.max(1,total-height);
+ ctx.fillStyle='#765d45';ctx.fillRect(402,top,3,height);
+ ctx.fillStyle='#ffdf92';ctx.fillRect(401,top+(height-thumb)*offset/maximum,5,thumb);
+}
+function shopItemCard(){
+ const type=shopTab==='lines'?'line':shopTab==='nets'?'net':'gun';
+ const max=type==='line'?LINE_MAXLVL:MAXLVL;
+ roundRect(12,453,396,242,0,'#30261f','#a77849',2);
+ shopInk('GEAR COLLECTION',25,470,17,'#f8e5bd','left',204);
+ shopInk((save.upgrades[type]+1)+' / '+(max+1),387,470,16,'#f8e5bd','right',104);
+ shopTierList(type,487,693);
+}
+function shopSupplies(){
+ roundRect(12,453,396,242,0,'#30261f','#a77849',2);
+ const full=save.charges>=3,cost=110;
+ roundRect(19,457,381,63,0,'#f1dfb9','#8c5934',2);
+ paintShopItem(ctx,'charge',54,489,.4,save.charges,clock,lowFx);
+ shopInk('BLAST CHARGES',87,477,17,'#352720','left',201);
+ shopInk(save.charges+' / 3 IN BAG',87,502,14,'#765037','left',132);
+ shopButton(full?'MAXED':save.cash>=cost?'BUY $110':'NEED $110',236,470,152,39,()=>{
+  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
+ },!full&&save.cash>=cost);
+ shopInk('LANTERN COLLECTION',25,534,16,'#f8e5bd','left',232);
+ shopInk((save.upgrades.light+1)+' / '+(LIGHT_MAXLVL+1),387,534,16,'#f8e5bd','right',103);
+ shopTierList('light',545,693);
+}
+function openShopInspect(type,tier=null){
+ shopInspect={kind:'gear',type,tier,openedAt:clock};
+ skipperSpeak({
+  line:"Feel that spool. It wants to see what's below.",
+  net:"Wider than my last catch. And he was a liar.",
+  gun:"Look closely. It's got all the safety features I could afford.",
+  light:"Don't stare into it. Your eyes aren't under warranty.",
+  charge:"Careful! That's the end that goes bang."
+ }[type]||"Go on, take a closer look.",'curious');
+}
+function shopStoryButton(){
+ const unseen=nextShopSecret(save,shopSecretsSeen),unlocked=unlockedShopSecrets(save);
+ const selected=unseen||unlocked[unlocked.length-1];
+ if(!selected)return;
+ roundRect(235,282,171,26,0,unseen?'#efc679':'#53372a','#352219',2);
+ paintShopItem(ctx,selected.item,250,295,.22,0,clock,lowFx);
+ shopInk(unseen?'NEW CURIO! TAP':'SKIPPER\'S SECRETS',261,295,14,unseen?'#32241e':'#f4dfb0','left',139);
+ hits.push({x:235,y:282,w:171,h:26,action:()=>{
+  shopInspect={kind:'secret',id:selected.id,openedAt:clock};
+  if(!shopSecretsSeen.includes(selected.id)){
+   shopSecretsSeen.push(selected.id);saveShopSecretsSeen();
+  }
+  skipperSpeak(selected.hint,'curious');
+ }});
+}
+function inspectGearInfo(type){
+ const u=save.upgrades;
+ const lvl=type==='charge'?save.charges:u[type]||0;
+ const limit=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:type==='charge'?3:MAXLVL;
+ const names=type==='line'?LINE_NAMES:type==='gun'?GUN_NAMES:
+ type==='net'?['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP']:
+ type==='light'?['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP']:
+ ['BLAST CHARGE','BLAST CHARGE','BLAST CHARGE','BLAST CHARGE'];
+ const cost=type==='charge'?110:type==='light'?[180,420,900,1800,3700][lvl]||0:upgradeConfig(type).cost;
+ const description={
+  line:"Longer line explores new depths and strange regions.",
+  net:"A wider hook collects more fish on the way up.",
+  gun:"Each gun has unlimited ammo and its own spread.",
+  light:"Your lantern cuts through the deepest darkness.",
+  charge:"One charge ignores a fish collision on the descent."
+ }[type];
+ const benefit=type==='line'?'REACH '+meter(maxLineDepth(lvl)):
+ type==='net'?'CATCH RADIUS '+(24+13*lvl)+'px':
+ type==='gun'?weaponForLevel(lvl).maxHits+' FISH PER SHOT':
+ type==='light'?'LIGHT LEVEL '+lvl+' / '+LIGHT_MAXLVL:'CHARGES '+lvl+' / 3';
+ return {type,lvl,full:lvl>=limit,cost,name:names[lvl]||type.toUpperCase(),description,benefit};
+}
+function buyInspectedGear(type){
+ if(type==='charge'){
+  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
+ }else if(type==='light')buyLight();
+ else purchase(type);
+}
+function shopInspectOverlay(){
+ const item=shopInspect;if(!item)return;
+ // An open inspection owns every hitbox, blocking unintended purchases behind it.
+ hits.length=0;
+ ctx.save();ctx.fillStyle='#091724e6';ctx.fillRect(0,0,W,H);
+ roundRect(21,126,378,557,0,'#251f24','#b8894e',4);
+ roundRect(31,136,358,535,0,'#f1dfb9','#8c5934',3);
+ ctx.fillStyle='#bd8857';ctx.fillRect(41,145,338,3);
+ const secret=item.kind==='secret'?SHOP_SECRETS.find(s=>s.id===item.id):null;
+ const gear=secret?null:inspectGearInfo(item.type);
+ if(gear&&item.tier!==null){gear.name=shopTierMeta(item.type,item.tier)[0];gear.benefit=shopTierMeta(item.type,item.tier)[1];gear.lvl=item.tier;}
+ shopInk(secret?'SKIPPER\'S FIND':'FROM THE TACKLE CASE',210,163,15,'#785137','center',326);
+ shopInk(secret?secret.title:gear.name,210,194,24,'#30241e','center',331);
+ roundRect(60,211,300,245,0,'#432e28','#a27346',3);
+ paintShopItem(ctx,secret?secret.item:gear.type,210,334,2.08,gear?gear.lvl:0,clock,lowFx);
+ ctx.fillStyle='#bd8857';ctx.fillRect(58,469,304,3);
+ if(secret){
+  const rows=shopWrap(secret.story,312,17,3);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,507+i*24,17,'#3b2d25','center',318);
+  shopInk('A SECRET FOR YOUR LOGBOOK',210,592,16,'#7c5032','center',320);
+  shopButton('BACK TO COUNTER',77,612,266,45,()=>{shopInspect=null;});
+ }else{
+  shopInk(gear.benefit,210,492,19,'#3b2d25','center',314);
+  const rows=shopWrap(gear.description,304,16,2);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,529+i*21,16,'#6d513d','center',319);
+  shopInk(gear.full?'FULLY UPGRADED':'NEXT UPGRADE $'+gear.cost,210,586,17,'#704a32','center',325);
+  shopButton('← BACK',40,612,127,46,()=>{shopInspect=null;});
+  shopButton(gear.full?'MAX LEVEL':save.cash>=gear.cost?'BUY $'+gear.cost:'NEED $'+gear.cost,
+    176,612,203,46,()=>buyInspectedGear(gear.type),!gear.full&&save.cash>=gear.cost);
+ }
+ ctx.restore();
+}
+
+function shop(){
+ shopInterior();
+ // Warm shopkeeper portrait and actual cork-board mission tracker.
+ skipperPortrait(105,209);
+ shopJobBoard();
+ hits.push({x:12,y:103,w:220,h:194,action:()=>{
+  const lines=[
+   "My suppliers ask where I get this stuff. I ask 'em not to ask.",
+   "Deep enough and the water starts keeping secrets.",
+   "The bait's fresh. The bookkeeping, less so.",
+   "I once caught a fish so big it bought the boat.",
+   "If it starts glowing, bring it back in one piece.",
+   currentJob().story
+  ];
+  skipperSpeak(lines[skipperChats++%lines.length],'curious');
+ }});
+ roundRect(255,94,151,30,4,'#f1dfb9','#85572f',2);
+ shopInk('COINS  $'+save.cash,329,109,18,'#32241e','center',143);
+ skipperBubble();
+ shopStoryButton();
+ for(let i=0;i<SHOP_TABS.length;i++)shopTabButton(...SHOP_TABS[i],i);
+ if(shopTab==='gadgets')shopSupplies();else shopItemCard();
+ shopButton('←  BACK TO THE WATER',14,714,392,52,()=>{
+  state=castNumber&&save.total?'results':'menu';age=0;
+ },true);
+ if(shopInspect)shopInspectOverlay();
+}
+
+function expeditionBoard(){
+ titleBackdrop(lowFx?0:clock*.35);
+ const job=currentJob(),status=save.expedition;
+ text("SKIPPER'S LOG",210,75,36,C.white,'center',900,0,390);
+ text('A NEW REASON TO CAST AGAIN',210,114,16,C.white,'center',900,0,382);
+ neonPanel(23,147,374,315,C.yellow,19);
+ arcadePill(job.label,95,162,230,C.yellow);
+ text(job.title,210,228,27,C.white,'center',950,0,339);
+ text(job.task,210,281,19,C.white,'center',900,0,340);
+ text(job.progress+' / '+job.goal,210,331,31,C.yellow,'center',950);
+ roundRect(58,360,304,13,6,'#031627','#78959b',1);
+ roundRect(61,363,Math.round(298*Math.min(1,job.progress/job.goal)),7,4,C.yellow);
+ text('REWARD  $'+job.reward,210,410,22,C.white,'center',900,0,331);
+ text('SKIPPER SAYS:',210,488,16,C.yellow,'center',900,0,360);
+ text(job.story,210,519,16,C.white,'center',900,0,382);
+ text('STORY CHAPTERS  '+Math.min(status.chapter,EXPEDITIONS.length)+' / '+EXPEDITIONS.length,210,574,18,C.white,'center',900,0,381);
+ const recent=EXPEDITIONS[Math.max(0,Math.min(EXPEDITIONS.length-1,status.chapter-1))];
+ const next=EXPEDITIONS[Math.min(EXPEDITIONS.length-1,status.chapter+1)];
+ text('✓ '+(status.chapter?recent.title:'FIRST MISSION AWAITS'),210,613,16,C.white,'center',900,0,370);
+ text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,649,16,C.white,'center',900,0,370);
+ button('← BACK',70,707,280,55,()=>{state=expeditionReturn;age=0;},C.yellow);
+}
+function bookCard(kind,x,y){
+ const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
+ const width=370,height=99;
+ roundRect(x+3,y+4,width,height,0,'#041328');
+ roundRect(x,y,width,height,0,'#072940',found?'#69ffe5':'#658a9e',2);
+ ctx.fillStyle=found?'#29dfce':'#68899e';
+ ctx.fillRect(x+4,y+5,6,height-10);
+ ctx.save();
+ if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.62;}
+ fish(x+64,y+49,kind,1,1.15,clock*1.3);
+ ctx.restore();
+ // One column provides actual room for long names and readable 17–21px labels.
+ text(found?meta.name:'UNKNOWN SPECIES',x+122,y+23,21,C.white,'left',900,0,232);
+ text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,17,C.white,'left',900,0,232);
+ text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,17,C.white,'left',900,0,232);
+ hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+}
+function collection(){
+ ambient(clock);
+ text('FISH ENCYCLOPEDIA',210,76,30,C.cream,'center',1000,0,390);
+ const p=collectionProgress(save.collection);
+ text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,17,C.white,'center',900,0,365);
+ roundRect(49,138,322,8,0,'#071828');
+ roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
+ button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
+ button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
+ const pageSize=4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
+ const pages=Math.ceil(total/pageSize);
+ collectionPage=clamp(collectionPage,0,pages-1);
+ if(collectionTab==='fish'){
+  for(let i=0;i<pageSize;i++){
+   const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
+   bookCard(kind,25,227+i*105);
+  }
+ }else{
+  for(let i=0;i<4;i++){
+   const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
+   const unlocked=save.collection.achievements[badge.id]===true;
+   const y=227+i*105;
+   roundRect(29,y,362,97,0,unlocked?'#135369':'#123e55',unlocked?C.yellow:'#75adbc',2);
+   text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
+   text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
+   text(badge.description,80,y+45,16,C.white,'left',900,0,291);
+   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,17,C.white,'left',900,0,291);
+  }
+ }
+ if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
+ text((collectionPage+1)+' / '+pages,210,682,15,C.cream);
+ if(collectionPage<pages-1)button('NEXT →',279,659,111,42,()=>collectionPage++,C.cream);
+ button('← BACK',90,717,240,48,()=>{state='menu';age=0;},C.yellow);
+}
+function fishDetail(){
+ ambient(clock);
+ const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
+ text('FISH FILE',210,78,32,C.cream,'center',1000);
+ text('#'+String(selectedFish+1).padStart(2,'0')+' / '+species.length,210,121,14,C.mint,'center',800);
+ panel(31,155,358,453);
+ ctx.save();if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
+ fish(210,252,selectedFish,1,3.2,clock*2);
+ ctx.restore();
+ text(found?meta.name:'UNDISCOVERED',210,354,found?27:22,C.yellow,'center',1000);
+ if(found){
+  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,17,C.white,'center',900,0,339);
+  text('BASE VALUE $'+meta.value,210,425,16,C.cream,'center',900);
+  line(58,452,361,452,'#4d8797');
+  text('CAUGHT',65,487,13,C.muted,'left',850);text(entry.caught,351,487,17,C.cream,'right',950);
+  text('SHOT',65,522,13,C.muted,'left',850);text(entry.shot,351,522,17,C.cream,'right',950);
+  text('EARNED',65,557,13,C.muted,'left',850);text('$'+entry.earned,351,557,17,C.yellow,'right',950);
+  text('BEST COMBO',65,587,13,C.muted,'left',850);text('x'+entry.bestCombo,351,587,17,C.cream,'right',950);
+ }else{
+  text('CATCH TO REVEAL THIS FISH',210,416,18,C.white,'center',900,0,330);
+  text('STATS AND HABITAT ARE HIDDEN',210,455,17,C.white,'center',900,0,330);
+ }
+ button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
+ button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
+}
+function installScene(){
+ titleBackdrop(lowFx?0:clock);
+ text('INSTALL THE GAME',210,91,33,C.white,'center',900,0,380);
+ text('PLAY FULLSCREEN • WORKS OFFLINE',210,130,16,C.white,'center',900,0,380);
+ panel(24,157,372,405);
+ const guide=installGuide();
+ text('FOR '+guide.platform.toUpperCase(),210,197,21,C.white,'center',900,0,343);
+ text('BROWSER INSTALL STEPS',210,240,17,C.white,'center',900,0,339);
+ for(let i=0;i<guide.steps.length;i++){
+  const y=278+i*66;
+  roundRect(39,y-19,40,40,0,'#0b4260','#3cf0e1',2);
+  text('0'+(i+1),59,y+2,19,C.white,'center',900,0,37);
+  text(guide.steps[i],89,y+2,16,C.white,'left',900,0,279);
+ }
+ roundRect(28,577,364,49,0,'#08243ef4','#64eade',2);
+ const status=serviceWorkerStatus();
+ const hint=canInstall()?'READY FOR INSTALL PROMPT':
+  status==='ready'?'OFFLINE SERVICE READY':
+  status==='failed'?'OFFLINE SETUP FAILED • TRY RELOAD':
+  'OPEN IN YOUR REGULAR BROWSER';
+ text(hint,210,601,16,C.white,'center',900,0,340);
+ if(canInstall())button('INSTALL NOW',62,640,296,52,installGame,C.yellow);
+ else button('COPY GAME LINK',62,640,296,52,copyGameLink,C.teal);
+ text(installMessage,210,710,16,C.white,'center',900,0,360);
+ button('← BACK',100,733,220,41,()=>{state='menu';age=0;},C.cream);
+}
+function settings(){
+ ambient(clock);
+ text('SETTINGS',210,85,42,C.cream,'center',1000);
+ text('PHONE & INPUT',210,127,13,C.mint,'center',900,1.5);
+ panel(23,151,374,488);
+ text('STEERING',210,181,18,C.yellow,'center',950);
+ button('TOUCH',43,206,161,48,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
+ button('TILT',215,206,161,48,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
+ text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,278,14,C.cream,'center',900);
+ text(sensorStatus,210,305,13,C.mint,'center',900,0,345);
+ if(inputMode==='tilt')button('RECENTER',122,326,176,41,recenterTilt,C.cream);
+ else text('DRAG TO STEER DURING A CAST',210,350,17,C.white,'center',900,0,350);
+ text('AUDIO',210,376,16,C.yellow,'center',950);
+ button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
+ button(musicEnabled?'SOUNDTRACK: ON':'SOUNDTRACK: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
+ text('FEEDBACK',210,495,16,C.yellow,'center',950);
+ button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
+ if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
+ else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
+ if(!isInstalled())button('INSTALL / HELP',104,566,212,48,installGame,C.yellow);
+ else text('INSTALLED APP',210,587,15,C.yellow);
+ button('REFRESH GAME / CLEAR CACHE',54,627,312,48,()=>{refreshGameFiles().catch(()=>{installMessage='REFRESH FAILED - TRY RELOADING';state='install';age=0;});},C.teal);
+ text('KEEPS YOUR COINS AND UPGRADES',210,687,16,C.white,'center',900,0,355);
+ button('← BACK',62,716,296,45,()=>{state='menu';age=0;},C.yellow);
+
+}
+function pausedScene(){
+ ctx.fillStyle='#031225ee';ctx.fillRect(0,0,W,H);
+ const glow=ctx.createRadialGradient(210,380,20,210,380,290);
+ glow.addColorStop(0,'#19aaa929');glow.addColorStop(1,'#071a3200');
+ ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
+ neonPanel(35,219,350,368,C.teal,23);
+ arcadePill('BREAK TIME',133,239,154,C.teal);
+ text('PAUSED',210,313,52,C.white,'center',1000);
+ text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'PAUSED AUTOMATICALLY',210,356,17,C.white,'center',900,0,309);
+ arcadeRule(85,382,335,C.teal);
+ text('YOUR CATCH WILL NOT MOVE',210,399,17,C.white,'center',900,0,320);
+ button('RESUME',76,437,268,65,resumeGame,C.yellow);
+ button('MAIN MENU',96,521,228,53,menuFromPause,C.cream);
+}
+function neonOceanArtwork(kind,t){
+ // Full-height hand-drawn vector/pixel arcade scene. The scene keeps its own
+ // artwork so stage cards no longer feel like a modal over the game.
+ const dark=ctx.createLinearGradient(0,0,0,H);
+ if(kind==='dive'){
+  dark.addColorStop(0,'#12254e');dark.addColorStop(.38,'#087aab');dark.addColorStop(1,'#03152f');
+ }else if(kind==='reel'){
+  dark.addColorStop(0,'#211c61');dark.addColorStop(.42,'#f47aa3');dark.addColorStop(.58,'#145b9d');dark.addColorStop(1,'#062746');
+ }else{
+  dark.addColorStop(0,'#18134a');dark.addColorStop(.48,'#642579');dark.addColorStop(1,'#07152e');
+ }
+ ctx.fillStyle=dark;ctx.fillRect(0,0,W,H);
+ const movement=lowFx?0:t;
+ // Animated aurora rays across the entire vertical artwork.
+ ctx.save();ctx.globalAlpha=.22;
+ for(let i=0;i<7;i++){
+  const x=45+i*68+Math.sin(movement*.7+i)*14;
+  const ray=ctx.createLinearGradient(x,80,x+80,H);
+  ray.addColorStop(0,i%2?'#a5ffec':'#ff8ce5');
+  ray.addColorStop(1,'#07152e00');
+  ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(x-18,0);
+  ctx.lineTo(x+27,0);ctx.lineTo(x+130,H);ctx.lineTo(x+43,H);ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ const horizon=kind==='dive'?173:kind==='reel'?356:535;
+ // Layered ocean silhouette and white/teal crests.
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,horizon);
+ for(let x=0;x<=W+12;x+=12)
+  ctx.lineTo(x,horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4);
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=kind==='shoot'?'#112e69':'#07547d';ctx.fill();
+ ctx.strokeStyle='#90faff';ctx.lineWidth=4;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){const y=horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+ ctx.stroke();
+ // Marine life moves behind the hero elements.
+ for(let i=0;i<12;i++){
+  const x=20+((i*79+movement*(i%2?18:-14)+W*10)%W);
+  const y=horizon+75+(i*61)%(H-horizon-105);
+  ctx.save();ctx.globalAlpha=.25;
+  fish(x,y,i%species.length,i%2?-1:1,.52+(i%3)*.11,movement*3+i);
+  ctx.restore();
+ }
+ for(let i=0;i<30;i++){
+  const x=(i*83+27)%W,y=H-((i*57+movement*(21+i%3*7))%(H+35));
+  ctx.strokeStyle=i%3?'#c6fbff65':'#ffccee70';ctx.lineWidth=i%6?2:3;
+  ctx.strokeRect(x,y,3+i%4*2,3+i%4*2);
+ }
+ if(kind==='dive'){
+  // Glowing hook plunging under a boat, with a luminous trail.
+  boat(210,166);
+  const hookY=308+Math.sin(movement*3)*17;
+  ctx.strokeStyle='#e1ffff9c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(210,155);ctx.lineTo(210,hookY-15);ctx.stroke();
+  ctx.save();ctx.shadowColor='#24ffe2';ctx.shadowBlur=23;hook(210,hookY);ctx.restore();
+  for(let i=0;i<18;i++){const x=210+Math.sin(i*8+movement)*((i%5)*8),y=hookY+35+i*14;
+   circle(x,y,2+i%3,'#80f3ff99');}
+ }else if(kind==='reel'){
+  // Hero trophy fish breaks the ocean horizon, trailing foam and droplets.
+  const lift=lowFx?0:Math.sin(movement*4)*17;
+  for(let i=0;i<19;i++){const x=210+Math.cos(i*2.4)*((i%7)*19);
+   const y=horizon+Math.sin(i*3)*32;
+   circle(x,y,4+i%4*2,i%2?'#e9ffff':'#5beaff');}
+  ctx.save();ctx.translate(210,319+lift);ctx.rotate(-.24);
+  ctx.shadowColor='#80f6ff';ctx.shadowBlur=21;
+  fish(0,0,10,1,3.2,movement*5);ctx.restore();
+  line(180,0,243,287,'#b8fcff',2);
+ }else{
+  // Electric crosshair, fish silhouettes, neon weapon bolts and gold coins.
+  const cx=210+Math.sin(movement*2)*6,cy=314;
+  ctx.save();ctx.shadowColor='#fc72e8';ctx.shadowBlur=24;
+  ctx.strokeStyle='#ffa0fc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,59,0,Math.PI*2);ctx.stroke();
+  line(cx-83,cy,cx-23,cy,'#ffffff',4);line(cx+23,cy,cx+83,cy,'#ffffff',4);
+  line(cx,cy-83,cx,cy-23,'#ffffff',4);line(cx,cy+23,cx,cy+83,'#ffffff',4);
+  circle(cx,cy,7,'#ffec7c');ctx.restore();
+  fish(105,215,10,1,2.1,movement*4);
+  fish(335,394,13,-1,1.5,movement*4);
+  for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8+movement*.4,dist=70+(i%4)*22;
+   const x=cx+Math.cos(angle)*dist,y=cy+Math.sin(angle)*dist;
+   ctx.fillStyle=i%3?'#ffe76a':'#ff8fed';
+   ctx.fillRect(x,y,6+i%3*3,6+i%3*3);
+  }
+  drawBulletTrail(80,670,cx,cy,.76,'#ff75da',2);
+  drawBulletTrail(345,670,cx,cy,.66,'#6efcf9',2);
+ }
+}
+function drawStageTransition(){
+ if(!sceneTransition)return;
+ const stage=ARCADE_STAGES[sceneTransition.kind];
+ if(!stage)return;
+ const frame=stageFrame(sceneTransition.elapsed,sceneTransition.duration);
+ if(frame.visibility<=0)return;
+ ctx.save();
+ // Artwork fills the full screen, not the old small centred modal.
+ ctx.globalAlpha=frame.visibility;
+ neonOceanArtwork(sceneTransition.kind,sceneTransition.elapsed);
+ // Gradient behind the bottom title for consistent white-text readability.
+ const shade=ctx.createLinearGradient(0,500,0,H);
+ shade.addColorStop(0,'#06122800');shade.addColorStop(.42,'#06152ad9');shade.addColorStop(1,'#030d23');
+ ctx.fillStyle=shade;ctx.fillRect(0,500,W,H-500);
+ const offset=frame.slide*.52;
+ arcadePill('STAGE '+stage.number,150,557+offset,120,stage.accent);
+ text(stage.title,210,634+offset,48,C.white,'center',900,0,392);
+ ctx.save();ctx.globalAlpha=.83*frame.visibility;
+ ctx.fillStyle=stage.accent;ctx.fillRect(40,673+offset,340,4);
+ ctx.restore();
+ text(stage.subtitle,210,707+offset,20,C.white,'center',900,0,372);
+ for(let i=0;i<3;i++)roundRect(104+i*73,740+offset,59,6,3,i+1<=Number(stage.number)?stage.accent:'#3f647d');
+ ctx.restore();
+}
+function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
+ ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='expeditions')expeditionBoard();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ overlayParticles();drawSplashEffects(lastFrameDt);
+ if(sceneFlash>0&&!lowFx){
+   ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
+   ctx.fillRect(0,0,W,H);
+ }
+ drawStageTransition();
+ ctx.restore();
+ if(paused){hits=[];pausedScene();}
+ display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
+ display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);
+ if(!document.body.classList.contains('game-ready'))document.body.classList.add('game-ready');
+}
+let last=0,lastFrameDt=0;
+function frame(t){
+ const frameGap=lowFx?1000/30:1000/60;
+ if(last&&t-last<frameGap-1){requestAnimationFrame(frame);return;}
+ const dt=Math.min((t-last)/1000||.016,.05);
+ last=t;lastFrameDt=paused?0:dt;
+ if(!paused&&!document.hidden)update(dt);
+ if(!document.hidden)render();
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
+function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+ if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
+ sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
+ if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
+canvas.addEventListener('pointerup',e=>{if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}pointerDown=false;});
+canvas.addEventListener('pointercancel',()=>{shopDrag=null;pointerDown=false;});
+canvas.addEventListener('wheel',e=>{if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}},{passive:false});
+window.addEventListener('keydown',e=>{
+ sound.unlock();
+ if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(e.code==='Escape'||e.key.toLowerCase()==='p'){
+  if(paused)resumeGame();else pauseGame('MANUAL');return;
+ }
+ if(paused)return;
+ keys.add(e.key);
+ if(e.repeat)return;if(e.code==='Space'||e.code==='Enter'){
+ if(state==='menu'||state==='results')beginCast();else if(state==='shoot')shootAt(pointer.x,pointer.y);
+ }});window.addEventListener('keyup',e=>keys.delete(e.key));
+window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);rumble.stop();}
+ else if(!paused){sound.pause(false);sound.unlock();}
+ last=0;
+});
+})();+roundEarnings,220,190,19+(lowFx?0:payoutPulse*3),payoutPulse>0?'#fff7bd':C.yellow,'center',1000,0,110);
+ if(messageTimer>0&&combo<=1){
+  roundRect(80,131,260,34,0,'#061d2ce5');
+  text(message,210,147,12,C.cream,'center',900);
+ }
+ const px=Math.round(pointer.x/4)*4,py=Math.round(pointer.y/4)*4;
+ ctx.strokeStyle='#fff6cd';ctx.lineWidth=3;ctx.strokeRect(px-12,py-12,24,24);
+ ctx.fillStyle='#fff6cd';ctx.fillRect(px-23,py-2,8,4);ctx.fillRect(px+15,py-2,8,4);
+ ctx.fillRect(px-2,py-23,4,8);ctx.fillRect(px-2,py+15,4,8);
+ bottomHint('TAP FAST • FISH CAN SPLASH DOWN');
+ button('II',362,124,42,37,()=>pauseGame('MANUAL'),C.cream);
+}
+// Animated title screen: gradient water, layered parallax and playful sea life.
+// All effects render UNDER the interface, so bold white text stays clear.
+function titleWave(t,y,amplitude,frequency,fill){
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,y+Math.sin(t*.55)*amplitude);
+ for(let x=18;x<=W+18;x+=18){
+  const roll=Math.sin(x*.016*frequency+t*.55+frequency)*amplitude;
+  const ripple=Math.sin(x*.055+t*.9+frequency)*amplitude*.24;
+  ctx.lineTo(x,y+roll+ripple);
+ }
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+}
+function titleBackdrop(t){
+ const motion=lowFx?0:t;
+ const sky=ctx.createLinearGradient(0,0,0,H);
+ sky.addColorStop(0,'#071b34');
+ sky.addColorStop(.27,'#124c70');
+ sky.addColorStop(.48,'#126584');
+ sky.addColorStop(.73,'#0b4465');
+ sky.addColorStop(1,'#061d38');
+ ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ // A cool glow draws the eye to the illustrated logo, not the background.
+ const bloom=ctx.createRadialGradient(210,193,20,210,193,285);
+ bloom.addColorStop(0,'rgba(68,234,232,0.27)');
+ bloom.addColorStop(.57,'rgba(42,156,192,0.10)');
+ bloom.addColorStop(1,'rgba(15,69,117,0)');
+ ctx.fillStyle=bloom;ctx.fillRect(0,0,W,490);
+ const stars=lowFx?11:22;
+ for(let i=0;i<stars;i++){
+  const x=(i*97+31)%W,y=(i*71+29)%305;
+  const shimmer=lowFx?.24:(.23+.15*Math.sin(motion*.95+i*2.8));
+  ctx.fillStyle='rgba(207,253,254,'+shimmer.toFixed(3)+')';
+  ctx.fillRect(x,y,i%6===0?3:2,i%6===0?3:2);
+ }
+ // Gently animated sunbeams under the fish and menu cards.
+ ctx.save();ctx.beginPath();ctx.rect(0,300,W,380);ctx.clip();
+ for(let i=0;i<3;i++){
+  const x=39+i*168+Math.sin(motion*.22+i)*9;
+  const ray=ctx.createLinearGradient(0,320,0,690);
+  ray.addColorStop(0,'rgba(137,255,245,0.09)');
+  ray.addColorStop(1,'rgba(137,255,245,0)');
+  ctx.fillStyle=ray;ctx.beginPath();
+  ctx.moveTo(x-13,318);ctx.lineTo(x+28,318);
+  ctx.lineTo(x+132,690);ctx.lineTo(x+4,690);
+  ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ titleWave(motion,323,7,1.1,'rgba(42,191,207,0.30)');
+ titleWave(motion*.75,345,11,1.55,'rgba(24,110,150,0.40)');
+ titleWave(motion*.42,558,19,1.25,'rgba(9,60,90,0.46)');
+ ctx.save();ctx.globalAlpha=lowFx?.16:.25;
+ ctx.strokeStyle='#8af1e8';ctx.lineWidth=2;
+ for(let i=0;i<6;i++){
+  const x=(i*87+Math.sin(motion*.4+i)*12+15)%W;
+  const y=378+i*39+Math.sin(motion*.52+i)*9;
+  ctx.beginPath();ctx.moveTo(x-13,y);ctx.quadraticCurveTo(x,y+7,x+27,y-2);ctx.stroke();
+ }
+ ctx.restore();
+ // Edge plants and a subdued vignette frame the central interactive column.
+ ctx.save();ctx.globalAlpha=.42;
+ for(let i=0;i<8;i++){
+  const x=i<4?6+i*17:W-65+(i-4)*17;
+  const length=46+(i%4)*23;
+  ctx.fillStyle=i%2?'#0e6670':'#174e64';
+  for(let j=0;j<length;j+=15){
+   const offset=Math.round(Math.sin(motion*.55+i*.9+j*.028)*4);
+   ctx.fillRect(x+offset,H-j-15,5,16);
+   if(j>0)ctx.fillRect(x+offset+(i%2?4:-9),H-j-9,12,5);
+  }
+ }
+ ctx.restore();
+ const vignette=ctx.createRadialGradient(W*.5,H*.43,W*.18,W*.5,H*.5,H*.9);
+ vignette.addColorStop(0,'rgba(3,13,30,0)');
+ vignette.addColorStop(1,'rgba(2,12,28,0.35)');
+ ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
+}
+function titleSeaLife(t){
+ const motion=lowFx?0:t;
+ const swimmers=[
+  {kind:6,y:388,scale:.9,rate:15,offset:40,dir:1},
+  {kind:3,y:462,scale:1.1,rate:12,offset:276,dir:-1},
+  {kind:1,y:557,scale:.95,rate:21,offset:110,dir:1},
+  {kind:13,y:614,scale:.60,rate:16,offset:340,dir:-1},
+ ];
+ for(const s of swimmers){
+  const travel=(motion*s.rate+s.offset)%(W+160);
+  const x=s.dir===1?-80+travel:W+80-travel;
+  const y=s.y+Math.sin(motion*.7+s.offset)*10;
+  ctx.save();ctx.globalAlpha=s.kind===13?.73:.61;
+  fish(x,y,s.kind,s.dir,s.scale,motion*2+s.offset);
+  ctx.restore();
+ }
+ ctx.fillStyle='rgba(135,219,225,0.22)';
+ for(let i=0;i<9;i++){
+  const x=((i*25+motion*10+W*2)%(W+70))-35;
+  const y=516+Math.sin(i*.72+motion*.65)*13;
+  ctx.fillRect(x,y,9,4);ctx.fillRect(x-4,y+1,4,2);
+ }
+ for(let i=0;i<(lowFx?9:20);i++){
+  const x=18+((i*79)%383)+Math.sin(motion*.37+i)*8;
+  const lift=((motion*(5+i%5*2)+i*43)%420);
+  const y=H-18-lift,size=i%6===0?7:i%3===0?5:3;
+  ctx.save();ctx.globalAlpha=i%4===0?.32:.18;
+  ctx.strokeStyle='#ccfbff';ctx.lineWidth=1.5;
+  ctx.strokeRect(Math.round(x),Math.round(y),size,size);
+  ctx.restore();
+ }
+}
+function titleActionGlow(t,x,y,w,h){
+ if(lowFx)return;
+ const pulse=.38+.25*(.5+.5*Math.sin(t*2.8));
+ ctx.save();
+ ctx.strokeStyle='rgba(255,230,126,'+pulse.toFixed(3)+')';
+ ctx.lineWidth=2;ctx.strokeRect(x-5,y-5,w+10,h+10);
+ ctx.fillStyle='rgba(255,230,126,'+(pulse*.09).toFixed(3)+')';
+ ctx.fillRect(x-7,y-7,w+14,h+14);ctx.restore();
+}
+function menu(){
+ const t=lowFx?0:clock;
+ titleBackdrop(t);titleSeaLife(t);
+ // The player and their boat are the focus, rather than a wall of dashboard cards.
+ const seaY=438+(lowFx?0:Math.sin(t*1.15)*4);
+ ctx.save();
+ const glow=ctx.createRadialGradient(210,seaY-95,18,210,seaY-95,230);
+ glow.addColorStop(0,'#65ffe139');glow.addColorStop(1,'#65ffe100');
+ ctx.fillStyle=glow;ctx.fillRect(0,205,W,370);
+ ctx.restore();
+ const bob=lowFx?0:Math.sin(t*1.1)*3;
+ if(titleLogo.complete&&titleLogo.naturalWidth){
+  const width=Math.min(330,188*titleLogo.naturalWidth/titleLogo.naturalHeight);
+  const height=width*titleLogo.naturalHeight/titleLogo.naturalWidth;
+  ctx.drawImage(titleLogo,(W-width)/2,64+bob,width,height);
+ }else{
+  text('REEL',210,128+bob,65,C.white);
+  text('TROUBLE!',210,195+bob,49,C.white);
+ }
+ // Enlarged original pixel-art angler as an identifiable mascot.
+ ctx.save();ctx.translate(210,seaY);ctx.scale(2.1,2.1);ctx.translate(-210,-seaY);
+ boat(210,seaY);
+ ctx.restore();
+ const progress=collectionProgress(save.collection);
+ roundRect(25,20,153,42,14,'#082734dd','#ffffff26',1);
+ text('$'+save.cash,101,41,23,C.white,'center',900,0,136);
+ button('☰',345,19,51,43,()=>{state='more';age=0;},C.teal);
+ const job=currentJob();
+  text(job.label+' • '+job.title,210,497,16,C.yellow,'center',900,0,375);
+  text(job.task+'  '+job.progress+'/'+job.goal,210,521,16,C.white,'center',900,0,377);
+ titleActionGlow(t,50,544,320,83);
+ button('CAST LINE',50,544,320,83,beginCast,C.yellow,'DIVE INTO THE DEEP');
+ button('GEAR SHOP',50,649,210,59,()=>{enterShop();},C.teal);
+ button('MORE',272,649,98,59,()=>{state='more';age=0;},C.cream);
+ text('BEST $'+save.best+'  •  '+progress.discovered+'/'+progress.total+' FISH FOUND',210,743,16,C.white,'center',900,0,372);
+}
+function moreMenu(){
+ titleBackdrop(lowFx?0:clock*.35);
+ text('CAPTAIN\'S CABIN',210,103,37,C.white,'center',900,0,380);
+ text('CHOOSE WHERE TO HEAD NEXT',210,145,17,C.white);
+ // Use open space instead of a large framed dashboard.
+ button('SKIPPER\'S EXPEDITIONS',56,214,308,66,openExpeditions,C.yellow);
+ button('FISH BOOK & BADGES',56,296,308,66,()=>openCollection('fish'),C.teal);
+ button('SETTINGS',56,378,308,66,()=>{state='settings';age=0;},C.cream);
+ if(!isInstalled())button('INSTALL APP',56,460,308,66,installGame,C.pink);
+ else button('APP INSTALLED',56,460,308,66,()=>{state='settings';age=0;},C.pink);
+ text('YOUR PROGRESS IS SAVED AUTOMATICALLY',210,583,16,C.white,'center',900,0,316);
+ button('← BACK TO FISHING',60,665,300,67,()=>{state='menu';age=0;},C.yellow);
+}
+function results(){
+ titleBackdrop(clock*.38);
+ // Small celebratory glints sit behind the reward card, never over the text.
+ const motion=lowFx?0:clock;
+ for(let i=0;i<(lowFx?7:18);i++){
+  const x=(i*71+37)%W,y=116+((i*97+motion*(i%3+1)*11)%490);
+  ctx.save();ctx.globalAlpha=.22+.17*(Math.sin(motion*2+i)+1)*.5;
+  ctx.fillStyle=i%3===0?C.yellow:C.teal;ctx.fillRect(x,y,i%4===0?5:3,i%4===0?5:3);
+  ctx.restore();
+ }
+ arcadePill('RUN COMPLETE',115,51,190,C.yellow);
+ text('NICE CATCH!',210,123,43,C.white,'center',1000,-.8);
+ text('BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
+ if(missionsCompletedThisCast)text('MISSION CLEARED +$'+missionRewardThisCast,210,195,17,C.yellow,'center',900,0,354);
+ else if(discoveriesThisCast)text('OCEAN SECRETS FOUND: '+discoveriesThisCast,210,195,17,C.yellow,'center',900,0,354);
+ else if(newFishThisCast||newBadgesThisCast)
+  text('NEW: '+newFishThisCast+' FISH • '+newBadgesThisCast+' BADGES',210,195,16,C.white,'center',900,0,354);
+ neonPanel(35,217,350,291,C.yellow,21);
+ text('YOUR ARCADE PAYOUT',210,259,18,C.white,'center',900,0,310);
+ const reveal=lowFx?1:easeOutCubic(Math.min(1,age/.95));
+ const counted=Math.round(roundEarnings*reveal);
+ text('+$'+counted,210,327,68,C.white,'center',1000,-3,320);
+ arcadeRule(64,373,356,C.yellow);
+ text('HITS / SHOTS',77,405,17,C.white,'left',900);
+ text(landed+' / '+fired,343,405,19,C.white,'right',900);
+ text('BEST COMBO',77,439,17,C.white,'left',900);
+ text('x'+Math.max(1,bestRoundCombo),343,439,19,C.white,'right',900);
+ text('DEEPEST DIVE',77,479,17,C.white,'left',900);
+ text(meter(deepestCast),343,479,21,C.white,'right',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
+ neonPanel(91,508,238,43,'#47e5d7',13);
+ text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
+ titleActionGlow(clock,64,567,292,62);
+ button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
+ button('GEAR SHOP',25,647,178,53,()=>{enterShop();},C.cream);
+ button('MISSIONS',217,647,178,53,openExpeditions,C.teal);
+ button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
+}
+
+let skipperLine='',skipperLineTime=0,skipperVisits=0,skipperChats=0;
+let shopMood='neutral',shopMoodUntil=0,shopInspect=null;
+const SHOP_SECRETS_KEY='reel-trouble-shop-secrets-v1';
+function loadShopSecretsSeen(){try{
+ const raw=JSON.parse(localStorage.getItem(SHOP_SECRETS_KEY)||'[]');
+ return Array.isArray(raw)?raw.filter(id=>SHOP_SECRETS.some(s=>s.id===id)):[];
+ }catch(_){return [];}}
+let shopSecretsSeen=loadShopSecretsSeen();
+function saveShopSecretsSeen(){try{localStorage.setItem(SHOP_SECRETS_KEY,JSON.stringify(shopSecretsSeen));}catch(_){}}
+
+const SHOP_TABS=[['lines','REELS'],['nets','NETS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
+function skipperSpeak(line,mood='neutral'){
+ skipperLine=line;skipperLineTime=clock;
+ if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
+}
+function enterShop(){
+ state='shop';shopTab='lines';shopInspect=null;age=0;skipperVisits++;
+ shopScrollTo(save.upgrades.line*SHOP_ROW-65);
+ const find=nextShopSecret(save,shopSecretsSeen);
+ skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
+}
+function skipperGreeting(){
+ const dives=save.total||0,deep=save.best||0;
+ if(save.upgrades.light===0&&save.upgrades.line>=2)return "Past the reef? Buy a lamp. The deep don't forgive.";
+ if(dives>5000)return "Back again, legend? Something down there remembers ye.";
+ if(dives>500)return "You're hauling serious coin. But the trench takes its toll.";
+ return skipperVisits===1?"Welcome aboard! Name's Skipper. Don't touch the eel.":currentJob().story;
+}
+function skipperReply(category,success){
+ shopMood=success?'excited':'grumpy';shopMoodUntil=clock+3;
+ if(!success){
+  if(category==='charge'&&save.charges>=3)skipperSpeak("Three charges is plenty! I'm running a tackle shop, not a war.");
+  else if(category==='light'&&save.upgrades.light>=LIGHT_MAXLVL)skipperSpeak("Even a lighthouse would be jealous of that kit.");
+  else if(category==='line'&&save.upgrades.line>=LINE_MAXLVL)skipperSpeak("Any deeper and you'll be fishing in tomorrow.");
+  else if(category==='net'&&save.upgrades.net>=MAXLVL)skipperSpeak("That's a mighty wide hook. Mind the door on yer way out.");
+  else if(category==='gun'&&save.upgrades.gun>=MAXLVL)skipperSpeak("You've already got my finest. The paperwork was a nightmare.");
+  else skipperSpeak("Short on coin? The sea owes ye a few more hauls.");
+  return;
+ }
+ const lines={
+  line:["More line? Keep going. The seabed's got secrets.","That'll take ye deeper. Just mind what follows.","Good rope. Bad decisions. My favourite pair."],
+  net:["Wider hook, bigger haul. That's my kind of arithmetic.","Mind what ye snag with that contraption.","Now that's what I call casting a wide net."],
+  gun:["She kicks like a mule. Point away from me beard.","Unlimited shots. Limited common sense.","You didn't get that from me. Understood?"],
+  light:["Dark water hides things, matey.","Let there be light! Or at least fewer surprises.","Ye can see it now. Trouble is, it can see ye."],
+  charge:["One bang to save your skin. Use it wisely.","The fish won't appreciate that. Nor will the harbourmaster.","Explosives? I never sold ye explosives."]
+ };
+ const arr=lines[category]||lines.line;
+ skipperSpeak(arr[(save.upgrades.line+save.upgrades.net+save.upgrades.gun+save.charges)%arr.length]);
+}
+function shopInk(value,x,y,size=18,color='#f8e5bd',align='left',width=380){
+ ctx.save();ctx.textAlign=align;ctx.textBaseline='middle';
+ ctx.font='900 '+size+'px Arial,Helvetica,sans-serif';ctx.fillStyle=color;
+ ctx.lineJoin='round';
+ if(color==='#f8e5bd'||color==='#ffffff'){ctx.shadowColor='#251612';ctx.shadowBlur=2;ctx.shadowOffsetY=1;}
+ ctx.fillText(String(value),x,y,width);ctx.restore();
+}
+function shopWrap(message,maxWidth,size=16,maxLines=2){
+ ctx.save();ctx.font='900 '+size+'px Arial,Helvetica,sans-serif';
+ const rows=[''];for(const word of String(message).split(/\s+/)){
+  const n=rows.length-1,next=(rows[n]+' '+word).trim();
+  if(ctx.measureText(next).width>maxWidth&&rows[n]&&rows.length<maxLines)rows.push(word);
+  else rows[n]=next;
+ }
+ ctx.restore();return rows;
+}
+function shopButton(label,x,y,w,h,action,affordable=true){
+ // Tactile wooden checkout keys. Hits stay active when short of coin so
+ // the skipper can explain why the upgrade isn't available yet.
+ const active=affordable;
+ roundRect(x,y+3,w,h,0,'#3b241b','#29150f',1);
+ roundRect(x,y,w,h,0,active?'#f1c56e':'#b2a18c',active?'#fff0b6':'#c8bb9f',2);
+ ctx.fillStyle=active?'#ab662d':'#77685b';ctx.fillRect(x+6,y+5,3,h-10);
+ shopInk(label,x+w/2,y+h/2,17,active?'#302219':'#51463e','center',w-21);
+ hits.push({x,y,w,h,action});
+}
+function skipperPortrait(x,y){
+ ctx.save();
+ ctx.beginPath();ctx.rect(12,102,222,194);ctx.clip();
+ if(!paintSkipper(ctx,clock,x,y,{mood:clock<shopMoodUntil?shopMood:'neutral',talking:clock-skipperLineTime<2.8,lowFx})){
+  roundRect(29,145,177,151,10,'#23435b','#e0ad5b',3);
+  shopInk('SKIPPER',117,232,22,'#ffffff','center',165);
+ }
+ ctx.restore();
+}
+function shopInterior(){
+ paintShopBackdrop(ctx);
+ // The weathered shop sign belongs to the wooden environment, not a neon HUD.
+ roundRect(10,10,400,77,3,'#352219','#a57647',3);
+ for(let yy=24;yy<78;yy+=12)line(15,yy,405,yy,'#62402c',1);
+ ctx.fillStyle='#d3a35b';ctx.fillRect(19,18,5,5);ctx.fillRect(394,18,5,5);
+ ctx.fillRect(19,73,5,5);ctx.fillRect(394,73,5,5);
+ shopInk("SKIPPER'S",210,38,31,'#f8e5bd','center',382);
+ shopInk('BAIT  •  TACKLE  •  TROUBLE',210,68,17,'#f8e5bd','center',380);
+}
+function skipperBubble(){
+ // Paper speech card with a two-line measured wrap, never overlapping tabs.
+ polygon([[64,308],[88,294],[104,308]],'#f3e0b7');
+ roundRect(12,307,396,76,7,'#f3e0b7','#895c36',2);
+ ctx.fillStyle='#d0a96d';ctx.fillRect(22,317,4,56);
+ shopInk('SKIPPER SAYS',34,322,14,'#784a2e','left',355);
+ const rows=shopWrap(skipperLine||skipperGreeting(),362,16,2);
+ for(let i=0;i<rows.length;i++)shopInk(rows[i],34,345+i*21,16,'#34261e','left',361);
+}
+function shopJobBoard(){
+ const job=currentJob();
+ roundRect(240,119,165,169,5,'#203a39','#d5a268',3);
+ roundRect(246,125,153,157,2,'#162d2c','#557c69',1);
+ shopInk('TODAY\'S BOUNTY',322,145,14,'#efcf88','center',146);
+ line(259,158,387,158,'#967c51',1);
+ const title=shopWrap(job.title,135,17,2);
+ for(let i=0;i<title.length;i++)shopInk(title[i],322,181+i*23,17,'#ffffff','center',143);
+ shopInk(job.progress+' / '+job.goal+' DONE',322,238,16,'#efcf88','center',138);
+ shopInk('REWARD  $'+job.reward,322,262,16,'#ffffff','center',145);
+}
+function shopTabButton(id,label,i){
+ const x=11+i*100,y=393,w=98,h=48,selected=shopTab===id;
+ roundRect(x,y+4,w,h,5,'#211810');
+ roundRect(x,y,w,h,5,selected?'#f1cb80':'#3e2a23',selected?'#fff0b3':'#9c6c45',selected?2:1);
+ shopInk(label,x+w/2,y+24,15,selected?'#3e2719':'#f8e5bd','center',w-8);
+ hits.push({x,y,w,h,action:()=>{
+  if(shopTab===id){skipperSpeak("Take yer time. The fish aren't going anywhere. Probably.");return;}
+  shopTab=id;
+  const key=id==='lines'?'line':id==='nets'?'net':id==='guns'?'gun':'light';
+  shopScrollTo(save.upgrades[key]*SHOP_ROW-65);
+  skipperSpeak({
+   lines:"I've got line that'll reach places the sun won't.",
+   nets:"The wider the hook, the bigger the haul. Mind yer fingers.",
+   guns:"Every piece tested. Well, most of 'em.",
+   gadgets:"Bring a light. Bring a charge. Bring a bit of luck."
+  }[id]);
+ }});
+}
+const NET_NAMES=['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP'];
+const LAMP_NAMES=['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP'];
+const LAMP_COSTS=[180,420,900,1800,3700];
+const SHOP_ROW=65;
+function shopListBounds(){return shopTab==='gadgets'?[545,693]:[487,693];}
+function shopTierCount(){return shopTab==='lines'?LINE_MAXLVL+1:shopTab==='gadgets'?LIGHT_MAXLVL+1:MAXLVL+1;}
+function shopScrollTo(value){
+ const [top,bottom]=shopListBounds();
+ shopScroll[shopTab]=clamp(value,0,Math.max(0,shopTierCount()*SHOP_ROW-(bottom-top)));
+}
+function shopTierMeta(type,tier){
+ if(type==='line')return [LINE_NAMES[tier],meter(maxLineDepth(tier))+' MAX DEPTH'];
+ if(type==='net')return [NET_NAMES[tier],(24+tier*13)+'px CATCH RADIUS'];
+ if(type==='gun')return [GUN_NAMES[tier],weaponForLevel(tier).maxHits+' TARGETS / AMMO ∞'];
+ return [LAMP_NAMES[tier],'LIGHT POWER '+tier+' / '+LIGHT_MAXLVL];
+}
+function shopTierList(type,top,bottom){
+ const level=save.upgrades[type],max=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:MAXLVL;
+ const offset=shopScroll[shopTab],height=bottom-top;
+ ctx.save();ctx.beginPath();ctx.rect(17,top,376,height);ctx.clip();
+ for(let tier=Math.max(0,Math.floor(offset/SHOP_ROW));tier<=Math.min(max,Math.ceil((offset+height)/SHOP_ROW));tier++){
+  const y=top+tier*SHOP_ROW-offset,owned=tier<level,current=tier===level;
+  const [name,detail]=shopTierMeta(type,tier);
+  ctx.fillStyle=current?'#fff0ca':owned?'#cbdcc9':'#c4b8a8';ctx.fillRect(20,y+2,371,SHOP_ROW-5);
+  ctx.fillStyle=current?'#e5ae48':owned?'#45937a':'#88786b';ctx.fillRect(20,y+2,5,SHOP_ROW-5);
+  paintShopItem(ctx,type,54,y+32,.43,tier,clock,lowFx);
+  shopInk(name,87,y+19,17,'#36271e','left',205);
+  shopInk(detail,87,y+44,14,'#725846','left',207);
+  shopInk(owned?'OWNED':current?'EQUIPPED':'LOCKED',376,y+16,13,'#66513d','right',83);
+  if(current&&tier<max){
+   const cost=type==='light'?LAMP_COSTS[tier]:upgradeConfig(type).cost;
+   shopInk((save.cash>=cost?'BUY $':'NEED $')+cost,377,y+44,14,'#396d55','right',85);
+  }else if(tier>level){
+   const price=type==='light'?LAMP_COSTS[tier-1]:
+    Math.round(({line:65,net:90,gun:85}[type])*Math.pow(type==='line'?1.52:1.75,tier-1));
+   shopInk('$'+price,377,y+44,14,'#66513d','right',82);
+  }
+  const hitY=Math.max(top,y+2),hitBottom=Math.min(bottom,y+SHOP_ROW-3);
+  if(hitBottom>hitY)hits.push({x:20,y:hitY,w:371,h:hitBottom-hitY,action:()=>{
+   if(current&&tier<max){if(type==='light')buyLight();else purchase(type);}
+   else openShopInspect(type,tier);
+  }});
+ }
+ ctx.restore();
+ const total=(max+1)*SHOP_ROW,thumb=Math.max(23,height*height/total);
+ const maximum=Math.max(1,total-height);
+ ctx.fillStyle='#765d45';ctx.fillRect(402,top,3,height);
+ ctx.fillStyle='#ffdf92';ctx.fillRect(401,top+(height-thumb)*offset/maximum,5,thumb);
+}
+function shopItemCard(){
+ const type=shopTab==='lines'?'line':shopTab==='nets'?'net':'gun';
+ const max=type==='line'?LINE_MAXLVL:MAXLVL;
+ roundRect(12,453,396,242,0,'#30261f','#a77849',2);
+ shopInk('GEAR COLLECTION',25,470,17,'#f8e5bd','left',204);
+ shopInk((save.upgrades[type]+1)+' / '+(max+1),387,470,16,'#f8e5bd','right',104);
+ shopTierList(type,487,693);
+}
+function shopSupplies(){
+ roundRect(12,453,396,242,0,'#30261f','#a77849',2);
+ const full=save.charges>=3,cost=110;
+ roundRect(19,457,381,63,0,'#f1dfb9','#8c5934',2);
+ paintShopItem(ctx,'charge',54,489,.4,save.charges,clock,lowFx);
+ shopInk('BLAST CHARGES',87,477,17,'#352720','left',201);
+ shopInk(save.charges+' / 3 IN BAG',87,502,14,'#765037','left',132);
+ shopButton(full?'MAXED':save.cash>=cost?'BUY $110':'NEED $110',236,470,152,39,()=>{
+  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
+ },!full&&save.cash>=cost);
+ shopInk('LANTERN COLLECTION',25,534,16,'#f8e5bd','left',232);
+ shopInk((save.upgrades.light+1)+' / '+(LIGHT_MAXLVL+1),387,534,16,'#f8e5bd','right',103);
+ shopTierList('light',545,693);
+}
+function openShopInspect(type,tier=null){
+ shopInspect={kind:'gear',type,tier,openedAt:clock};
+ skipperSpeak({
+  line:"Feel that spool. It wants to see what's below.",
+  net:"Wider than my last catch. And he was a liar.",
+  gun:"Look closely. It's got all the safety features I could afford.",
+  light:"Don't stare into it. Your eyes aren't under warranty.",
+  charge:"Careful! That's the end that goes bang."
+ }[type]||"Go on, take a closer look.",'curious');
+}
+function shopStoryButton(){
+ const unseen=nextShopSecret(save,shopSecretsSeen),unlocked=unlockedShopSecrets(save);
+ const selected=unseen||unlocked[unlocked.length-1];
+ if(!selected)return;
+ roundRect(235,282,171,26,0,unseen?'#efc679':'#53372a','#352219',2);
+ paintShopItem(ctx,selected.item,250,295,.22,0,clock,lowFx);
+ shopInk(unseen?'NEW CURIO! TAP':'SKIPPER\'S SECRETS',261,295,14,unseen?'#32241e':'#f4dfb0','left',139);
+ hits.push({x:235,y:282,w:171,h:26,action:()=>{
+  shopInspect={kind:'secret',id:selected.id,openedAt:clock};
+  if(!shopSecretsSeen.includes(selected.id)){
+   shopSecretsSeen.push(selected.id);saveShopSecretsSeen();
+  }
+  skipperSpeak(selected.hint,'curious');
+ }});
+}
+function inspectGearInfo(type){
+ const u=save.upgrades;
+ const lvl=type==='charge'?save.charges:u[type]||0;
+ const limit=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:type==='charge'?3:MAXLVL;
+ const names=type==='line'?LINE_NAMES:type==='gun'?GUN_NAMES:
+ type==='net'?['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP']:
+ type==='light'?['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP']:
+ ['BLAST CHARGE','BLAST CHARGE','BLAST CHARGE','BLAST CHARGE'];
+ const cost=type==='charge'?110:type==='light'?[180,420,900,1800,3700][lvl]||0:upgradeConfig(type).cost;
+ const description={
+  line:"Longer line explores new depths and strange regions.",
+  net:"A wider hook collects more fish on the way up.",
+  gun:"Each gun has unlimited ammo and its own spread.",
+  light:"Your lantern cuts through the deepest darkness.",
+  charge:"One charge ignores a fish collision on the descent."
+ }[type];
+ const benefit=type==='line'?'REACH '+meter(maxLineDepth(lvl)):
+ type==='net'?'CATCH RADIUS '+(24+13*lvl)+'px':
+ type==='gun'?weaponForLevel(lvl).maxHits+' FISH PER SHOT':
+ type==='light'?'LIGHT LEVEL '+lvl+' / '+LIGHT_MAXLVL:'CHARGES '+lvl+' / 3';
+ return {type,lvl,full:lvl>=limit,cost,name:names[lvl]||type.toUpperCase(),description,benefit};
+}
+function buyInspectedGear(type){
+ if(type==='charge'){
+  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
+ }else if(type==='light')buyLight();
+ else purchase(type);
+}
+function shopInspectOverlay(){
+ const item=shopInspect;if(!item)return;
+ // An open inspection owns every hitbox, blocking unintended purchases behind it.
+ hits.length=0;
+ ctx.save();ctx.fillStyle='#091724e6';ctx.fillRect(0,0,W,H);
+ roundRect(21,126,378,557,0,'#251f24','#b8894e',4);
+ roundRect(31,136,358,535,0,'#f1dfb9','#8c5934',3);
+ ctx.fillStyle='#bd8857';ctx.fillRect(41,145,338,3);
+ const secret=item.kind==='secret'?SHOP_SECRETS.find(s=>s.id===item.id):null;
+ const gear=secret?null:inspectGearInfo(item.type);
+ if(gear&&item.tier!==null){gear.name=shopTierMeta(item.type,item.tier)[0];gear.benefit=shopTierMeta(item.type,item.tier)[1];gear.lvl=item.tier;}
+ shopInk(secret?'SKIPPER\'S FIND':'FROM THE TACKLE CASE',210,163,15,'#785137','center',326);
+ shopInk(secret?secret.title:gear.name,210,194,24,'#30241e','center',331);
+ roundRect(60,211,300,245,0,'#432e28','#a27346',3);
+ paintShopItem(ctx,secret?secret.item:gear.type,210,334,2.08,gear?gear.lvl:0,clock,lowFx);
+ ctx.fillStyle='#bd8857';ctx.fillRect(58,469,304,3);
+ if(secret){
+  const rows=shopWrap(secret.story,312,17,3);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,507+i*24,17,'#3b2d25','center',318);
+  shopInk('A SECRET FOR YOUR LOGBOOK',210,592,16,'#7c5032','center',320);
+  shopButton('BACK TO COUNTER',77,612,266,45,()=>{shopInspect=null;});
+ }else{
+  shopInk(gear.benefit,210,492,19,'#3b2d25','center',314);
+  const rows=shopWrap(gear.description,304,16,2);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,529+i*21,16,'#6d513d','center',319);
+  shopInk(gear.full?'FULLY UPGRADED':'NEXT UPGRADE $'+gear.cost,210,586,17,'#704a32','center',325);
+  shopButton('← BACK',40,612,127,46,()=>{shopInspect=null;});
+  shopButton(gear.full?'MAX LEVEL':save.cash>=gear.cost?'BUY $'+gear.cost:'NEED $'+gear.cost,
+    176,612,203,46,()=>buyInspectedGear(gear.type),!gear.full&&save.cash>=gear.cost);
+ }
+ ctx.restore();
+}
+
+function shop(){
+ shopInterior();
+ // Warm shopkeeper portrait and actual cork-board mission tracker.
+ skipperPortrait(105,209);
+ shopJobBoard();
+ hits.push({x:12,y:103,w:220,h:194,action:()=>{
+  const lines=[
+   "My suppliers ask where I get this stuff. I ask 'em not to ask.",
+   "Deep enough and the water starts keeping secrets.",
+   "The bait's fresh. The bookkeeping, less so.",
+   "I once caught a fish so big it bought the boat.",
+   "If it starts glowing, bring it back in one piece.",
+   currentJob().story
+  ];
+  skipperSpeak(lines[skipperChats++%lines.length],'curious');
+ }});
+ roundRect(255,94,151,30,4,'#f1dfb9','#85572f',2);
+ shopInk('COINS  $'+save.cash,329,109,18,'#32241e','center',143);
+ skipperBubble();
+ shopStoryButton();
+ for(let i=0;i<SHOP_TABS.length;i++)shopTabButton(...SHOP_TABS[i],i);
+ if(shopTab==='gadgets')shopSupplies();else shopItemCard();
+ shopButton('←  BACK TO THE WATER',14,714,392,52,()=>{
+  state=castNumber&&save.total?'results':'menu';age=0;
+ },true);
+ if(shopInspect)shopInspectOverlay();
+}
+
+function expeditionBoard(){
+ titleBackdrop(lowFx?0:clock*.35);
+ const job=currentJob(),status=save.expedition;
+ text("SKIPPER'S LOG",210,75,36,C.white,'center',900,0,390);
+ text('A NEW REASON TO CAST AGAIN',210,114,16,C.white,'center',900,0,382);
+ neonPanel(23,147,374,315,C.yellow,19);
+ arcadePill(job.label,95,162,230,C.yellow);
+ text(job.title,210,228,27,C.white,'center',950,0,339);
+ text(job.task,210,281,19,C.white,'center',900,0,340);
+ text(job.progress+' / '+job.goal,210,331,31,C.yellow,'center',950);
+ roundRect(58,360,304,13,6,'#031627','#78959b',1);
+ roundRect(61,363,Math.round(298*Math.min(1,job.progress/job.goal)),7,4,C.yellow);
+ text('REWARD  $'+job.reward,210,410,22,C.white,'center',900,0,331);
+ text('SKIPPER SAYS:',210,488,16,C.yellow,'center',900,0,360);
+ text(job.story,210,519,16,C.white,'center',900,0,382);
+ text('STORY CHAPTERS  '+Math.min(status.chapter,EXPEDITIONS.length)+' / '+EXPEDITIONS.length,210,574,18,C.white,'center',900,0,381);
+ const recent=EXPEDITIONS[Math.max(0,Math.min(EXPEDITIONS.length-1,status.chapter-1))];
+ const next=EXPEDITIONS[Math.min(EXPEDITIONS.length-1,status.chapter+1)];
+ text('✓ '+(status.chapter?recent.title:'FIRST MISSION AWAITS'),210,613,16,C.white,'center',900,0,370);
+ text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,649,16,C.white,'center',900,0,370);
+ button('← BACK',70,707,280,55,()=>{state=expeditionReturn;age=0;},C.yellow);
+}
+function bookCard(kind,x,y){
+ const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
+ const width=370,height=99;
+ roundRect(x+3,y+4,width,height,0,'#041328');
+ roundRect(x,y,width,height,0,'#072940',found?'#69ffe5':'#658a9e',2);
+ ctx.fillStyle=found?'#29dfce':'#68899e';
+ ctx.fillRect(x+4,y+5,6,height-10);
+ ctx.save();
+ if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.62;}
+ fish(x+64,y+49,kind,1,1.15,clock*1.3);
+ ctx.restore();
+ // One column provides actual room for long names and readable 17–21px labels.
+ text(found?meta.name:'UNKNOWN SPECIES',x+122,y+23,21,C.white,'left',900,0,232);
+ text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,17,C.white,'left',900,0,232);
+ text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,17,C.white,'left',900,0,232);
+ hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+}
+function collection(){
+ ambient(clock);
+ text('FISH ENCYCLOPEDIA',210,76,30,C.cream,'center',1000,0,390);
+ const p=collectionProgress(save.collection);
+ text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,17,C.white,'center',900,0,365);
+ roundRect(49,138,322,8,0,'#071828');
+ roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
+ button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
+ button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
+ const pageSize=4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
+ const pages=Math.ceil(total/pageSize);
+ collectionPage=clamp(collectionPage,0,pages-1);
+ if(collectionTab==='fish'){
+  for(let i=0;i<pageSize;i++){
+   const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
+   bookCard(kind,25,227+i*105);
+  }
+ }else{
+  for(let i=0;i<4;i++){
+   const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
+   const unlocked=save.collection.achievements[badge.id]===true;
+   const y=227+i*105;
+   roundRect(29,y,362,97,0,unlocked?'#135369':'#123e55',unlocked?C.yellow:'#75adbc',2);
+   text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
+   text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
+   text(badge.description,80,y+45,16,C.white,'left',900,0,291);
+   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,17,C.white,'left',900,0,291);
+  }
+ }
+ if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
+ text((collectionPage+1)+' / '+pages,210,682,15,C.cream);
+ if(collectionPage<pages-1)button('NEXT →',279,659,111,42,()=>collectionPage++,C.cream);
+ button('← BACK',90,717,240,48,()=>{state='menu';age=0;},C.yellow);
+}
+function fishDetail(){
+ ambient(clock);
+ const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
+ text('FISH FILE',210,78,32,C.cream,'center',1000);
+ text('#'+String(selectedFish+1).padStart(2,'0')+' / '+species.length,210,121,14,C.mint,'center',800);
+ panel(31,155,358,453);
+ ctx.save();if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
+ fish(210,252,selectedFish,1,3.2,clock*2);
+ ctx.restore();
+ text(found?meta.name:'UNDISCOVERED',210,354,found?27:22,C.yellow,'center',1000);
+ if(found){
+  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,17,C.white,'center',900,0,339);
+  text('BASE VALUE $'+meta.value,210,425,16,C.cream,'center',900);
+  line(58,452,361,452,'#4d8797');
+  text('CAUGHT',65,487,13,C.muted,'left',850);text(entry.caught,351,487,17,C.cream,'right',950);
+  text('SHOT',65,522,13,C.muted,'left',850);text(entry.shot,351,522,17,C.cream,'right',950);
+  text('EARNED',65,557,13,C.muted,'left',850);text('$'+entry.earned,351,557,17,C.yellow,'right',950);
+  text('BEST COMBO',65,587,13,C.muted,'left',850);text('x'+entry.bestCombo,351,587,17,C.cream,'right',950);
+ }else{
+  text('CATCH TO REVEAL THIS FISH',210,416,18,C.white,'center',900,0,330);
+  text('STATS AND HABITAT ARE HIDDEN',210,455,17,C.white,'center',900,0,330);
+ }
+ button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
+ button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
+}
+function installScene(){
+ titleBackdrop(lowFx?0:clock);
+ text('INSTALL THE GAME',210,91,33,C.white,'center',900,0,380);
+ text('PLAY FULLSCREEN • WORKS OFFLINE',210,130,16,C.white,'center',900,0,380);
+ panel(24,157,372,405);
+ const guide=installGuide();
+ text('FOR '+guide.platform.toUpperCase(),210,197,21,C.white,'center',900,0,343);
+ text('BROWSER INSTALL STEPS',210,240,17,C.white,'center',900,0,339);
+ for(let i=0;i<guide.steps.length;i++){
+  const y=278+i*66;
+  roundRect(39,y-19,40,40,0,'#0b4260','#3cf0e1',2);
+  text('0'+(i+1),59,y+2,19,C.white,'center',900,0,37);
+  text(guide.steps[i],89,y+2,16,C.white,'left',900,0,279);
+ }
+ roundRect(28,577,364,49,0,'#08243ef4','#64eade',2);
+ const status=serviceWorkerStatus();
+ const hint=canInstall()?'READY FOR INSTALL PROMPT':
+  status==='ready'?'OFFLINE SERVICE READY':
+  status==='failed'?'OFFLINE SETUP FAILED • TRY RELOAD':
+  'OPEN IN YOUR REGULAR BROWSER';
+ text(hint,210,601,16,C.white,'center',900,0,340);
+ if(canInstall())button('INSTALL NOW',62,640,296,52,installGame,C.yellow);
+ else button('COPY GAME LINK',62,640,296,52,copyGameLink,C.teal);
+ text(installMessage,210,710,16,C.white,'center',900,0,360);
+ button('← BACK',100,733,220,41,()=>{state='menu';age=0;},C.cream);
+}
+function settings(){
+ ambient(clock);
+ text('SETTINGS',210,85,42,C.cream,'center',1000);
+ text('PHONE & INPUT',210,127,13,C.mint,'center',900,1.5);
+ panel(23,151,374,488);
+ text('STEERING',210,181,18,C.yellow,'center',950);
+ button('TOUCH',43,206,161,48,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
+ button('TILT',215,206,161,48,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
+ text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,278,14,C.cream,'center',900);
+ text(sensorStatus,210,305,13,C.mint,'center',900,0,345);
+ if(inputMode==='tilt')button('RECENTER',122,326,176,41,recenterTilt,C.cream);
+ else text('DRAG TO STEER DURING A CAST',210,350,17,C.white,'center',900,0,350);
+ text('AUDIO',210,376,16,C.yellow,'center',950);
+ button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
+ button(musicEnabled?'SOUNDTRACK: ON':'SOUNDTRACK: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
+ text('FEEDBACK',210,495,16,C.yellow,'center',950);
+ button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
+ if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
+ else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
+ if(!isInstalled())button('INSTALL / HELP',104,566,212,48,installGame,C.yellow);
+ else text('INSTALLED APP',210,587,15,C.yellow);
+ button('REFRESH GAME / CLEAR CACHE',54,627,312,48,()=>{refreshGameFiles().catch(()=>{installMessage='REFRESH FAILED - TRY RELOADING';state='install';age=0;});},C.teal);
+ text('KEEPS YOUR COINS AND UPGRADES',210,687,16,C.white,'center',900,0,355);
+ button('← BACK',62,716,296,45,()=>{state='menu';age=0;},C.yellow);
+
+}
+function pausedScene(){
+ ctx.fillStyle='#031225ee';ctx.fillRect(0,0,W,H);
+ const glow=ctx.createRadialGradient(210,380,20,210,380,290);
+ glow.addColorStop(0,'#19aaa929');glow.addColorStop(1,'#071a3200');
+ ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
+ neonPanel(35,219,350,368,C.teal,23);
+ arcadePill('BREAK TIME',133,239,154,C.teal);
+ text('PAUSED',210,313,52,C.white,'center',1000);
+ text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'PAUSED AUTOMATICALLY',210,356,17,C.white,'center',900,0,309);
+ arcadeRule(85,382,335,C.teal);
+ text('YOUR CATCH WILL NOT MOVE',210,399,17,C.white,'center',900,0,320);
+ button('RESUME',76,437,268,65,resumeGame,C.yellow);
+ button('MAIN MENU',96,521,228,53,menuFromPause,C.cream);
+}
+function neonOceanArtwork(kind,t){
+ // Full-height hand-drawn vector/pixel arcade scene. The scene keeps its own
+ // artwork so stage cards no longer feel like a modal over the game.
+ const dark=ctx.createLinearGradient(0,0,0,H);
+ if(kind==='dive'){
+  dark.addColorStop(0,'#12254e');dark.addColorStop(.38,'#087aab');dark.addColorStop(1,'#03152f');
+ }else if(kind==='reel'){
+  dark.addColorStop(0,'#211c61');dark.addColorStop(.42,'#f47aa3');dark.addColorStop(.58,'#145b9d');dark.addColorStop(1,'#062746');
+ }else{
+  dark.addColorStop(0,'#18134a');dark.addColorStop(.48,'#642579');dark.addColorStop(1,'#07152e');
+ }
+ ctx.fillStyle=dark;ctx.fillRect(0,0,W,H);
+ const movement=lowFx?0:t;
+ // Animated aurora rays across the entire vertical artwork.
+ ctx.save();ctx.globalAlpha=.22;
+ for(let i=0;i<7;i++){
+  const x=45+i*68+Math.sin(movement*.7+i)*14;
+  const ray=ctx.createLinearGradient(x,80,x+80,H);
+  ray.addColorStop(0,i%2?'#a5ffec':'#ff8ce5');
+  ray.addColorStop(1,'#07152e00');
+  ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(x-18,0);
+  ctx.lineTo(x+27,0);ctx.lineTo(x+130,H);ctx.lineTo(x+43,H);ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ const horizon=kind==='dive'?173:kind==='reel'?356:535;
+ // Layered ocean silhouette and white/teal crests.
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,horizon);
+ for(let x=0;x<=W+12;x+=12)
+  ctx.lineTo(x,horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4);
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=kind==='shoot'?'#112e69':'#07547d';ctx.fill();
+ ctx.strokeStyle='#90faff';ctx.lineWidth=4;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){const y=horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+ ctx.stroke();
+ // Marine life moves behind the hero elements.
+ for(let i=0;i<12;i++){
+  const x=20+((i*79+movement*(i%2?18:-14)+W*10)%W);
+  const y=horizon+75+(i*61)%(H-horizon-105);
+  ctx.save();ctx.globalAlpha=.25;
+  fish(x,y,i%species.length,i%2?-1:1,.52+(i%3)*.11,movement*3+i);
+  ctx.restore();
+ }
+ for(let i=0;i<30;i++){
+  const x=(i*83+27)%W,y=H-((i*57+movement*(21+i%3*7))%(H+35));
+  ctx.strokeStyle=i%3?'#c6fbff65':'#ffccee70';ctx.lineWidth=i%6?2:3;
+  ctx.strokeRect(x,y,3+i%4*2,3+i%4*2);
+ }
+ if(kind==='dive'){
+  // Glowing hook plunging under a boat, with a luminous trail.
+  boat(210,166);
+  const hookY=308+Math.sin(movement*3)*17;
+  ctx.strokeStyle='#e1ffff9c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(210,155);ctx.lineTo(210,hookY-15);ctx.stroke();
+  ctx.save();ctx.shadowColor='#24ffe2';ctx.shadowBlur=23;hook(210,hookY);ctx.restore();
+  for(let i=0;i<18;i++){const x=210+Math.sin(i*8+movement)*((i%5)*8),y=hookY+35+i*14;
+   circle(x,y,2+i%3,'#80f3ff99');}
+ }else if(kind==='reel'){
+  // Hero trophy fish breaks the ocean horizon, trailing foam and droplets.
+  const lift=lowFx?0:Math.sin(movement*4)*17;
+  for(let i=0;i<19;i++){const x=210+Math.cos(i*2.4)*((i%7)*19);
+   const y=horizon+Math.sin(i*3)*32;
+   circle(x,y,4+i%4*2,i%2?'#e9ffff':'#5beaff');}
+  ctx.save();ctx.translate(210,319+lift);ctx.rotate(-.24);
+  ctx.shadowColor='#80f6ff';ctx.shadowBlur=21;
+  fish(0,0,10,1,3.2,movement*5);ctx.restore();
+  line(180,0,243,287,'#b8fcff',2);
+ }else{
+  // Electric crosshair, fish silhouettes, neon weapon bolts and gold coins.
+  const cx=210+Math.sin(movement*2)*6,cy=314;
+  ctx.save();ctx.shadowColor='#fc72e8';ctx.shadowBlur=24;
+  ctx.strokeStyle='#ffa0fc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,59,0,Math.PI*2);ctx.stroke();
+  line(cx-83,cy,cx-23,cy,'#ffffff',4);line(cx+23,cy,cx+83,cy,'#ffffff',4);
+  line(cx,cy-83,cx,cy-23,'#ffffff',4);line(cx,cy+23,cx,cy+83,'#ffffff',4);
+  circle(cx,cy,7,'#ffec7c');ctx.restore();
+  fish(105,215,10,1,2.1,movement*4);
+  fish(335,394,13,-1,1.5,movement*4);
+  for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8+movement*.4,dist=70+(i%4)*22;
+   const x=cx+Math.cos(angle)*dist,y=cy+Math.sin(angle)*dist;
+   ctx.fillStyle=i%3?'#ffe76a':'#ff8fed';
+   ctx.fillRect(x,y,6+i%3*3,6+i%3*3);
+  }
+  drawBulletTrail(80,670,cx,cy,.76,'#ff75da',2);
+  drawBulletTrail(345,670,cx,cy,.66,'#6efcf9',2);
+ }
+}
+function drawStageTransition(){
+ if(!sceneTransition)return;
+ const stage=ARCADE_STAGES[sceneTransition.kind];
+ if(!stage)return;
+ const frame=stageFrame(sceneTransition.elapsed,sceneTransition.duration);
+ if(frame.visibility<=0)return;
+ ctx.save();
+ // Artwork fills the full screen, not the old small centred modal.
+ ctx.globalAlpha=frame.visibility;
+ neonOceanArtwork(sceneTransition.kind,sceneTransition.elapsed);
+ // Gradient behind the bottom title for consistent white-text readability.
+ const shade=ctx.createLinearGradient(0,500,0,H);
+ shade.addColorStop(0,'#06122800');shade.addColorStop(.42,'#06152ad9');shade.addColorStop(1,'#030d23');
+ ctx.fillStyle=shade;ctx.fillRect(0,500,W,H-500);
+ const offset=frame.slide*.52;
+ arcadePill('STAGE '+stage.number,150,557+offset,120,stage.accent);
+ text(stage.title,210,634+offset,48,C.white,'center',900,0,392);
+ ctx.save();ctx.globalAlpha=.83*frame.visibility;
+ ctx.fillStyle=stage.accent;ctx.fillRect(40,673+offset,340,4);
+ ctx.restore();
+ text(stage.subtitle,210,707+offset,20,C.white,'center',900,0,372);
+ for(let i=0;i<3;i++)roundRect(104+i*73,740+offset,59,6,3,i+1<=Number(stage.number)?stage.accent:'#3f647d');
+ ctx.restore();
+}
+function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
+ ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='expeditions')expeditionBoard();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ overlayParticles();drawSplashEffects(lastFrameDt);
+ if(sceneFlash>0&&!lowFx){
+   ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
+   ctx.fillRect(0,0,W,H);
+ }
+ drawStageTransition();
+ ctx.restore();
+ if(paused){hits=[];pausedScene();}
+ display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
+ display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);
+ if(!document.body.classList.contains('game-ready'))document.body.classList.add('game-ready');
+}
+let last=0,lastFrameDt=0;
+function frame(t){
+ const frameGap=lowFx?1000/30:1000/60;
+ if(last&&t-last<frameGap-1){requestAnimationFrame(frame);return;}
+ const dt=Math.min((t-last)/1000||.016,.05);
+ last=t;lastFrameDt=paused?0:dt;
+ if(!paused&&!document.hidden)update(dt);
+ if(!document.hidden)render();
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
+function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+ if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
+ sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
+ if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
+canvas.addEventListener('pointerup',e=>{if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}pointerDown=false;});
+canvas.addEventListener('pointercancel',()=>{shopDrag=null;pointerDown=false;});
+canvas.addEventListener('wheel',e=>{if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}},{passive:false});
+window.addEventListener('keydown',e=>{
+ sound.unlock();
+ if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(e.code==='Escape'||e.key.toLowerCase()==='p'){
+  if(paused)resumeGame();else pauseGame('MANUAL');return;
+ }
+ if(paused)return;
+ keys.add(e.key);
+ if(e.repeat)return;if(e.code==='Space'||e.code==='Enter'){
+ if(state==='menu'||state==='results')beginCast();else if(state==='shoot')shootAt(pointer.x,pointer.y);
+ }});window.addEventListener('keyup',e=>keys.delete(e.key));
+window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);rumble.stop();}
+ else if(!paused){sound.pause(false);sound.unlock();}
+ last=0;
+});
+})();+counted,210,327,68,C.white,'center',1000,-3,320);
+ for(let i=0;i<8;i++){
+  const x=210+(i%2?-1:1)*(85+(i%4)*23);
+  const bounce=lowFx?0:Math.sin(Math.min(1,age/1.2)*Math.PI)*11;
+  drawPixelCoin(x,310+(i%3)*29-bounce,9+(i%3)*2,lowFx?0:clock*8+i,Math.min(1,age*3));
+ }
+ arcadeRule(64,373,356,C.yellow);
+ text('HITS / SHOTS',77,405,17,C.white,'left',900);
+ text(landed+' / '+fired,343,405,19,C.white,'right',900);
+ text('BEST COMBO',77,439,17,C.white,'left',900);
+ text('x'+Math.max(1,bestRoundCombo),343,439,19,C.white,'right',900);
+ text('DEEPEST DIVE',77,479,17,C.white,'left',900);
+ text(meter(deepestCast),343,479,21,C.white,'right',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
+ neonPanel(91,508,238,43,'#47e5d7',13);
+ text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
+ titleActionGlow(clock,64,567,292,62);
+ button('FISH AGAIN',64,567,292,62,beginCast,C.yellow,'GO FOR A BIGGER HAUL');
+ button('GEAR SHOP',25,647,178,53,()=>{enterShop();},C.cream);
+ button('MISSIONS',217,647,178,53,openExpeditions,C.teal);
+ button('MAIN MENU',120,715,180,40,()=>{state='menu';age=0;},'#5796a6');
+}
+
+let skipperLine='',skipperLineTime=0,skipperVisits=0,skipperChats=0;
+let shopMood='neutral',shopMoodUntil=0,shopInspect=null;
+const SHOP_SECRETS_KEY='reel-trouble-shop-secrets-v1';
+function loadShopSecretsSeen(){try{
+ const raw=JSON.parse(localStorage.getItem(SHOP_SECRETS_KEY)||'[]');
+ return Array.isArray(raw)?raw.filter(id=>SHOP_SECRETS.some(s=>s.id===id)):[];
+ }catch(_){return [];}}
+let shopSecretsSeen=loadShopSecretsSeen();
+function saveShopSecretsSeen(){try{localStorage.setItem(SHOP_SECRETS_KEY,JSON.stringify(shopSecretsSeen));}catch(_){}}
+
+const SHOP_TABS=[['lines','REELS'],['nets','NETS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
+function skipperSpeak(line,mood='neutral'){
+ skipperLine=line;skipperLineTime=clock;
+ if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
+}
+function enterShop(){
+ state='shop';shopTab='lines';shopInspect=null;age=0;skipperVisits++;
+ shopScrollTo(save.upgrades.line*SHOP_ROW-65);
+ const find=nextShopSecret(save,shopSecretsSeen);
+ skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
+}
+function skipperGreeting(){
+ const dives=save.total||0,deep=save.best||0;
+ if(save.upgrades.light===0&&save.upgrades.line>=2)return "Past the reef? Buy a lamp. The deep don't forgive.";
+ if(dives>5000)return "Back again, legend? Something down there remembers ye.";
+ if(dives>500)return "You're hauling serious coin. But the trench takes its toll.";
+ return skipperVisits===1?"Welcome aboard! Name's Skipper. Don't touch the eel.":currentJob().story;
+}
+function skipperReply(category,success){
+ shopMood=success?'excited':'grumpy';shopMoodUntil=clock+3;
+ if(!success){
+  if(category==='charge'&&save.charges>=3)skipperSpeak("Three charges is plenty! I'm running a tackle shop, not a war.");
+  else if(category==='light'&&save.upgrades.light>=LIGHT_MAXLVL)skipperSpeak("Even a lighthouse would be jealous of that kit.");
+  else if(category==='line'&&save.upgrades.line>=LINE_MAXLVL)skipperSpeak("Any deeper and you'll be fishing in tomorrow.");
+  else if(category==='net'&&save.upgrades.net>=MAXLVL)skipperSpeak("That's a mighty wide hook. Mind the door on yer way out.");
+  else if(category==='gun'&&save.upgrades.gun>=MAXLVL)skipperSpeak("You've already got my finest. The paperwork was a nightmare.");
+  else skipperSpeak("Short on coin? The sea owes ye a few more hauls.");
+  return;
+ }
+ const lines={
+  line:["More line? Keep going. The seabed's got secrets.","That'll take ye deeper. Just mind what follows.","Good rope. Bad decisions. My favourite pair."],
+  net:["Wider hook, bigger haul. That's my kind of arithmetic.","Mind what ye snag with that contraption.","Now that's what I call casting a wide net."],
+  gun:["She kicks like a mule. Point away from me beard.","Unlimited shots. Limited common sense.","You didn't get that from me. Understood?"],
+  light:["Dark water hides things, matey.","Let there be light! Or at least fewer surprises.","Ye can see it now. Trouble is, it can see ye."],
+  charge:["One bang to save your skin. Use it wisely.","The fish won't appreciate that. Nor will the harbourmaster.","Explosives? I never sold ye explosives."]
+ };
+ const arr=lines[category]||lines.line;
+ skipperSpeak(arr[(save.upgrades.line+save.upgrades.net+save.upgrades.gun+save.charges)%arr.length]);
+}
+function shopInk(value,x,y,size=18,color='#f8e5bd',align='left',width=380){
+ ctx.save();ctx.textAlign=align;ctx.textBaseline='middle';
+ ctx.font='900 '+size+'px Arial,Helvetica,sans-serif';ctx.fillStyle=color;
+ ctx.lineJoin='round';
+ if(color==='#f8e5bd'||color==='#ffffff'){ctx.shadowColor='#251612';ctx.shadowBlur=2;ctx.shadowOffsetY=1;}
+ ctx.fillText(String(value),x,y,width);ctx.restore();
+}
+function shopWrap(message,maxWidth,size=16,maxLines=2){
+ ctx.save();ctx.font='900 '+size+'px Arial,Helvetica,sans-serif';
+ const rows=[''];for(const word of String(message).split(/\s+/)){
+  const n=rows.length-1,next=(rows[n]+' '+word).trim();
+  if(ctx.measureText(next).width>maxWidth&&rows[n]&&rows.length<maxLines)rows.push(word);
+  else rows[n]=next;
+ }
+ ctx.restore();return rows;
+}
+function shopButton(label,x,y,w,h,action,affordable=true){
+ // Tactile wooden checkout keys. Hits stay active when short of coin so
+ // the skipper can explain why the upgrade isn't available yet.
+ const active=affordable;
+ roundRect(x,y+3,w,h,0,'#3b241b','#29150f',1);
+ roundRect(x,y,w,h,0,active?'#f1c56e':'#b2a18c',active?'#fff0b6':'#c8bb9f',2);
+ ctx.fillStyle=active?'#ab662d':'#77685b';ctx.fillRect(x+6,y+5,3,h-10);
+ shopInk(label,x+w/2,y+h/2,17,active?'#302219':'#51463e','center',w-21);
+ hits.push({x,y,w,h,action});
+}
+function skipperPortrait(x,y){
+ ctx.save();
+ ctx.beginPath();ctx.rect(12,102,222,194);ctx.clip();
+ if(!paintSkipper(ctx,clock,x,y,{mood:clock<shopMoodUntil?shopMood:'neutral',talking:clock-skipperLineTime<2.8,lowFx})){
+  roundRect(29,145,177,151,10,'#23435b','#e0ad5b',3);
+  shopInk('SKIPPER',117,232,22,'#ffffff','center',165);
+ }
+ ctx.restore();
+}
+function shopInterior(){
+ paintShopBackdrop(ctx);
+ // The weathered shop sign belongs to the wooden environment, not a neon HUD.
+ roundRect(10,10,400,77,3,'#352219','#a57647',3);
+ for(let yy=24;yy<78;yy+=12)line(15,yy,405,yy,'#62402c',1);
+ ctx.fillStyle='#d3a35b';ctx.fillRect(19,18,5,5);ctx.fillRect(394,18,5,5);
+ ctx.fillRect(19,73,5,5);ctx.fillRect(394,73,5,5);
+ shopInk("SKIPPER'S",210,38,31,'#f8e5bd','center',382);
+ shopInk('BAIT  •  TACKLE  •  TROUBLE',210,68,17,'#f8e5bd','center',380);
+}
+function skipperBubble(){
+ // Paper speech card with a two-line measured wrap, never overlapping tabs.
+ polygon([[64,308],[88,294],[104,308]],'#f3e0b7');
+ roundRect(12,307,396,76,7,'#f3e0b7','#895c36',2);
+ ctx.fillStyle='#d0a96d';ctx.fillRect(22,317,4,56);
+ shopInk('SKIPPER SAYS',34,322,14,'#784a2e','left',355);
+ const rows=shopWrap(skipperLine||skipperGreeting(),362,16,2);
+ for(let i=0;i<rows.length;i++)shopInk(rows[i],34,345+i*21,16,'#34261e','left',361);
+}
+function shopJobBoard(){
+ const job=currentJob();
+ roundRect(240,119,165,169,5,'#203a39','#d5a268',3);
+ roundRect(246,125,153,157,2,'#162d2c','#557c69',1);
+ shopInk('TODAY\'S BOUNTY',322,145,14,'#efcf88','center',146);
+ line(259,158,387,158,'#967c51',1);
+ const title=shopWrap(job.title,135,17,2);
+ for(let i=0;i<title.length;i++)shopInk(title[i],322,181+i*23,17,'#ffffff','center',143);
+ shopInk(job.progress+' / '+job.goal+' DONE',322,238,16,'#efcf88','center',138);
+ shopInk('REWARD  $'+job.reward,322,262,16,'#ffffff','center',145);
+}
+function shopTabButton(id,label,i){
+ const x=11+i*100,y=393,w=98,h=48,selected=shopTab===id;
+ roundRect(x,y+4,w,h,5,'#211810');
+ roundRect(x,y,w,h,5,selected?'#f1cb80':'#3e2a23',selected?'#fff0b3':'#9c6c45',selected?2:1);
+ shopInk(label,x+w/2,y+24,15,selected?'#3e2719':'#f8e5bd','center',w-8);
+ hits.push({x,y,w,h,action:()=>{
+  if(shopTab===id){skipperSpeak("Take yer time. The fish aren't going anywhere. Probably.");return;}
+  shopTab=id;
+  const key=id==='lines'?'line':id==='nets'?'net':id==='guns'?'gun':'light';
+  shopScrollTo(save.upgrades[key]*SHOP_ROW-65);
+  skipperSpeak({
+   lines:"I've got line that'll reach places the sun won't.",
+   nets:"The wider the hook, the bigger the haul. Mind yer fingers.",
+   guns:"Every piece tested. Well, most of 'em.",
+   gadgets:"Bring a light. Bring a charge. Bring a bit of luck."
+  }[id]);
+ }});
+}
+const NET_NAMES=['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP'];
+const LAMP_NAMES=['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP'];
+const LAMP_COSTS=[180,420,900,1800,3700];
+const SHOP_ROW=65;
+function shopListBounds(){return shopTab==='gadgets'?[545,693]:[487,693];}
+function shopTierCount(){return shopTab==='lines'?LINE_MAXLVL+1:shopTab==='gadgets'?LIGHT_MAXLVL+1:MAXLVL+1;}
+function shopScrollTo(value){
+ const [top,bottom]=shopListBounds();
+ shopScroll[shopTab]=clamp(value,0,Math.max(0,shopTierCount()*SHOP_ROW-(bottom-top)));
+}
+function shopTierMeta(type,tier){
+ if(type==='line')return [LINE_NAMES[tier],meter(maxLineDepth(tier))+' MAX DEPTH'];
+ if(type==='net')return [NET_NAMES[tier],(24+tier*13)+'px CATCH RADIUS'];
+ if(type==='gun')return [GUN_NAMES[tier],weaponForLevel(tier).maxHits+' TARGETS / AMMO ∞'];
+ return [LAMP_NAMES[tier],'LIGHT POWER '+tier+' / '+LIGHT_MAXLVL];
+}
+function shopTierList(type,top,bottom){
+ const level=save.upgrades[type],max=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:MAXLVL;
+ const offset=shopScroll[shopTab],height=bottom-top;
+ ctx.save();ctx.beginPath();ctx.rect(17,top,376,height);ctx.clip();
+ for(let tier=Math.max(0,Math.floor(offset/SHOP_ROW));tier<=Math.min(max,Math.ceil((offset+height)/SHOP_ROW));tier++){
+  const y=top+tier*SHOP_ROW-offset,owned=tier<level,current=tier===level;
+  const [name,detail]=shopTierMeta(type,tier);
+  ctx.fillStyle=current?'#fff0ca':owned?'#cbdcc9':'#c4b8a8';ctx.fillRect(20,y+2,371,SHOP_ROW-5);
+  ctx.fillStyle=current?'#e5ae48':owned?'#45937a':'#88786b';ctx.fillRect(20,y+2,5,SHOP_ROW-5);
+  paintShopItem(ctx,type,54,y+32,.43,tier,clock,lowFx);
+  shopInk(name,87,y+19,17,'#36271e','left',205);
+  shopInk(detail,87,y+44,14,'#725846','left',207);
+  shopInk(owned?'OWNED':current?'EQUIPPED':'LOCKED',376,y+16,13,'#66513d','right',83);
+  if(current&&tier<max){
+   const cost=type==='light'?LAMP_COSTS[tier]:upgradeConfig(type).cost;
+   shopInk((save.cash>=cost?'BUY $':'NEED $')+cost,377,y+44,14,'#396d55','right',85);
+  }else if(tier>level){
+   const price=type==='light'?LAMP_COSTS[tier-1]:
+    Math.round(({line:65,net:90,gun:85}[type])*Math.pow(type==='line'?1.52:1.75,tier-1));
+   shopInk('$'+price,377,y+44,14,'#66513d','right',82);
+  }
+  const hitY=Math.max(top,y+2),hitBottom=Math.min(bottom,y+SHOP_ROW-3);
+  if(hitBottom>hitY)hits.push({x:20,y:hitY,w:371,h:hitBottom-hitY,action:()=>{
+   if(current&&tier<max){if(type==='light')buyLight();else purchase(type);}
+   else openShopInspect(type,tier);
+  }});
+ }
+ ctx.restore();
+ const total=(max+1)*SHOP_ROW,thumb=Math.max(23,height*height/total);
+ const maximum=Math.max(1,total-height);
+ ctx.fillStyle='#765d45';ctx.fillRect(402,top,3,height);
+ ctx.fillStyle='#ffdf92';ctx.fillRect(401,top+(height-thumb)*offset/maximum,5,thumb);
+}
+function shopItemCard(){
+ const type=shopTab==='lines'?'line':shopTab==='nets'?'net':'gun';
+ const max=type==='line'?LINE_MAXLVL:MAXLVL;
+ roundRect(12,453,396,242,0,'#30261f','#a77849',2);
+ shopInk('GEAR COLLECTION',25,470,17,'#f8e5bd','left',204);
+ shopInk((save.upgrades[type]+1)+' / '+(max+1),387,470,16,'#f8e5bd','right',104);
+ shopTierList(type,487,693);
+}
+function shopSupplies(){
+ roundRect(12,453,396,242,0,'#30261f','#a77849',2);
+ const full=save.charges>=3,cost=110;
+ roundRect(19,457,381,63,0,'#f1dfb9','#8c5934',2);
+ paintShopItem(ctx,'charge',54,489,.4,save.charges,clock,lowFx);
+ shopInk('BLAST CHARGES',87,477,17,'#352720','left',201);
+ shopInk(save.charges+' / 3 IN BAG',87,502,14,'#765037','left',132);
+ shopButton(full?'MAXED':save.cash>=cost?'BUY $110':'NEED $110',236,470,152,39,()=>{
+  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
+ },!full&&save.cash>=cost);
+ shopInk('LANTERN COLLECTION',25,534,16,'#f8e5bd','left',232);
+ shopInk((save.upgrades.light+1)+' / '+(LIGHT_MAXLVL+1),387,534,16,'#f8e5bd','right',103);
+ shopTierList('light',545,693);
+}
+function openShopInspect(type,tier=null){
+ shopInspect={kind:'gear',type,tier,openedAt:clock};
+ skipperSpeak({
+  line:"Feel that spool. It wants to see what's below.",
+  net:"Wider than my last catch. And he was a liar.",
+  gun:"Look closely. It's got all the safety features I could afford.",
+  light:"Don't stare into it. Your eyes aren't under warranty.",
+  charge:"Careful! That's the end that goes bang."
+ }[type]||"Go on, take a closer look.",'curious');
+}
+function shopStoryButton(){
+ const unseen=nextShopSecret(save,shopSecretsSeen),unlocked=unlockedShopSecrets(save);
+ const selected=unseen||unlocked[unlocked.length-1];
+ if(!selected)return;
+ roundRect(235,282,171,26,0,unseen?'#efc679':'#53372a','#352219',2);
+ paintShopItem(ctx,selected.item,250,295,.22,0,clock,lowFx);
+ shopInk(unseen?'NEW CURIO! TAP':'SKIPPER\'S SECRETS',261,295,14,unseen?'#32241e':'#f4dfb0','left',139);
+ hits.push({x:235,y:282,w:171,h:26,action:()=>{
+  shopInspect={kind:'secret',id:selected.id,openedAt:clock};
+  if(!shopSecretsSeen.includes(selected.id)){
+   shopSecretsSeen.push(selected.id);saveShopSecretsSeen();
+  }
+  skipperSpeak(selected.hint,'curious');
+ }});
+}
+function inspectGearInfo(type){
+ const u=save.upgrades;
+ const lvl=type==='charge'?save.charges:u[type]||0;
+ const limit=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:type==='charge'?3:MAXLVL;
+ const names=type==='line'?LINE_NAMES:type==='gun'?GUN_NAMES:
+ type==='net'?['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP']:
+ type==='light'?['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP']:
+ ['BLAST CHARGE','BLAST CHARGE','BLAST CHARGE','BLAST CHARGE'];
+ const cost=type==='charge'?110:type==='light'?[180,420,900,1800,3700][lvl]||0:upgradeConfig(type).cost;
+ const description={
+  line:"Longer line explores new depths and strange regions.",
+  net:"A wider hook collects more fish on the way up.",
+  gun:"Each gun has unlimited ammo and its own spread.",
+  light:"Your lantern cuts through the deepest darkness.",
+  charge:"One charge ignores a fish collision on the descent."
+ }[type];
+ const benefit=type==='line'?'REACH '+meter(maxLineDepth(lvl)):
+ type==='net'?'CATCH RADIUS '+(24+13*lvl)+'px':
+ type==='gun'?weaponForLevel(lvl).maxHits+' FISH PER SHOT':
+ type==='light'?'LIGHT LEVEL '+lvl+' / '+LIGHT_MAXLVL:'CHARGES '+lvl+' / 3';
+ return {type,lvl,full:lvl>=limit,cost,name:names[lvl]||type.toUpperCase(),description,benefit};
+}
+function buyInspectedGear(type){
+ if(type==='charge'){
+  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
+ }else if(type==='light')buyLight();
+ else purchase(type);
+}
+function shopInspectOverlay(){
+ const item=shopInspect;if(!item)return;
+ // An open inspection owns every hitbox, blocking unintended purchases behind it.
+ hits.length=0;
+ ctx.save();ctx.fillStyle='#091724e6';ctx.fillRect(0,0,W,H);
+ roundRect(21,126,378,557,0,'#251f24','#b8894e',4);
+ roundRect(31,136,358,535,0,'#f1dfb9','#8c5934',3);
+ ctx.fillStyle='#bd8857';ctx.fillRect(41,145,338,3);
+ const secret=item.kind==='secret'?SHOP_SECRETS.find(s=>s.id===item.id):null;
+ const gear=secret?null:inspectGearInfo(item.type);
+ if(gear&&item.tier!==null){gear.name=shopTierMeta(item.type,item.tier)[0];gear.benefit=shopTierMeta(item.type,item.tier)[1];gear.lvl=item.tier;}
+ shopInk(secret?'SKIPPER\'S FIND':'FROM THE TACKLE CASE',210,163,15,'#785137','center',326);
+ shopInk(secret?secret.title:gear.name,210,194,24,'#30241e','center',331);
+ roundRect(60,211,300,245,0,'#432e28','#a27346',3);
+ paintShopItem(ctx,secret?secret.item:gear.type,210,334,2.08,gear?gear.lvl:0,clock,lowFx);
+ ctx.fillStyle='#bd8857';ctx.fillRect(58,469,304,3);
+ if(secret){
+  const rows=shopWrap(secret.story,312,17,3);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,507+i*24,17,'#3b2d25','center',318);
+  shopInk('A SECRET FOR YOUR LOGBOOK',210,592,16,'#7c5032','center',320);
+  shopButton('BACK TO COUNTER',77,612,266,45,()=>{shopInspect=null;});
+ }else{
+  shopInk(gear.benefit,210,492,19,'#3b2d25','center',314);
+  const rows=shopWrap(gear.description,304,16,2);
+  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,529+i*21,16,'#6d513d','center',319);
+  shopInk(gear.full?'FULLY UPGRADED':'NEXT UPGRADE $'+gear.cost,210,586,17,'#704a32','center',325);
+  shopButton('← BACK',40,612,127,46,()=>{shopInspect=null;});
+  shopButton(gear.full?'MAX LEVEL':save.cash>=gear.cost?'BUY $'+gear.cost:'NEED $'+gear.cost,
+    176,612,203,46,()=>buyInspectedGear(gear.type),!gear.full&&save.cash>=gear.cost);
+ }
+ ctx.restore();
+}
+
+function shop(){
+ shopInterior();
+ // Warm shopkeeper portrait and actual cork-board mission tracker.
+ skipperPortrait(105,209);
+ shopJobBoard();
+ hits.push({x:12,y:103,w:220,h:194,action:()=>{
+  const lines=[
+   "My suppliers ask where I get this stuff. I ask 'em not to ask.",
+   "Deep enough and the water starts keeping secrets.",
+   "The bait's fresh. The bookkeeping, less so.",
+   "I once caught a fish so big it bought the boat.",
+   "If it starts glowing, bring it back in one piece.",
+   currentJob().story
+  ];
+  skipperSpeak(lines[skipperChats++%lines.length],'curious');
+ }});
+ roundRect(255,94,151,30,4,'#f1dfb9','#85572f',2);
+ shopInk('COINS  $'+save.cash,329,109,18,'#32241e','center',143);
+ skipperBubble();
+ shopStoryButton();
+ for(let i=0;i<SHOP_TABS.length;i++)shopTabButton(...SHOP_TABS[i],i);
+ if(shopTab==='gadgets')shopSupplies();else shopItemCard();
+ shopButton('←  BACK TO THE WATER',14,714,392,52,()=>{
+  state=castNumber&&save.total?'results':'menu';age=0;
+ },true);
+ if(shopInspect)shopInspectOverlay();
+}
+
+function expeditionBoard(){
+ titleBackdrop(lowFx?0:clock*.35);
+ const job=currentJob(),status=save.expedition;
+ text("SKIPPER'S LOG",210,75,36,C.white,'center',900,0,390);
+ text('A NEW REASON TO CAST AGAIN',210,114,16,C.white,'center',900,0,382);
+ neonPanel(23,147,374,315,C.yellow,19);
+ arcadePill(job.label,95,162,230,C.yellow);
+ text(job.title,210,228,27,C.white,'center',950,0,339);
+ text(job.task,210,281,19,C.white,'center',900,0,340);
+ text(job.progress+' / '+job.goal,210,331,31,C.yellow,'center',950);
+ roundRect(58,360,304,13,6,'#031627','#78959b',1);
+ roundRect(61,363,Math.round(298*Math.min(1,job.progress/job.goal)),7,4,C.yellow);
+ text('REWARD  $'+job.reward,210,410,22,C.white,'center',900,0,331);
+ text('SKIPPER SAYS:',210,488,16,C.yellow,'center',900,0,360);
+ text(job.story,210,519,16,C.white,'center',900,0,382);
+ text('STORY CHAPTERS  '+Math.min(status.chapter,EXPEDITIONS.length)+' / '+EXPEDITIONS.length,210,574,18,C.white,'center',900,0,381);
+ const recent=EXPEDITIONS[Math.max(0,Math.min(EXPEDITIONS.length-1,status.chapter-1))];
+ const next=EXPEDITIONS[Math.min(EXPEDITIONS.length-1,status.chapter+1)];
+ text('✓ '+(status.chapter?recent.title:'FIRST MISSION AWAITS'),210,613,16,C.white,'center',900,0,370);
+ text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,649,16,C.white,'center',900,0,370);
+ button('← BACK',70,707,280,55,()=>{state=expeditionReturn;age=0;},C.yellow);
+}
+function bookCard(kind,x,y){
+ const entry=save.collection.fish[kind],found=Boolean(entry?.caught),meta=species[kind];
+ const width=370,height=99;
+ roundRect(x+3,y+4,width,height,0,'#041328');
+ roundRect(x,y,width,height,0,'#072940',found?'#69ffe5':'#658a9e',2);
+ ctx.fillStyle=found?'#29dfce':'#68899e';
+ ctx.fillRect(x+4,y+5,6,height-10);
+ ctx.save();
+ if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.62;}
+ fish(x+64,y+49,kind,1,1.15,clock*1.3);
+ ctx.restore();
+ // One column provides actual room for long names and readable 17–21px labels.
+ text(found?meta.name:'UNKNOWN SPECIES',x+122,y+23,21,C.white,'left',900,0,232);
+ text(found?fishRarity(kind):'NOT DISCOVERED',x+122,y+54,17,C.white,'left',900,0,232);
+ text(found?'CAUGHT '+entry.caught:'CATCH TO UNLOCK',x+122,y+81,17,C.white,'left',900,0,232);
+ hits.push({x,y,w:width,h:height,action:()=>{selectedFish=kind;state='fishDetail';age=0;}});
+}
+function collection(){
+ ambient(clock);
+ text('FISH ENCYCLOPEDIA',210,76,30,C.cream,'center',1000,0,390);
+ const p=collectionProgress(save.collection);
+ text(p.discovered+'/'+p.total+' SPECIES • '+p.percentage+'% COMPLETE',210,118,17,C.white,'center',900,0,365);
+ roundRect(49,138,322,8,0,'#071828');
+ roundRect(50,139,Math.max(0,p.percentage*3.2),6,0,C.yellow);
+ button('FISH',29,163,175,42,()=>{collectionTab='fish';collectionPage=0;},collectionTab==='fish'?C.yellow:C.cream);
+ button('BADGES',216,163,175,42,()=>{collectionTab='badges';collectionPage=0;},collectionTab==='badges'?C.yellow:C.cream);
+ const pageSize=4,total=collectionTab==='fish'?species.length:ACHIEVEMENTS.length;
+ const pages=Math.ceil(total/pageSize);
+ collectionPage=clamp(collectionPage,0,pages-1);
+ if(collectionTab==='fish'){
+  for(let i=0;i<pageSize;i++){
+   const kind=collectionPage*pageSize+i;if(kind>=species.length)continue;
+   bookCard(kind,25,227+i*105);
+  }
+ }else{
+  for(let i=0;i<4;i++){
+   const badge=ACHIEVEMENTS[collectionPage*4+i];if(!badge)continue;
+   const unlocked=save.collection.achievements[badge.id]===true;
+   const y=227+i*105;
+   roundRect(29,y,362,97,0,unlocked?'#135369':'#123e55',unlocked?C.yellow:'#75adbc',2);
+   text(unlocked?'★':'?',52,y+25,25,unlocked?C.yellow:C.muted,'center',950);
+   text(badge.title,80,y+19,17,C.cream,'left',950,0,293);
+   text(badge.description,80,y+45,16,C.white,'left',900,0,291);
+   text(unlocked?'UNLOCKED':'REWARD $'+badge.reward,80,y+74,17,C.white,'left',900,0,291);
+  }
+ }
+ if(collectionPage>0)button('← PREV',31,659,111,42,()=>collectionPage--,C.cream);
+ text((collectionPage+1)+' / '+pages,210,682,15,C.cream);
+ if(collectionPage<pages-1)button('NEXT →',279,659,111,42,()=>collectionPage++,C.cream);
+ button('← BACK',90,717,240,48,()=>{state='menu';age=0;},C.yellow);
+}
+function fishDetail(){
+ ambient(clock);
+ const meta=species[selectedFish],entry=save.collection.fish[selectedFish],found=Boolean(entry?.caught);
+ text('FISH FILE',210,78,32,C.cream,'center',1000);
+ text('#'+String(selectedFish+1).padStart(2,'0')+' / '+species.length,210,121,14,C.mint,'center',800);
+ panel(31,155,358,453);
+ ctx.save();if(!found){ctx.filter='brightness(0)';ctx.globalAlpha=.65;}
+ fish(210,252,selectedFish,1,3.2,clock*2);
+ ctx.restore();
+ text(found?meta.name:'UNDISCOVERED',210,354,found?27:22,C.yellow,'center',1000);
+ if(found){
+  text(fishRarity(selectedFish)+' • '+fishHabitat(selectedFish),210,391,17,C.white,'center',900,0,339);
+  text('BASE VALUE $'+meta.value,210,425,16,C.cream,'center',900);
+  line(58,452,361,452,'#4d8797');
+  text('CAUGHT',65,487,13,C.muted,'left',850);text(entry.caught,351,487,17,C.cream,'right',950);
+  text('SHOT',65,522,13,C.muted,'left',850);text(entry.shot,351,522,17,C.cream,'right',950);
+  text('EARNED',65,557,13,C.muted,'left',850);text('$'+entry.earned,351,557,17,C.yellow,'right',950);
+  text('BEST COMBO',65,587,13,C.muted,'left',850);text('x'+entry.bestCombo,351,587,17,C.cream,'right',950);
+ }else{
+  text('CATCH TO REVEAL THIS FISH',210,416,18,C.white,'center',900,0,330);
+  text('STATS AND HABITAT ARE HIDDEN',210,455,17,C.white,'center',900,0,330);
+ }
+ button('← ENCYCLOPEDIA',75,646,270,52,()=>{state='collection';age=0;},C.cream);
+ button('MAIN MENU',103,717,214,47,()=>{state='menu';age=0;},C.yellow);
+}
+function installScene(){
+ titleBackdrop(lowFx?0:clock);
+ text('INSTALL THE GAME',210,91,33,C.white,'center',900,0,380);
+ text('PLAY FULLSCREEN • WORKS OFFLINE',210,130,16,C.white,'center',900,0,380);
+ panel(24,157,372,405);
+ const guide=installGuide();
+ text('FOR '+guide.platform.toUpperCase(),210,197,21,C.white,'center',900,0,343);
+ text('BROWSER INSTALL STEPS',210,240,17,C.white,'center',900,0,339);
+ for(let i=0;i<guide.steps.length;i++){
+  const y=278+i*66;
+  roundRect(39,y-19,40,40,0,'#0b4260','#3cf0e1',2);
+  text('0'+(i+1),59,y+2,19,C.white,'center',900,0,37);
+  text(guide.steps[i],89,y+2,16,C.white,'left',900,0,279);
+ }
+ roundRect(28,577,364,49,0,'#08243ef4','#64eade',2);
+ const status=serviceWorkerStatus();
+ const hint=canInstall()?'READY FOR INSTALL PROMPT':
+  status==='ready'?'OFFLINE SERVICE READY':
+  status==='failed'?'OFFLINE SETUP FAILED • TRY RELOAD':
+  'OPEN IN YOUR REGULAR BROWSER';
+ text(hint,210,601,16,C.white,'center',900,0,340);
+ if(canInstall())button('INSTALL NOW',62,640,296,52,installGame,C.yellow);
+ else button('COPY GAME LINK',62,640,296,52,copyGameLink,C.teal);
+ text(installMessage,210,710,16,C.white,'center',900,0,360);
+ button('← BACK',100,733,220,41,()=>{state='menu';age=0;},C.cream);
+}
+function settings(){
+ ambient(clock);
+ text('SETTINGS',210,85,42,C.cream,'center',1000);
+ text('PHONE & INPUT',210,127,13,C.mint,'center',900,1.5);
+ panel(23,151,374,488);
+ text('STEERING',210,181,18,C.yellow,'center',950);
+ button('TOUCH',43,206,161,48,useTouch,inputMode==='touch'?C.yellow:'#5796a6');
+ button('TILT',215,206,161,48,enableTilt,inputMode==='tilt'?C.yellow:'#5796a6');
+ text(inputMode==='tilt'?'SELECTED: TILT':'SELECTED: TOUCH',210,278,14,C.cream,'center',900);
+ text(sensorStatus,210,305,13,C.mint,'center',900,0,345);
+ if(inputMode==='tilt')button('RECENTER',122,326,176,41,recenterTilt,C.cream);
+ else text('DRAG TO STEER DURING A CAST',210,350,17,C.white,'center',900,0,350);
+ text('AUDIO',210,376,16,C.yellow,'center',950);
+ button(soundEnabled?'SOUND FX: ON':'SOUND FX: OFF',94,395,232,38,toggleSound,soundEnabled?C.teal:C.cream);
+ button(musicEnabled?'SOUNDTRACK: ON':'SOUNDTRACK: OFF',94,441,232,38,toggleMusic,musicEnabled?C.teal:C.cream);
+ text('FEEDBACK',210,495,16,C.yellow,'center',950);
+ button(lowFx?'FX: LOW':'FX: FULL',42,514,162,43,toggleEffects,lowFx?C.cream:C.teal);
+ if(rumble.supported())button(rumbleEnabled?'RUMBLE: ON':'RUMBLE: OFF',214,514,162,43,toggleRumble,rumbleEnabled?C.teal:C.cream);
+ else{roundRect(214,514,162,43,0,'#23445a','#90b4c0',2);text('RUMBLE N/A',295,536,15,C.cream,'center',900,0,150);}
+ if(!isInstalled())button('INSTALL / HELP',104,566,212,48,installGame,C.yellow);
+ else text('INSTALLED APP',210,587,15,C.yellow);
+ button('REFRESH GAME / CLEAR CACHE',54,627,312,48,()=>{refreshGameFiles().catch(()=>{installMessage='REFRESH FAILED - TRY RELOADING';state='install';age=0;});},C.teal);
+ text('KEEPS YOUR COINS AND UPGRADES',210,687,16,C.white,'center',900,0,355);
+ button('← BACK',62,716,296,45,()=>{state='menu';age=0;},C.yellow);
+
+}
+function pausedScene(){
+ ctx.fillStyle='#031225ee';ctx.fillRect(0,0,W,H);
+ const glow=ctx.createRadialGradient(210,380,20,210,380,290);
+ glow.addColorStop(0,'#19aaa929');glow.addColorStop(1,'#071a3200');
+ ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
+ neonPanel(35,219,350,368,C.teal,23);
+ arcadePill('BREAK TIME',133,239,154,C.teal);
+ text('PAUSED',210,313,52,C.white,'center',1000);
+ text(pauseReason==='MANUAL'?'TAKE YOUR TIME':'PAUSED AUTOMATICALLY',210,356,17,C.white,'center',900,0,309);
+ arcadeRule(85,382,335,C.teal);
+ text('YOUR CATCH WILL NOT MOVE',210,399,17,C.white,'center',900,0,320);
+ button('RESUME',76,437,268,65,resumeGame,C.yellow);
+ button('MAIN MENU',96,521,228,53,menuFromPause,C.cream);
+}
+function neonOceanArtwork(kind,t){
+ // Full-height hand-drawn vector/pixel arcade scene. The scene keeps its own
+ // artwork so stage cards no longer feel like a modal over the game.
+ const dark=ctx.createLinearGradient(0,0,0,H);
+ if(kind==='dive'){
+  dark.addColorStop(0,'#12254e');dark.addColorStop(.38,'#087aab');dark.addColorStop(1,'#03152f');
+ }else if(kind==='reel'){
+  dark.addColorStop(0,'#211c61');dark.addColorStop(.42,'#f47aa3');dark.addColorStop(.58,'#145b9d');dark.addColorStop(1,'#062746');
+ }else{
+  dark.addColorStop(0,'#18134a');dark.addColorStop(.48,'#642579');dark.addColorStop(1,'#07152e');
+ }
+ ctx.fillStyle=dark;ctx.fillRect(0,0,W,H);
+ const movement=lowFx?0:t;
+ // Animated aurora rays across the entire vertical artwork.
+ ctx.save();ctx.globalAlpha=.22;
+ for(let i=0;i<7;i++){
+  const x=45+i*68+Math.sin(movement*.7+i)*14;
+  const ray=ctx.createLinearGradient(x,80,x+80,H);
+  ray.addColorStop(0,i%2?'#a5ffec':'#ff8ce5');
+  ray.addColorStop(1,'#07152e00');
+  ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(x-18,0);
+  ctx.lineTo(x+27,0);ctx.lineTo(x+130,H);ctx.lineTo(x+43,H);ctx.closePath();ctx.fill();
+ }
+ ctx.restore();
+ const horizon=kind==='dive'?173:kind==='reel'?356:535;
+ // Layered ocean silhouette and white/teal crests.
+ ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,horizon);
+ for(let x=0;x<=W+12;x+=12)
+  ctx.lineTo(x,horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4);
+ ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=kind==='shoot'?'#112e69':'#07547d';ctx.fill();
+ ctx.strokeStyle='#90faff';ctx.lineWidth=4;
+ ctx.beginPath();
+ for(let x=0;x<=W;x+=8){const y=horizon+Math.sin(x*.023+movement*2)*8+Math.sin(x*.068-movement*3)*4;
+  if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+ ctx.stroke();
+ // Marine life moves behind the hero elements.
+ for(let i=0;i<12;i++){
+  const x=20+((i*79+movement*(i%2?18:-14)+W*10)%W);
+  const y=horizon+75+(i*61)%(H-horizon-105);
+  ctx.save();ctx.globalAlpha=.25;
+  fish(x,y,i%species.length,i%2?-1:1,.52+(i%3)*.11,movement*3+i);
+  ctx.restore();
+ }
+ for(let i=0;i<30;i++){
+  const x=(i*83+27)%W,y=H-((i*57+movement*(21+i%3*7))%(H+35));
+  ctx.strokeStyle=i%3?'#c6fbff65':'#ffccee70';ctx.lineWidth=i%6?2:3;
+  ctx.strokeRect(x,y,3+i%4*2,3+i%4*2);
+ }
+ if(kind==='dive'){
+  // Glowing hook plunging under a boat, with a luminous trail.
+  boat(210,166);
+  const hookY=308+Math.sin(movement*3)*17;
+  ctx.strokeStyle='#e1ffff9c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(210,155);ctx.lineTo(210,hookY-15);ctx.stroke();
+  ctx.save();ctx.shadowColor='#24ffe2';ctx.shadowBlur=23;hook(210,hookY);ctx.restore();
+  for(let i=0;i<18;i++){const x=210+Math.sin(i*8+movement)*((i%5)*8),y=hookY+35+i*14;
+   circle(x,y,2+i%3,'#80f3ff99');}
+ }else if(kind==='reel'){
+  // Hero trophy fish breaks the ocean horizon, trailing foam and droplets.
+  const lift=lowFx?0:Math.sin(movement*4)*17;
+  for(let i=0;i<19;i++){const x=210+Math.cos(i*2.4)*((i%7)*19);
+   const y=horizon+Math.sin(i*3)*32;
+   circle(x,y,4+i%4*2,i%2?'#e9ffff':'#5beaff');}
+  ctx.save();ctx.translate(210,319+lift);ctx.rotate(-.24);
+  ctx.shadowColor='#80f6ff';ctx.shadowBlur=21;
+  fish(0,0,10,1,3.2,movement*5);ctx.restore();
+  line(180,0,243,287,'#b8fcff',2);
+ }else{
+  // Electric crosshair, fish silhouettes, neon weapon bolts and gold coins.
+  const cx=210+Math.sin(movement*2)*6,cy=314;
+  ctx.save();ctx.shadowColor='#fc72e8';ctx.shadowBlur=24;
+  ctx.strokeStyle='#ffa0fc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,59,0,Math.PI*2);ctx.stroke();
+  line(cx-83,cy,cx-23,cy,'#ffffff',4);line(cx+23,cy,cx+83,cy,'#ffffff',4);
+  line(cx,cy-83,cx,cy-23,'#ffffff',4);line(cx,cy+23,cx,cy+83,'#ffffff',4);
+  circle(cx,cy,7,'#ffec7c');ctx.restore();
+  fish(105,215,10,1,2.1,movement*4);
+  fish(335,394,13,-1,1.5,movement*4);
+  for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8+movement*.4,dist=70+(i%4)*22;
+   const x=cx+Math.cos(angle)*dist,y=cy+Math.sin(angle)*dist;
+   ctx.fillStyle=i%3?'#ffe76a':'#ff8fed';
+   ctx.fillRect(x,y,6+i%3*3,6+i%3*3);
+  }
+  drawBulletTrail(80,670,cx,cy,.76,'#ff75da',2);
+  drawBulletTrail(345,670,cx,cy,.66,'#6efcf9',2);
+ }
+}
+function drawStageTransition(){
+ if(!sceneTransition)return;
+ const stage=ARCADE_STAGES[sceneTransition.kind];
+ if(!stage)return;
+ const frame=stageFrame(sceneTransition.elapsed,sceneTransition.duration);
+ if(frame.visibility<=0)return;
+ ctx.save();
+ // Artwork fills the full screen, not the old small centred modal.
+ ctx.globalAlpha=frame.visibility;
+ neonOceanArtwork(sceneTransition.kind,sceneTransition.elapsed);
+ // Gradient behind the bottom title for consistent white-text readability.
+ const shade=ctx.createLinearGradient(0,500,0,H);
+ shade.addColorStop(0,'#06122800');shade.addColorStop(.42,'#06152ad9');shade.addColorStop(1,'#030d23');
+ ctx.fillStyle=shade;ctx.fillRect(0,500,W,H-500);
+ const offset=frame.slide*.52;
+ arcadePill('STAGE '+stage.number,150,557+offset,120,stage.accent);
+ text(stage.title,210,634+offset,48,C.white,'center',900,0,392);
+ ctx.save();ctx.globalAlpha=.83*frame.visibility;
+ ctx.fillStyle=stage.accent;ctx.fillRect(40,673+offset,340,4);
+ ctx.restore();
+ text(stage.subtitle,210,707+offset,20,C.white,'center',900,0,372);
+ for(let i=0;i<3;i++)roundRect(104+i*73,740+offset,59,6,3,i+1<=Number(stage.number)?stage.accent:'#3f647d');
+ ctx.restore();
+}
+function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
+ ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='expeditions')expeditionBoard();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ overlayParticles();drawSplashEffects(lastFrameDt);
+ if(sceneFlash>0&&!lowFx){
+   ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
+   ctx.fillRect(0,0,W,H);
+ }
+ drawStageTransition();
+ ctx.restore();
+ if(paused){hits=[];pausedScene();}
+ display.setTransform(1,0,0,1,0,0);display.imageSmoothingEnabled=true;
+ display.drawImage(sceneCanvas,0,0,canvas.width,canvas.height);
+ if(!document.body.classList.contains('game-ready'))document.body.classList.add('game-ready');
+}
+let last=0,lastFrameDt=0;
+function frame(t){
+ const frameGap=lowFx?1000/30:1000/60;
+ if(last&&t-last<frameGap-1){requestAnimationFrame(frame);return;}
+ const dt=Math.min((t-last)/1000||.016,.05);
+ last=t;lastFrameDt=paused?0:dt;
+ if(!paused&&!document.hidden)update(dt);
+ if(!document.hidden)render();
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
+function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+ if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
+ sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
+ if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
+canvas.addEventListener('pointerup',e=>{if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}pointerDown=false;});
+canvas.addEventListener('pointercancel',()=>{shopDrag=null;pointerDown=false;});
+canvas.addEventListener('wheel',e=>{if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}},{passive:false});
+window.addEventListener('keydown',e=>{
+ sound.unlock();
+ if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+ if(e.code==='Escape'||e.key.toLowerCase()==='p'){
+  if(paused)resumeGame();else pauseGame('MANUAL');return;
+ }
+ if(paused)return;
+ keys.add(e.key);
+ if(e.repeat)return;if(e.code==='Space'||e.code==='Enter'){
+ if(state==='menu'||state==='results')beginCast();else if(state==='shoot')shootAt(pointer.x,pointer.y);
+ }});window.addEventListener('keyup',e=>keys.delete(e.key));
+window.addEventListener('blur',()=>{keys.clear();pointerDown=false;pauseGame('BACKGROUND');});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){pauseGame('BACKGROUND');keys.clear();pointerDown=false;sound.pause(true);rumble.stop();}
+ else if(!paused){sound.pause(false);sound.unlock();}
+ last=0;
+});
+})();+roundEarnings,220,190,19+(lowFx?0:payoutPulse*3),payoutPulse>0?'#fff7bd':C.yellow,'center',1000,0,110);
  if(messageTimer>0&&combo<=1){
   roundRect(80,131,260,34,0,'#061d2ce5');
   text(message,210,147,12,C.cream,'center',900);
