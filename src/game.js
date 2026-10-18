@@ -1844,8 +1844,44 @@ function buyInspectedGear(type){
  }else if(type==='light')buyLight();
  else purchase(type);
 }
+
+function boatInspectOverlay(){
+ const request=shopInspect;
+ const item=boatOptions(request.slot).find(option=>option.id===request.id);
+ if(!item){shopInspect=null;return;}
+ hits.length=0;
+ ctx.save();ctx.fillStyle='#071321e8';ctx.fillRect(0,0,W,H);
+ pixelPlate(18,72,384,635,'#f3e3c3','#c49a61',11);
+ shopInk("SKIPPER'S BOAT YARD",210,110,17,'#765033','center',335);
+ shopInk(item.name,210,153,23,'#30231b','center',344);
+ pixelPlate(38,195,344,241,'#183e52','#bd986d',8,false);
+ ctx.fillStyle='#347b8d';ctx.fillRect(51,379,318,28);
+ ctx.save();ctx.translate(210,346);ctx.scale(1.65,1.65);ctx.translate(-210,-346);
+ boat(210,346,{...save.boatStyle,[request.slot]:item.id});ctx.restore();
+ shopInk(item.detail,210,462,15,'#674730','center',331);
+ shopInk('LOOKS ONLY • NO GAMEPLAY ADVANTAGE',210,495,11,'#765b42','center',332);
+ const owned=request.slot==='hull'?save.boatStyle.ownedHulls.includes(item.id):save.boatStyle.ownedFlags.includes(item.id);
+ const equipped=save.boatStyle[request.slot]===item.id;
+ shopInk(equipped?'ALREADY EQUIPPED':owned?'READY TO EQUIP':'COST $'+item.price,210,548,17,'#3b7053','center',333);
+ shopInk('BALANCE $'+save.cash,210,580,13,'#735337','center',310);
+ shopButton('← BACK',35,627,140,57,()=>{shopInspect=null;});
+ shopButton(equipped?'EQUIPPED':owned?'EQUIP':save.cash>=item.price?'BUY $'+item.price:'NEED $'+item.price,
+  185,627,199,57,()=>{
+   if(equipped){shopInspect=null;return;}
+   const result=boatPurchase(save,request.slot,item.id);
+   if(result==='funds'){skipperSpeak('A fine choice, but yer purse says otherwise.');return;}
+   if(result==='invalid')return;
+   persist();sound.play('upgrade');rumble.play('upgrade');
+   skipperSpeak(result==='purchased'?'Look at that beauty! Even the gulls are jealous.':'Nice choice. Shall I fetch the polish?','excited');
+   captainLine=result==='purchased'?'We are the fanciest wreck on the sea!':'New look, same old captain!';
+   captainLineUntil=clock+6;captainLineNext=clock+27;
+   shopInspect=null;
+  },equipped||owned||save.cash>=item.price);
+ ctx.restore();
+}
 function shopInspectOverlay(){
  const item=shopInspect;if(!item)return;
+ if(item.kind==='boat'){boatInspectOverlay();return;}
  // The detail sheet, not the catalogue, owns purchasing actions.
  hits.length=0;
  ctx.save();ctx.fillStyle='#071321e8';ctx.fillRect(0,0,W,H);
