@@ -147,7 +147,7 @@ function pauseGame(reason='MANUAL'){
 }
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sceneTransition=null;sound.pause(false);rumble.stop();}
-let shopTab='lines',chargeArmed=false;
+let shopTab='lines',shopView='counter',chargeArmed=false;
 let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionPage=0,selectedFish=0;
 let sceneTransition=null;
@@ -1422,8 +1422,8 @@ function skipperSpeak(line,mood='neutral'){
  if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
 }
 function enterShop(){
- state='shop';shopTab='lines';shopInspect=null;age=0;skipperVisits++;
- shopScrollTo(save.upgrades.line*SHOP_ROW-65);
+ state='shop';shopTab='lines';shopView='counter';shopInspect=null;age=0;skipperVisits++;
+ shopScrollTo(save.upgrades.line*SHOP_ROW-SHOP_ROW);
  const find=nextShopSecret(save,shopSecretsSeen);
  skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
 }
@@ -1463,11 +1463,21 @@ function shopInk(value,x,y,size=18,color='#f8e5bd',align='left',width=380){
  ctx.fillText(String(value),x,y,width);ctx.restore();
 }
 function shopWrap(message,maxWidth,size=16,maxLines=2){
+ // Never cram an overflowing line into a fixed-height paper dialogue card.
  ctx.save();ctx.font='900 '+size+'px "Press Start 2P",monospace';
- const rows=[''];for(const word of String(message).split(/\s+/)){
-  const n=rows.length-1,next=(rows[n]+' '+word).trim();
-  if(ctx.measureText(next).width>maxWidth&&rows[n]&&rows.length<maxLines)rows.push(word);
-  else rows[n]=next;
+ const rows=[''];
+ for(const word of String(message).split(/\s+/)){
+  const index=rows.length-1,next=(rows[index]+' '+word).trim();
+  if(ctx.measureText(next).width>maxWidth&&rows[index]){
+   if(rows.length===maxLines){rows[index]+=' '+word;break;}
+   rows.push(word);
+  }else rows[index]=next;
+ }
+ // Last line may contain more words: shorten with an ellipsis, not horizontal scaling.
+ const last=rows.length-1;
+ if(ctx.measureText(rows[last]).width>maxWidth){
+  while(rows[last].length>1&&ctx.measureText(rows[last]+'…').width>maxWidth)rows[last]=rows[last].slice(0,-1);
+  rows[last]=rows[last].trimEnd()+'…';
  }
  ctx.restore();return rows;
 }
@@ -1482,68 +1492,114 @@ function shopButton(label,x,y,w,h,action,affordable=true){
  hits.push({x,y,w,h,action});
 }
 function skipperPortrait(x,y){
- ctx.save();
- ctx.beginPath();ctx.rect(12,102,222,194);ctx.clip();
- if(!paintSkipper(ctx,clock,x,y,{mood:clock<shopMoodUntil?shopMood:'neutral',talking:clock-skipperLineTime<2.8,lowFx})){
-  roundRect(29,145,177,151,10,'#23435b','#e0ad5b',3);
-  shopInk('SKIPPER',117,232,22,'#ffffff','center',165);
- }
- ctx.restore();
+ paintSkipper(ctx,clock,x,y,{
+  mood:clock<shopMoodUntil?shopMood:'neutral',
+  talking:clock-skipperLineTime<2.8,lowFx
+ });
 }
 function shopInterior(){
  paintShopBackdrop(ctx);
- // The weathered shop sign belongs to the wooden environment, not a neon HUD.
- roundRect(10,10,400,77,3,'#352219','#a57647',3);
- for(let yy=24;yy<78;yy+=12)line(15,yy,405,yy,'#62402c',1);
- ctx.fillStyle='#d3a35b';ctx.fillRect(19,18,5,5);ctx.fillRect(394,18,5,5);
- ctx.fillRect(19,73,5,5);ctx.fillRect(394,73,5,5);
- shopInk("SKIPPER'S",210,38,31,'#f8e5bd','center',382);
- shopInk('BAIT  •  TACKLE  •  TROUBLE',210,68,17,'#f8e5bd','center',380);
+ ctx.fillStyle='#100f17a6';ctx.fillRect(0,0,W,H);
+ roundRect(12,11,396,76,6,'#292022ee','#b88955',2);
+ shopInk("SKIPPER'S",24,37,23,'#fff0c2','left',231);
+ shopInk('BAIT & TACKLE',24,66,14,'#f0c88d','left',241);
+ roundRect(274,30,122,39,6,'#f0ddb0');
+ shopInk('$'+save.cash,335,50,19,'#3c2c22','center',108);
 }
 function skipperBubble(){
- // Paper speech card with a two-line measured wrap, never overlapping tabs.
- polygon([[64,308],[88,294],[104,308]],'#f3e0b7');
- roundRect(12,307,396,76,7,'#f3e0b7','#895c36',2);
- ctx.fillStyle='#d0a96d';ctx.fillRect(22,317,4,56);
- shopInk('SKIPPER SAYS',34,322,14,'#784a2e','left',355);
- const rows=shopWrap(skipperLine||skipperGreeting(),362,16,2);
- for(let i=0;i<rows.length;i++)shopInk(rows[i],34,345+i*21,16,'#34261e','left',361);
+ roundRect(13,315,394,109,8,'#f3e0bb','#8d623e',2);
+ ctx.fillStyle='#a66d3c';ctx.fillRect(22,326,3,85);
+ shopInk('SKIPPER SAYS',34,335,13,'#855633','left',360);
+ const rows=shopWrap(skipperLine||skipperGreeting(),359,15,3);
+ for(let i=0;i<rows.length;i++)shopInk(rows[i],34,363+i*23,15,'#372920','left',357);
 }
 function shopJobBoard(){
+ // Kept as a separate detail sheet rather than a permanent shop HUD panel.
  const job=currentJob();
- roundRect(240,119,165,169,5,'#203a39','#d5a268',3);
- roundRect(246,125,153,157,2,'#162d2c','#557c69',1);
- shopInk('TODAY\'S BOUNTY',322,145,14,'#efcf88','center',146);
- line(259,158,387,158,'#967c51',1);
- const title=shopWrap(job.title,135,17,2);
- for(let i=0;i<title.length;i++)shopInk(title[i],322,181+i*23,17,'#ffffff','center',143);
- shopInk(job.progress+' / '+job.goal+' DONE',322,238,16,'#efcf88','center',138);
- shopInk('REWARD  $'+job.reward,322,262,16,'#ffffff','center',145);
+ shopInk("TODAY'S BOUNTY",210,183,19,'#3b2b20','center',311);
+ shopInk(job.title,210,250,23,'#3b2b20','center',311);
+ shopInk(job.progress+' / '+job.goal+' COMPLETE',210,326,18,'#6a4b35','center',311);
+ shopInk('REWARD $'+job.reward,210,387,21,'#557448','center',311);
+ const lines=shopWrap(job.story,304,15,3);
+ for(let i=0;i<lines.length;i++)shopInk(lines[i],210,466+i*23,15,'#6a4b35','center',303);
+}
+function selectShopTab(id){
+ shopTab=id;
+ const key=id==='lines'?'line':id==='nets'?'net':id==='guns'?'gun':'light';
+ shopScrollTo(save.upgrades[key]*SHOP_ROW-SHOP_ROW);
 }
 function shopTabButton(id,label,i){
- const x=11+i*100,y=393,w=98,h=48,selected=shopTab===id;
- roundRect(x,y+4,w,h,5,'#211810');
- roundRect(x,y,w,h,5,selected?'#f1cb80':'#3e2a23',selected?'#fff0b3':'#9c6c45',selected?2:1);
- shopInk(label,x+w/2,y+24,15,selected?'#3e2719':'#f8e5bd','center',w-8);
- hits.push({x,y,w,h,action:()=>{
-  if(shopTab===id){skipperSpeak("Take yer time. The fish aren't going anywhere. Probably.");return;}
-  shopTab=id;
-  const key=id==='lines'?'line':id==='nets'?'net':id==='guns'?'gun':'light';
-  shopScrollTo(save.upgrades[key]*SHOP_ROW-65);
-  skipperSpeak({
-   lines:"I've got line that'll reach places the sun won't.",
-   nets:"The wider the hook, the bigger the haul. Mind yer fingers.",
-   guns:"Every piece tested. Well, most of 'em.",
-   gadgets:"Bring a light. Bring a charge. Bring a bit of luck."
-  }[id]);
+ const x=13+i*100,y=167,w=94,h=49,selected=shopTab===id;
+ roundRect(x,y,w,h,6,selected?'#f2d49b':'#2d2729',selected?'#f9e8c2':'#816046',1);
+ shopInk(label,x+w/2,y+25,14,selected?'#3a2920':'#eaddc5','center',w-9);
+ hits.push({x,y,w,h,action:()=>selectShopTab(id)});
+}
+const SHOP_CATEGORY_DESCRIPTIONS={
+ lines:'DIVE DEEPER',nets:'CATCH MORE',guns:'BIG FIREPOWER',gadgets:'LIGHT & GEAR'
+};
+function shopCategoryCard(id,label,x,y){
+ const type=id==='lines'?'line':id==='nets'?'net':id==='guns'?'gun':'light';
+ const max=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:MAXLVL;
+ const level=save.upgrades[type];
+ roundRect(x,y,192,89,8,'#f0ddb8','#9a754a',2);
+ ctx.fillStyle='#b48c5b';ctx.fillRect(x+79,y+13,2,61);
+ paintShopItem(ctx,type,x+45,y+45,.5,level,clock,lowFx);
+ shopInk(label,x+89,y+25,16,'#34271e','left',95);
+ shopInk(SHOP_CATEGORY_DESCRIPTIONS[id],x+89,y+47,11,'#80614a','left',95);
+ shopInk((level+1)+' / '+(max+1)+'  ›',x+89,y+69,12,'#477157','left',95);
+ hits.push({x,y,w:192,h:89,action:()=>{
+  shopView='catalog';selectShopTab(id);
  }});
+}
+function shopCounter(){
+ // A character-led landing screen. Purchases, bounty and curiosities are
+ // separate flows; no catalogue rows or overlapping overlays appear here.
+ shopInterior();
+ skipperPortrait(121,200);
+ shopInk('OLD SKIPPER',285,165,19,'#ffe4aa','center',204);
+ shopInk('TAP TO CHAT',285,194,13,'#ffe4aa','center',202);
+ hits.push({x:12,y:91,w:396,h:216,action:()=>{
+  const lines=[
+   "My suppliers ask where I get this stuff. I ask 'em not to ask.",
+   "Deep enough and the water starts keeping secrets.",
+   "The bait's fresh. The bookkeeping, less so.",
+   "I once caught a fish so big it bought the boat.",
+   "If it starts glowing, bring it back in one piece.",
+   currentJob().story
+  ];
+  skipperSpeak(lines[skipperChats++%lines.length],'curious');
+ }});
+ skipperBubble();
+ shopInk('WHAT ARE YE AFTER?',18,444,18,'#fff0c2','left',381);
+ shopCategoryCard('lines','REELS',13,460);
+ shopCategoryCard('nets','HOOKS',215,460);
+ shopCategoryCard('guns','WEAPONS',13,558);
+ shopCategoryCard('gadgets','SUPPLIES',215,558);
+ shopButton('BOUNTY',13,660,192,43,()=>{shopInspect={kind:'bounty',openedAt:clock};});
+ shopStoryButton();
+ shopButton('← BACK TO WATER',13,715,394,49,()=>{
+  state=castNumber&&save.total?'results':'menu';age=0;
+ });
+}
+function shopCatalogue(){
+ shopInterior();
+ shopButton('← SHOP COUNTER',13,101,394,48,()=>{shopView='counter';});
+ for(let i=0;i<SHOP_TABS.length;i++)shopTabButton(...SHOP_TABS[i],i);
+ const title=SHOP_TABS.find(([id])=>id===shopTab)?.[1]||'GEAR';
+ shopInk(title,19,240,23,'#fff0c2','left',227);
+ shopInk('TAP TO INSPECT',394,242,13,'#f0c88d','right',177);
+ shopItemCard();
+ shopButton('← BACK TO WATER',13,717,394,48,()=>{
+  state=castNumber&&save.total?'results':'menu';age=0;
+ });
 }
 const NET_NAMES=['BARE HOOK','BARBED HOOK','TWIN PRONG','TRIPLE RIG','MAGNET HOOK','ABYSS GRAPNEL'];
 const LAMP_NAMES=['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP'];
 const LAMP_COSTS=[180,420,900,1800,3700];
-const SHOP_ROW=65;
-function shopListBounds(){return shopTab==='gadgets'?[545,693]:[487,693];}
-function shopTierCount(){return shopTab==='lines'?LINE_MAXLVL+1:shopTab==='gadgets'?LIGHT_MAXLVL+1:MAXLVL+1;}
+const SHOP_ROW=104;
+const SHOP_LIST_TOP=266,SHOP_LIST_BOTTOM=705;
+function shopListBounds(){return [SHOP_LIST_TOP,SHOP_LIST_BOTTOM];}
+function shopTierCount(){return shopTab==='lines'?LINE_MAXLVL+1:shopTab==='gadgets'?LIGHT_MAXLVL+2:MAXLVL+1;}
 function shopScrollTo(value){
  const [top,bottom]=shopListBounds();
  shopScroll[shopTab]=clamp(value,0,Math.max(0,shopTierCount()*SHOP_ROW-(bottom-top)));
@@ -1557,57 +1613,46 @@ function shopTierMeta(type,tier){
 function shopTierList(type,top,bottom){
  const level=save.upgrades[type],max=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:MAXLVL;
  const offset=shopScroll[shopTab],height=bottom-top;
+ const all=shopTab==='gadgets'?Array.from({length:LIGHT_MAXLVL+2},(_,i)=>i===0?
+  {type:'charge',tier:0}: {type:'light',tier:i-1}):
+  Array.from({length:max+1},(_,tier)=>({type,tier}));
  ctx.save();ctx.beginPath();ctx.rect(17,top,376,height);ctx.clip();
- for(let tier=Math.max(0,Math.floor(offset/SHOP_ROW));tier<=Math.min(max,Math.ceil((offset+height)/SHOP_ROW));tier++){
-  const y=top+tier*SHOP_ROW-offset,owned=tier<level,current=tier===level;
-  const [name,detail]=shopTierMeta(type,tier);
-  ctx.fillStyle=current?'#fff0ca':owned?'#cbdcc9':'#c4b8a8';ctx.fillRect(20,y+2,371,SHOP_ROW-5);
-  ctx.fillStyle=current?'#e5ae48':owned?'#45937a':'#88786b';ctx.fillRect(20,y+2,5,SHOP_ROW-5);
-  paintShopItem(ctx,type,54,y+32,.43,tier,clock,lowFx);
-  shopInk(name,87,y+19,17,'#36271e','left',205);
-  shopInk(detail,87,y+44,14,'#725846','left',207);
-  shopInk(owned?'OWNED':current?'EQUIPPED':'LOCKED',376,y+16,13,'#66513d','right',83);
-  if(current&&tier<max){
-   const cost=type==='light'?LAMP_COSTS[tier]:upgradeConfig(type).cost;
-   shopInk((save.cash>=cost?'BUY $':'NEED $')+cost,377,y+44,14,'#396d55','right',85);
-  }else if(tier>level){
-   const price=type==='light'?LAMP_COSTS[tier-1]:
-    Math.round(({line:65,net:90,gun:85}[type])*Math.pow(type==='line'?1.52:1.75,tier-1));
-   shopInk('$'+price,377,y+44,14,'#66513d','right',82);
-  }
-  const hitY=Math.max(top,y+2),hitBottom=Math.min(bottom,y+SHOP_ROW-3);
-  if(hitBottom>hitY)hits.push({x:20,y:hitY,w:371,h:hitBottom-hitY,action:()=>{
-   if(current&&tier<max){if(type==='light')buyLight();else purchase(type);}
-   else openShopInspect(type,tier);
-  }});
+ for(let index=Math.max(0,Math.floor(offset/SHOP_ROW));index<all.length&&index<=Math.ceil((offset+height)/SHOP_ROW);index++){
+  const row=all[index],tier=row.tier,rowType=row.type,lv=rowType==='charge'?save.charges:save.upgrades[rowType];
+  const y=top+index*SHOP_ROW-offset,owned=rowType!=='charge'&&tier<lv,current=rowType==='charge'||tier===lv;
+  const [name,detail]=rowType==='charge'?['BLAST CHARGE','SKIP ONE COLLISION']:shopTierMeta(rowType,tier);
+  const cost=rowType==='charge'?110:rowType==='light'?LAMP_COSTS[tier]:
+   Math.round(({line:65,net:90,gun:85}[rowType])*Math.pow(rowType==='line'?1.52:1.75,tier));
+  const affordable=save.cash>=cost;
+  roundRect(21,y+4,368,96,7,current?'#f6e4bd':owned?'#dce7d8':'#c9beb0');
+  ctx.fillStyle=current?'#d8a65b':owned?'#5d9d85':'#8e8278';ctx.fillRect(21,y+15,4,74);
+  paintShopItem(ctx,rowType,63,y+52,.58,rowType==='charge'?0:tier,clock,lowFx);
+  shopInk(name,109,y+28,17,'#342720','left',261);
+  shopInk(detail,109,y+54,13,'#785d48','left',265);
+  const status=rowType==='charge'?save.charges+'/3 IN BAG':owned?'OWNED':current?'EQUIPPED':'LOCKED';
+  shopInk(status,109,y+80,12,current?'#44775b':'#685c50','left',140);
+  let price=owned?'':rowType==='charge'&&save.charges>=3?'MAXED':
+   rowType!=='charge'&&current&&tier===max?'MAXED':
+   (current?(affordable?'UPGRADE $':'NEED $'):'$')+cost;
+  shopInk(price||'✓',376,y+80,12,'#5d4938','right',122);
+  const hitY=Math.max(top,y+4),hitBottom=Math.min(bottom,y+100);
+  if(hitBottom>hitY)hits.push({x:21,y:hitY,w:368,h:hitBottom-hitY,
+   action:()=>openShopInspect(rowType,rowType==='charge'?null:tier)});
  }
  ctx.restore();
- const total=(max+1)*SHOP_ROW,thumb=Math.max(23,height*height/total);
- const maximum=Math.max(1,total-height);
- ctx.fillStyle='#765d45';ctx.fillRect(402,top,3,height);
- ctx.fillStyle='#ffdf92';ctx.fillRect(401,top+(height-thumb)*offset/maximum,5,thumb);
+ const total=all.length*SHOP_ROW,thumb=Math.min(height,Math.max(35,height*height/total));
+ const maxScroll=Math.max(1,total-height);
+ ctx.fillStyle='#594639';ctx.fillRect(400,top,3,height);
+ ctx.fillStyle='#f6d38c';ctx.fillRect(399,top+(height-thumb)*offset/maxScroll,5,thumb);
 }
 function shopItemCard(){
  const type=shopTab==='lines'?'line':shopTab==='nets'?'net':'gun';
- const max=type==='line'?LINE_MAXLVL:MAXLVL;
- roundRect(12,453,396,242,0,'#30261f','#a77849',2);
- shopInk(type==='net'?'HOOK COLLECTION':type==='gun'?'WEAPON COLLECTION':'REEL COLLECTION',25,470,17,'#f8e5bd','left',204);
- shopInk((save.upgrades[type]+1)+' / '+(max+1),387,470,16,'#f8e5bd','right',104);
- shopTierList(type,487,693);
+ roundRect(12,257,396,454,8,'#241e1ddd','#95764d',1);
+ shopTierList(shopTab==='gadgets'?'light':type,SHOP_LIST_TOP,SHOP_LIST_BOTTOM);
 }
 function shopSupplies(){
- roundRect(12,453,396,242,0,'#30261f','#a77849',2);
- const full=save.charges>=3,cost=110;
- roundRect(19,457,381,63,0,'#f1dfb9','#8c5934',2);
- paintShopItem(ctx,'charge',54,489,.4,save.charges,clock,lowFx);
- shopInk('BLAST CHARGES',87,477,17,'#352720','left',201);
- shopInk(save.charges+' / 3 IN BAG',87,502,14,'#765037','left',132);
- shopButton(full?'MAXED':save.cash>=cost?'BUY $110':'NEED $110',236,470,152,39,()=>{
-  const before=save.charges;buyCharge();skipperReply('charge',save.charges>before);
- },!full&&save.cash>=cost);
- shopInk('LANTERN COLLECTION',25,534,16,'#f8e5bd','left',232);
- shopInk((save.upgrades.light+1)+' / '+(LIGHT_MAXLVL+1),387,534,16,'#f8e5bd','right',103);
- shopTierList('light',545,693);
+ // Supplies use the same spacious scrollable cards: charge followed by lamps.
+ shopItemCard();
 }
 function openShopInspect(type,tier=null){
  shopInspect={kind:'gear',type,tier,openedAt:clock};
@@ -1622,17 +1667,14 @@ function openShopInspect(type,tier=null){
 function shopStoryButton(){
  const unseen=nextShopSecret(save,shopSecretsSeen),unlocked=unlockedShopSecrets(save);
  const selected=unseen||unlocked[unlocked.length-1];
- if(!selected)return;
- roundRect(235,282,171,26,0,unseen?'#efc679':'#53372a','#352219',2);
- paintShopItem(ctx,selected.item,250,295,.22,0,clock,lowFx);
- shopInk(unseen?'NEW CURIO! TAP':'SKIPPER\'S SECRETS',261,295,14,unseen?'#32241e':'#f4dfb0','left',139);
- hits.push({x:235,y:282,w:171,h:26,action:()=>{
+ shopButton(unseen?'NEW SECRET!':'SECRETS',215,660,192,43,()=>{
+  if(!selected){skipperSpeak("No curios today. Dive deeper and see what washes in.",'curious');return;}
   shopInspect={kind:'secret',id:selected.id,openedAt:clock};
   if(!shopSecretsSeen.includes(selected.id)){
    shopSecretsSeen.push(selected.id);saveShopSecretsSeen();
   }
   skipperSpeak(selected.hint,'curious');
- }});
+ });
 }
 function inspectGearInfo(type){
  const u=save.upgrades;
@@ -1664,65 +1706,65 @@ function buyInspectedGear(type){
 }
 function shopInspectOverlay(){
  const item=shopInspect;if(!item)return;
- // An open inspection owns every hitbox, blocking unintended purchases behind it.
+ // The detail sheet, not the catalogue, owns purchasing actions.
  hits.length=0;
- ctx.save();ctx.fillStyle='#091724e6';ctx.fillRect(0,0,W,H);
- roundRect(21,126,378,557,0,'#251f24','#b8894e',4);
- roundRect(31,136,358,535,0,'#f1dfb9','#8c5934',3);
- ctx.fillStyle='#bd8857';ctx.fillRect(41,145,338,3);
+ ctx.save();ctx.fillStyle='#071321e8';ctx.fillRect(0,0,W,H);
+ roundRect(18,72,384,635,9,'#f3e3c3','#c49a61',3);
  const secret=item.kind==='secret'?SHOP_SECRETS.find(s=>s.id===item.id):null;
- const gear=secret?null:inspectGearInfo(item.type);
- if(gear&&item.tier!==null){gear.name=shopTierMeta(item.type,item.tier)[0];gear.benefit=shopTierMeta(item.type,item.tier)[1];gear.lvl=item.tier;}
- shopInk(secret?'SKIPPER\'S FIND':'FROM THE TACKLE CASE',210,163,15,'#785137','center',326);
- shopInk(secret?secret.title:gear.name,210,194,24,'#30241e','center',331);
- roundRect(60,211,300,245,0,'#432e28','#a27346',3);
- paintShopItem(ctx,secret?secret.item:gear.type,210,334,2.08,gear?gear.lvl:0,clock,lowFx);
- ctx.fillStyle='#bd8857';ctx.fillRect(58,469,304,3);
- if(secret){
-  const rows=shopWrap(secret.story,312,17,3);
-  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,507+i*24,17,'#3b2d25','center',318);
-  shopInk('A SECRET FOR YOUR LOGBOOK',210,592,16,'#7c5032','center',320);
-  shopButton('BACK TO COUNTER',77,612,266,45,()=>{shopInspect=null;});
+ const bounty=item.kind==='bounty';
+ const gear=!secret&&!bounty?inspectGearInfo(item.type):null;
+ const selectedTier=gear?(item.tier??gear.lvl):0;
+ const owned=gear&&item.type!=='charge'&&selectedTier<gear.lvl;
+ const locked=gear&&item.type!=='charge'&&selectedTier>gear.lvl;
+ if(bounty){
+  shopInk('SKIPPER\'S LOG',210,117,20,'#735033','center',340);
+  shopJobBoard();
+  shopButton('← BACK TO SHOP',49,627,322,57,()=>{shopInspect=null;});
  }else{
-  shopInk(gear.benefit,210,492,19,'#3b2d25','center',314);
-  const rows=shopWrap(gear.description,304,16,2);
-  for(let i=0;i<rows.length;i++)shopInk(rows[i],210,529+i*21,16,'#6d513d','center',319);
-  shopInk(gear.full?'FULLY UPGRADED':'NEXT UPGRADE $'+gear.cost,210,586,17,'#704a32','center',325);
-  shopButton('← BACK',40,612,127,46,()=>{shopInspect=null;});
-  shopButton(gear.full?'MAX LEVEL':save.cash>=gear.cost?'BUY $'+gear.cost:'NEED $'+gear.cost,
-    176,612,203,46,()=>buyInspectedGear(gear.type),!gear.full&&save.cash>=gear.cost);
+  if(gear&&item.tier!==null){
+   gear.name=shopTierMeta(item.type,item.tier)[0];
+   gear.benefit=shopTierMeta(item.type,item.tier)[1];
+  }
+  shopInk(secret?'A CURIOUS FIND':'FROM THE TACKLE CASE',210,106,14,'#795638','center',335);
+  shopInk(secret?secret.title:gear.name,210,144,23,'#30231b','center',335);
+  roundRect(49,169,322,268,7,'#402e2b','#a78058',2);
+  paintShopItem(ctx,secret?secret.item:gear.type,210,301,2.08,
+   gear?selectedTier:0,clock,lowFx);
+  if(secret){
+   const rows=shopWrap(secret.story,312,16,3);
+   for(let i=0;i<rows.length;i++)shopInk(rows[i],210,488+i*26,16,'#59412d','center',316);
+   shopInk('ADDED TO YOUR LOGBOOK',210,601,14,'#795638','center',330);
+   shopButton('← BACK TO SHOP',49,627,322,57,()=>{shopInspect=null;});
+  }else{
+   shopInk(owned?'OWNED':locked?'LOCKED':gear.full?'MAX LEVEL':'EQUIPPED',210,464,15,'#48715b','center',314);
+   shopInk(gear.benefit,210,496,19,'#3d2a20','center',322);
+   const rows=shopWrap(gear.description,316,15,2);
+   for(let i=0;i<rows.length;i++)shopInk(rows[i],210,532+i*25,15,'#694e39','center',319);
+   if(locked)shopInk('BUY THE PREVIOUS UPGRADE FIRST',210,602,13,'#82624a','center',331);
+   else if(owned)shopInk('ALREADY IN YOUR COLLECTION',210,602,13,'#82624a','center',331);
+   else shopInk(gear.full?'FULLY UPGRADED':'NEXT UPGRADE $'+gear.cost,210,601,15,'#6b4c31','center',326);
+   shopButton('← BACK',35,628,140,55,()=>{shopInspect=null;});
+   if(!owned){
+    const canBuy=!locked&&!gear.full&&save.cash>=gear.cost;
+    shopButton(locked?'LOCKED':gear.full?'MAXED':canBuy?'BUY $'+gear.cost:'NEED $'+gear.cost,
+     185,628,199,55,()=>{
+      if(locked){skipperSpeak('Earn the earlier upgrades first. One step at a time.');return;}
+      if(gear.full)return;
+      if(save.cash<gear.cost){skipperReply(gear.type,false);return;}
+      buyInspectedGear(gear.type);
+      // Close on success, so newly owned equipment is obvious in the list.
+      shopInspect=null;
+     },canBuy);
+   }
+  }
  }
  ctx.restore();
 }
-
 function shop(){
- shopInterior();
- // Warm shopkeeper portrait and actual cork-board mission tracker.
- skipperPortrait(105,209);
- shopJobBoard();
- hits.push({x:12,y:103,w:220,h:194,action:()=>{
-  const lines=[
-   "My suppliers ask where I get this stuff. I ask 'em not to ask.",
-   "Deep enough and the water starts keeping secrets.",
-   "The bait's fresh. The bookkeeping, less so.",
-   "I once caught a fish so big it bought the boat.",
-   "If it starts glowing, bring it back in one piece.",
-   currentJob().story
-  ];
-  skipperSpeak(lines[skipperChats++%lines.length],'curious');
- }});
- roundRect(255,94,151,30,4,'#f1dfb9','#85572f',2);
- shopInk('COINS  $'+save.cash,329,109,18,'#32241e','center',143);
- skipperBubble();
- shopStoryButton();
- for(let i=0;i<SHOP_TABS.length;i++)shopTabButton(...SHOP_TABS[i],i);
- if(shopTab==='gadgets')shopSupplies();else shopItemCard();
- shopButton('←  BACK TO THE WATER',14,714,392,52,()=>{
-  state=castNumber&&save.total?'results':'menu';age=0;
- },true);
+ if(shopView==='counter')shopCounter();
+ else shopCatalogue();
  if(shopInspect)shopInspectOverlay();
 }
-
 function expeditionBoard(){
  titleBackdrop(lowFx?0:clock*.35);
  const job=currentJob(),status=save.expedition;
@@ -2026,13 +2068,13 @@ requestAnimationFrame(frame);
 function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
 function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
- if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
+ if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
  sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
 canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
  if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
 canvas.addEventListener('pointerup',e=>{if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}pointerDown=false;});
 canvas.addEventListener('pointercancel',()=>{shopDrag=null;pointerDown=false;});
-canvas.addEventListener('wheel',e=>{if(state==='shop'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}},{passive:false});
+canvas.addEventListener('wheel',e=>{if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}},{passive:false});
 window.addEventListener('keydown',e=>{
  sound.unlock();
  if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
