@@ -150,7 +150,7 @@ test('brighter canvas typography and new ocean palette stay enabled',()=>{
  assert.match(ocean,/SUNSKIP SHELF/);
  assert.match(ocean,/KELP KNUCKLES/);
  assert.match(ocean,/BLACKGLASS DROP/);
- assert.match(read('sw.js'),/reel-trouble-offline-v19/);
+ assert.match(read('sw.js'),/reel-trouble-offline-v20/);
 });
 
 test('readable high-contrast cards and typography across screens',()=>{
@@ -229,6 +229,7 @@ test('gear shop offers persistent lines, distinct guns and one-use blast charges
  const game=read('src/game.js'), guns=read('src/shooting.js');
  assert.match(game,/shopTab='lines'/);
  assert.match(game,/\['lines','REELS'\]/);
+ assert.match(game,/\['nets','NETS'\]/);
  assert.match(game,/\['guns','WEAPONS'\]/);
  assert.match(game,/\['gadgets','SUPPLIES'\]/);
  assert.match(game,/function skipperGreeting\(/);
@@ -255,7 +256,7 @@ test('main game is a single valid script without duplicate or truncated trailing
   const needle=symbol;
   assert.equal(source.split(needle).length-1,1,'duplicate or missing '+symbol);
  }
- assert.ok(source.includes('button(lvl>=LIGHT_MAXLVL'), 'light purchase button exists');
+ assert.ok(source.includes("shopSupplyCard('light',577)"), 'light purchase card exists');
  assert.match(source,/function buyLight\(\)/);
  assert.equal([...source.matchAll(/^\}\)\(\);$/gm)].length,1,'exactly one entrypoint closure');
  assert.ok(source.trimEnd().endsWith('})();'),'Game must not contain any code after entry point');
@@ -301,4 +302,25 @@ test('fishing depth HUD uses an angular current/limit readout and smooth hook-an
  assert.match(hud,/const x=W-2/);
  assert.match(game,/sideDepthGauge\(\);\s*depthReadout\(\);/);
  assert.doesNotMatch(game,/360\*depth\/maxDepth/);
+});
+
+
+test('shopfront is a readable in-world scene with individual merchandise and all upgrades accessible',()=>{
+ const game=read('src/game.js'),art=read('src/shop-art.js');
+ assert.match(game,/function shopInterior\(/);
+ assert.match(game,/function shopJobBoard\(/);
+ assert.match(game,/function skipperBubble\(/);
+ assert.match(game,/function shopInk\(/);
+ assert.match(game,/function shopWrap\(/);
+ assert.match(game,/function shopTabButton\(/);
+ assert.match(game,/shopItemCard\(\)/);
+ assert.match(game,/shopSupplyCard\('charge',452\)/);
+ assert.match(game,/shopSupplyCard\('light',577\)/);
+ assert.match(game,/shopTab==='nets'\?'net'/);
+ assert.match(game,/purchase\(type\)/);
+ assert.match(game,/save\.upgrades\.net\*13/);
+ assert.match(art,/export function paintShopItem\(/);
+ for(const type of ["type==='line'","type==='net'","type==='gun'","type==='light'","type==='charge'"])
+  assert.ok(art.includes(type),type);
+ assert.match(read('sw.js'),/src\/shop-art\.js/);
 });

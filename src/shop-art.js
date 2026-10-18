@@ -55,7 +55,7 @@ const portraitSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="260" height="3
 const captain=new Image();captain.decoding='async';captain.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(portraitSvg);
 export function paintShopBackdrop(ctx){
  ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(bg,0,0,WIDTH,HEIGHT);ctx.restore();
- ctx.fillStyle='#1a1016ad';ctx.fillRect(0,0,WIDTH,HEIGHT);
+ ctx.fillStyle='#1a101670';ctx.fillRect(0,0,WIDTH,HEIGHT);
  const lamp=ctx.createRadialGradient(340,270,5,340,270,320);
  lamp.addColorStop(0,'#e8ae5355');lamp.addColorStop(1,'#e8ae5300');
  ctx.fillStyle=lamp;ctx.fillRect(0,0,WIDTH,650);
@@ -63,4 +63,77 @@ export function paintShopBackdrop(ctx){
 export function paintSkipper(ctx,clock,x=98,y=215){
  if(!captain.complete)return false;
  ctx.save();ctx.translate(x-110,y-133+Math.sin(clock*1.8)*2);ctx.drawImage(captain,0,0,260,335);ctx.restore();return true;
+}
+
+
+// Hand-drawn counter merchandise: canvas shapes, not borrowed game sprites.
+// Every category has its own equipment silhouette, material and animation.
+export function paintShopItem(ctx,type,x,y,scale=1,level=0,clock=0,lowFx=false){
+ ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
+ ctx.lineCap='round';ctx.lineJoin='round';
+ const stroke=(a,b,c,d,color,width=4)=>{
+  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+ };
+ const box=(a,b,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(a,b,w,h);};
+ const disk=(cx,cy,r,color)=>{ctx.fillStyle=color;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();};
+ // Warm counter spotlight gives physical weight to the object.
+ const beam=ctx.createRadialGradient(0,-8,3,0,-8,66);
+ beam.addColorStop(0,'#f3c36a4f');beam.addColorStop(1,'#f3c36a00');
+ ctx.fillStyle=beam;ctx.fillRect(-65,-72,130,144);
+ if(type==='line'){
+  ctx.save();ctx.rotate(-.18);
+  stroke(-44,-56,34,51,'#d3b88a',7);stroke(-44,-56,34,51,'#554633',3);
+  disk(-2,-1,37,'#372926');disk(-2,-1,32,'#e5b060');
+  disk(-2,-1,25,'#7a4b35');disk(-2,-1,19,'#276d70');
+  for(let i=-13;i<=13;i+=6)stroke(-18,i-2,14,i+3,'#7db2a1',2);
+  disk(-2,-1,9,'#d9b67a');disk(-2,-1,4,'#5a332c');
+  stroke(23,21,38,12,'#e0bc76',6);stroke(38,12,42,-5,'#6c5140',7);
+  disk(42,-6,7,'#d59b57');disk(42,-6,3,'#f5d49d');
+  box(-47,-65,10,8,'#a0c4ba');
+  ctx.restore();
+ }else if(type==='net'){
+  stroke(-36,62,2,-4,'#cfaa77',10);stroke(-36,62,2,-4,'#624638',4);
+  ctx.beginPath();ctx.ellipse(6,-27,38,27,-.15,0,Math.PI*2);
+  ctx.fillStyle='#266c6699';ctx.fill();ctx.strokeStyle='#e9c27c';ctx.lineWidth=7;ctx.stroke();
+  ctx.save();ctx.beginPath();ctx.ellipse(6,-27,35,24,-.15,0,Math.PI*2);ctx.clip();
+  for(let i=-54;i<65;i+=13){
+   stroke(i,-65,i+60,5,'#b8e3b1',1.5);
+   stroke(i,4,i+62,-68,'#b8e3b1',1.5);
+  }
+  ctx.restore();
+  disk(-36,61,5,'#db9858');
+ }else if(type==='gun'){
+  ctx.save();ctx.rotate(-.12);
+  box(-54,-24,87,25,'#292c40');box(-50,-29,82,12,'#d78757');
+  box(23,-27,33,12,'#3a6370');box(53,-25,6,10,'#f0c66e');
+  box(-7,0,24,46,'#a56c45');box(-4,4,15,32,'#584035');
+  box(-44,-8,31,12,'#b2c6c1');box(-28,-22,15,8,'#c3e0d0');
+  stroke(-22,1,-15,16,'#e5bd87',4);
+  for(let i=0;i<Math.min(3,Math.floor(level/2));i++)box(20,-35-i*8,40,4,'#f0bd6e');
+  disk(3,-16,4,'#ffe6af');
+  ctx.restore();
+ }else if(type==='light'){
+  const pulse=lowFx?1:.94+Math.sin(clock*2.4)*.06;
+  const glow=ctx.createRadialGradient(0,0,0,0,0,54*pulse);
+  glow.addColorStop(0,'#fff4bcba');glow.addColorStop(1,'#ffd15700');
+  ctx.fillStyle=glow;ctx.fillRect(-57,-57,114,114);
+  stroke(-20,-33,-20,34,'#b3bec1',5);stroke(20,-33,20,34,'#b3bec1',5);
+  box(-30,-36,60,10,'#283c42');box(-30,30,60,12,'#2c4043');
+  box(-22,-25,44,52,'#f5c66e');
+  const lightCore=ctx.createLinearGradient(-22,-25,22,27);
+  lightCore.addColorStop(0,'#fffbd2');lightCore.addColorStop(1,'#ef9b43');
+  ctx.fillStyle=lightCore;ctx.fillRect(-16,-22,32,45);
+  stroke(0,-42,0,-54,'#a4c2bc',6);stroke(-12,-54,12,-54,'#a4c2bc',5);
+  box(-26,-40,52,6,'#bb965c');box(-26,36,52,6,'#bb965c');
+  disk(0,5,6,'#fffce7');
+ }else if(type==='charge'){
+  box(-30,-34,59,72,'#9c443e');box(-34,-24,67,9,'#e6b36c');
+  box(-34,20,67,9,'#e6b36c');box(-14,-37,26,75,'#c95642');
+  disk(0,0,15,'#f0cf85');
+  stroke(-5,-7,5,7,'#9e4b3b',4);stroke(5,-7,-5,7,'#9e4b3b',4);
+  stroke(0,-36,0,-47,'#34393b',5);
+  stroke(0,-47,14,-53,'#f0c56d',3);
+  if(!lowFx&&Math.sin(clock*7)>.4)disk(17,-57,4,'#fff2bc');
+ }
+ ctx.restore();
 }
