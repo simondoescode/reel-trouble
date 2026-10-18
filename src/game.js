@@ -521,15 +521,12 @@ function boat(x,seaY){
  ctx.restore();
 }
 function hook(x,y){
+ // The actual hook on the line now matches the player's equipped hook rig.
  ctx.save();ctx.translate(Math.round(x),Math.round(y));
- ctx.fillStyle='#08283c';ctx.fillRect(-4,-28,9,24);
- ctx.fillStyle=C.cream;ctx.fillRect(-2,-26,4,20);
- ctx.fillStyle=C.coral;ctx.fillRect(-5,-8,10,9);
- ctx.fillStyle='#ffeff2';ctx.fillRect(-3,-7,4,3);
- ctx.fillStyle=C.yellow;ctx.fillRect(-2,1,5,16);ctx.fillRect(2,14,15,6);
- ctx.fillRect(14,10,6,5);ctx.fillRect(19,6,5,7);ctx.fillRect(19,5,6,3);
- ctx.fillStyle='#fff9d2';ctx.fillRect(0,1,2,13);
+ ctx.fillStyle='#08283c';ctx.fillRect(-3,-25,7,23);
+ ctx.fillStyle='#fff3da';ctx.fillRect(-1,-24,3,21);
  ctx.restore();
+ paintShopItem(ctx,'net',x,y+7,.2,save.upgrades.net,clock,true);
 }
 function bgUndersea(camera){
  const surf=SEA-camera;
@@ -723,9 +720,9 @@ const LINE_NAMES=['SKIPPER STRING','SHELFWALKER','BLUEWANDER','KELP CUTTER','HUS
 const GUN_NAMES=['POP GUN','QUICKSHOT','SCATTERGUN','TWIN SCATTER','NEON BLASTER','STORM CANNON'];
 function upgradeConfig(type){
  const base={line:65,net:90,gun:85},lvl=save.upgrades[type];
- return {title:{line:'FISHING LINES',net:'WIDER HOOK',gun:'GUN COLLECTION'}[type],
+ return {title:{line:'FISHING LINES',net:'FISHING HOOKS',gun:'GUN COLLECTION'}[type],
  level:lvl,cost:Math.round(base[type]*Math.pow(type==='line'?1.52:1.75,lvl)),
- desc:{line:'MORE DEPTH WITH EVERY REEL',net:'Catch fish more easily',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};
+ desc:{line:'MORE DEPTH WITH EVERY REEL',net:'Wider rigs catch more fish',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};
 }
 function buyLight(){
  const level=save.upgrades.light,costs=[180,420,900,1800,3700];
@@ -1418,7 +1415,8 @@ function loadShopSecretsSeen(){try{
 let shopSecretsSeen=loadShopSecretsSeen();
 function saveShopSecretsSeen(){try{localStorage.setItem(SHOP_SECRETS_KEY,JSON.stringify(shopSecretsSeen));}catch(_){}}
 
-const SHOP_TABS=[['lines','REELS'],['nets','NETS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
+// 'nets' is retained as the saved-game key; these upgrades are fishing hooks.
+const SHOP_TABS=[['lines','REELS'],['nets','HOOKS'],['guns','WEAPONS'],['gadgets','SUPPLIES']];
 function skipperSpeak(line,mood='neutral'){
  skipperLine=line;skipperLineTime=clock;
  if(mood!=='neutral'){shopMood=mood;shopMoodUntil=clock+2.8;}
@@ -1449,7 +1447,7 @@ function skipperReply(category,success){
  }
  const lines={
   line:["More line? Keep going. The seabed's got secrets.","That'll take ye deeper. Just mind what follows.","Good rope. Bad decisions. My favourite pair."],
-  net:["Wider hook, bigger haul. That's my kind of arithmetic.","Mind what ye snag with that contraption.","Now that's what I call casting a wide net."],
+  net:["Better hooks, bigger hauls. That's my kind of arithmetic.","Mind what ye snag with that grapnel.","That's a hook built for sea monsters."],
   gun:["She kicks like a mule. Point away from me beard.","Unlimited shots. Limited common sense.","You didn't get that from me. Understood?"],
   light:["Dark water hides things, matey.","Let there be light! Or at least fewer surprises.","Ye can see it now. Trouble is, it can see ye."],
   charge:["One bang to save your skin. Use it wisely.","The fish won't appreciate that. Nor will the harbourmaster.","Explosives? I never sold ye explosives."]
@@ -1540,7 +1538,7 @@ function shopTabButton(id,label,i){
   }[id]);
  }});
 }
-const NET_NAMES=['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP'];
+const NET_NAMES=['BARE HOOK','BARBED HOOK','TWIN PRONG','TRIPLE RIG','MAGNET HOOK','ABYSS GRAPNEL'];
 const LAMP_NAMES=['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP'];
 const LAMP_COSTS=[180,420,900,1800,3700];
 const SHOP_ROW=65;
@@ -1593,7 +1591,7 @@ function shopItemCard(){
  const type=shopTab==='lines'?'line':shopTab==='nets'?'net':'gun';
  const max=type==='line'?LINE_MAXLVL:MAXLVL;
  roundRect(12,453,396,242,0,'#30261f','#a77849',2);
- shopInk('GEAR COLLECTION',25,470,17,'#f8e5bd','left',204);
+ shopInk(type==='net'?'HOOK COLLECTION':type==='gun'?'WEAPON COLLECTION':'REEL COLLECTION',25,470,17,'#f8e5bd','left',204);
  shopInk((save.upgrades[type]+1)+' / '+(max+1),387,470,16,'#f8e5bd','right',104);
  shopTierList(type,487,693);
 }
@@ -1641,13 +1639,13 @@ function inspectGearInfo(type){
  const lvl=type==='charge'?save.charges:u[type]||0;
  const limit=type==='line'?LINE_MAXLVL:type==='light'?LIGHT_MAXLVL:type==='charge'?3:MAXLVL;
  const names=type==='line'?LINE_NAMES:type==='gun'?GUN_NAMES:
- type==='net'?['BARE HOOK','WIDE HOOK','SWEEP HOOK','CATCHER RIG','HAUL MASTER','OCEAN SCOOP']:
+ type==='net'?NET_NAMES:
  type==='light'?['NO LANTERN','GLOW LANTERN','DEEP BEAM','RIFT LAMP','BLACKGLASS BEAM','STARLESS LAMP']:
  ['BLAST CHARGE','BLAST CHARGE','BLAST CHARGE','BLAST CHARGE'];
  const cost=type==='charge'?110:type==='light'?[180,420,900,1800,3700][lvl]||0:upgradeConfig(type).cost;
  const description={
   line:"Longer line explores new depths and strange regions.",
-  net:"A wider hook collects more fish on the way up.",
+  net:"Each new hook rig catches fish across a wider area.",
   gun:"Each gun has unlimited ammo and its own spread.",
   light:"Your lantern cuts through the deepest darkness.",
   charge:"One charge ignores a fish collision on the descent."
