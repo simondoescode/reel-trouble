@@ -2436,10 +2436,36 @@ if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){
   caught:caught.length,visibleFish:fishes.filter(f=>!f.caught).length,
   shots:fired,landed,escaped,roundEarnings,hasTransition:Boolean(sceneTransition),
   dailyRun,dailyDay,dailyBest:dailyRecord.best,dayAttempts:dailyRecord.dives,
+  legendSeen:legendRecord.seen,legendDefeated:legendRecord.defeated,
+  legendWins:legendRecord.wins,legendSeals:legendEncounter?.gates.filter(g=>g.hit).length||0,
+  legendRelics:legendRecord.relics.length,
   cacheReady:document.body.classList.contains('game-ready')
  });
  Object.defineProperty(window,'__reelPlaytest',{value:Object.freeze({
   snapshot,
+  // Synthetic deep-scene setup for local browser regression tests only.
+  // It uses the real update/render path, not a simulated award or victory.
+  stageDeepScene(kind,index=-1){
+   if(state!=='descent'||!legendEncounter)throw new Error('A dive must be active');
+   let d,x=210;
+   if(kind==='echo'){
+    if(!Number.isInteger(index)||index< -1||index>=legendEncounter.gates.length)throw new RangeError('Invalid echo index');
+    const gate=index<0?null:legendEncounter.gates[index];
+    d=(gate?.d??BELLWRAITH.warning)-2;x=gate?.x??210;
+   }else if(kind==='relic'){
+    const relic=relicTrail[index];
+    if(!relic)throw new RangeError('Invalid relic index');
+    d=relic.d-2;x=relic.x;
+   }else throw new TypeError('Unknown playtest scene');
+   if(d>maxDepth)throw new RangeError('Upgrade line before staging deep scenes');
+   depth=d;hookX=x;targetX=x;cameraY=Math.max(0,d-230);
+   const near=oceanStream.near(depth);
+   for(const f of near.fish)if(Math.abs(f.d-d)<85)f.bypassed=true;
+   for(const hazard of near.hazards)if(Math.abs(hazard.d-d)<85)hazard.triggeredAt=clock;
+   ({fish:fishes,hazards}=oceanStream.near(depth));
+   render();
+   return {depth,x};
+  },
   advance(seconds){
    if(!Number.isFinite(seconds)||seconds<0||seconds>120)throw new RangeError('Invalid playtest duration');
    let left=seconds;
