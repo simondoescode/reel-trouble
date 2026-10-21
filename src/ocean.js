@@ -88,12 +88,18 @@ export function generateOceanChunk(index,seed=1,maxDepth=Infinity){
  const rand=seededRandom(((seed>>>0)^Math.imul(chunk+1,0x9e3779b1))>>>0);
  const lower=chunk*CHUNK_DEPTH,upper=Math.min(lower+CHUNK_DEPTH,maxDepth),fish=[],hazards=[];
  if(upper<=lower)return {index:chunk,fish,hazards};
- const count=3+Math.floor(rand()*3); // Create readable dodge lanes.
+ // A handful of migrating shelf fish create an actual steering decision for
+ // beginners; deeper regions stay sparse enough for ambitious long dives.
+ const count=chunk<2?4+Math.floor(rand()*3):3+Math.floor(rand()*3);
  for(let i=0;i<count;i++){
   const d=Math.max(305,lower+58+(i+.5)*(CHUNK_DEPTH-116)/count+(rand()-.5)*44);
   if(d<305||d>=upper-32)continue;
   const kind=chooseSpecies(d,rand),meta=SPECIES[kind],dir=rand()<.5?-1:1;
-  fish.push({id:chunk*100+i,x:40+rand()*340,d,kind,dir,speed:meta.speed*(.84+rand()*.32),
+  // Migrating schools favour central water but can always be steered around.
+  // Keep the opening protected and all fish visible before they reach the hook.
+  const migrating=chunk<2&&d>=510&&d<1100&&rand()<.48;
+  const x=migrating?150+rand()*120:40+rand()*340;
+  fish.push({id:chunk*100+i,x,d,kind,dir,speed:meta.speed*(.84+rand()*.32),
    phase:rand()*Math.PI*2,swimY:0,caught:false,bypassed:false,school:chunk});
  }
  if(chunk>0&&(chunk%2===1||rand()<.13)){

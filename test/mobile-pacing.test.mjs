@@ -30,6 +30,7 @@ test('starter ocean pacing is playable across 100 deterministic seeds',()=>{
  assert.ok(samples.every(x=>x.metres>=180),'beginner should not hit fish before 180m');
  assert.ok(median>=210,'median cast ends too soon to be satisfying');
  assert.ok(deep>=8,'players need a realistic chance to reach the deepest starter water');
+ assert.ok(limit<=67,'full-depth starter dives should reward attention, not happen by default');
 });
 test('rebalanced fish spawning produces contrasting but viable strategies',()=>{
  const results=['centre','weave','edge'].map(style=>{

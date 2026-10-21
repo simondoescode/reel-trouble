@@ -83,3 +83,11 @@ test('fish only collide when inside the hook reach',()=>{
  assert.equal(overlapsFish({...fish,swimY:22},210,600,12,17),false);
  assert.equal(overlapsFish(fish,250,600,35,27),true);
 });
+
+test('starter migrating schools create visible steering choices without crowding deep regions',()=>{
+ const shelf=[generateOceanChunk(0,42,1050),generateOceanChunk(1,42,1050)];
+ assert.ok(shelf[0].fish.length>=4&&shelf[0].fish.length<=6);
+ assert.ok(shelf[1].fish.length<=6);
+ assert.ok(generateOceanChunk(7,42,20000).fish.length<=5);
+ assert.ok(shelf.flatMap(c=>c.fish).every(f=>f.x>=40&&f.x<=380));
+});

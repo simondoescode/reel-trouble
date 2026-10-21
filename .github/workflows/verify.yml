@@ -1,7 +1,7 @@
 name: Verify game source
 on:
   push:
-    branches: [main, v0.2-feel-good]
+    branches: [main, v0.2-feel-good, v0.3-deep-encounter]
   pull_request:
 permissions:
   contents: read
