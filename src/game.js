@@ -2383,7 +2383,7 @@ canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{
  if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
  if(state==='shop'&&shopView==='boat'&&!shopInspect){const q=pos(e);if(q.y>=BOAT_YARD_TOP&&q.y<=BOAT_YARD_BOTTOM){boatYardDrag={startY:q.y,startScroll:boatYardScroll[boatYardTab],moved:false};return;}}
  if(state==='collection'){const q=pos(e),[a,b]=collectionListBounds();if(q.y>=a&&q.y<=b){sound.unlock();collectionDrag={startY:q.y,startScroll:collectionScroll[collectionTab],moved:false};return;}}
- sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){targetX=pointer.x;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
+ sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){if(!activate(pointer.x,pointer.y))targetX=pointer.x;else pointerDown=false;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
 canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
  if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}
  if(boatYardDrag){const dy=pointer.y-boatYardDrag.startY;if(Math.abs(dy)>7)boatYardDrag.moved=true;if(boatYardDrag.moved)boatYardScrollTo(boatYardDrag.startScroll-dy);return;}

@@ -16,6 +16,8 @@ jobs:
           node-version: '22'
       - name: Install packages
         run: npm install --no-audit --no-fund
+      - name: Run unit and pacing checks
+        run: npm run check && npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run real canvas touch and game-loop playtests
