@@ -248,3 +248,13 @@ The mobile playtest uses automated Chromium touch emulation at 360×780, 393×85
 Playwright touch tests revealed and helped fix two real input bugs: the on-screen pause button was inaccessible during descent/ascent, and fast consecutive screen taps could hit old menu controls. Interactive hit regions now update after every button action; free-space touches still steer the hook. Disabled rumble does not call the vibration API before user interaction, and near-miss cash is awarded only once the initial protected depth ends.
 
 Automated mobile testing runs as a separate GitHub Actions job, with full progression screenshots across three portrait phone sizes. PWA cache revision 35 forces re-installation of the updated shell without removing stored progress.
+
+## v0.3 — Something in the Deep
+
+**Beginner dive tuning:** The protected first 180 m is unchanged, and the rest of the ocean retains sparse 3–5-fish chunks. Two readable shoal crossings now enter the fast centre tidal lane on starter dives. In the 100-seed repeatable simulation, standing in the centre reached 350 m in only 31 of 100 runs, versus 79 before; controlled side-to-side routes are much more successful.
+
+**The Bellwraith:** An original large pixel creature lurks in **The Hush (1,230 m+)**. Bring the Hush Runner line (line upgrade 4) or longer to reach it. Pass through **all three illuminated echo gates on the same descent** to unlock the sigil and a **$960 first-clear payout**; a later successful rematch pays $145. Missing an echo does not kill the player or destroy the cast: the creature simply escapes that attempt. Signalling is separate from normal catches, fish IDs and the main expedition chapter sequence.
+
+**Relics:** Search at approximately 560 m for the Tide Compass and near the Bellwraith for the Echo Pearl. Each is a visible position-specific pickup, available on descent and ascent, with a one-time reward and a persistent journal count. The Old Skipper recognises unexplored rumours, discovered signals and victories with distinct dialogue, and the expedition log reveals the clue.
+
+**Compatibility:** Existing money, upgrades, catches, boat skins, expeditions and daily results are unchanged. Legendary discoveries live in their own `reel-trouble-legend-v1` localStorage key. This release refreshes the offline shell to v36. Tests include seeded encounter paths, missed signals, replay economics, relays and cash rewards.

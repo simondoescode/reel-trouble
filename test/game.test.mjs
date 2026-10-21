@@ -419,3 +419,18 @@ test('rapid touch navigation refreshes the active screen hit regions immediately
  assert.match(game,/function activate\(x,y\)\{[^\n]*h\.action\(\);render\(\);return true;/);
  assert.match(game,/if\(!activate\(pointer\.x,pointer\.y\)\)targetX=pointer\.x/);
 });
+
+test('v0.3 legendary side quest uses independent saves and never reorders fish',()=>{
+ const game=read('src/game.js'),legend=read('src/legendary.js');
+ assert.match(game,/import \{LEGEND_KEY,BELLWRAITH,normalizeLegend,createBellwraith,encounterEvents,awardLegend/);
+ assert.match(game,/legendEncounter=createBellwraith\(worldSeed\)/);
+ assert.match(game,/encounterEvents\(legendEncounter,previousDepth,depth,hookX\)/);
+ assert.match(game,/awardBonus\(win.reward\)/);
+ assert.match(game,/claimRelics\(relicTrail,previousDepth,depth,hookX,legendRecord.relics\)/);
+ assert.match(game,/drawBellwraith\(ctx/);
+ assert.match(game,/drawEchoGate\(ctx/);
+ assert.match(game,/skipperGreeting\(\)/);
+ assert.match(game,/legendRecord.defeated/);
+ assert.match(legend,/reel-trouble-legend-v1/);
+ assert.match(game,/reel-trouble-save-v1/);
+});

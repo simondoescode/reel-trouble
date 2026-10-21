@@ -1194,7 +1194,9 @@ function zoneAnnouncement(){
  ctx.fillText(zoneNotice.name,W/2,center+13,375);
  ctx.font='10px "Press Start 2P",monospace';ctx.fillStyle='#d5eaf5';
  ctx.fillText(zoneNotice.range,W/2,center+49,310);
- const mechanic=regionField(BIOMES.find(b=>b.name===zoneNotice.name)?.start||0,0,210);
+ const mechanic=zoneNotice.name==='THE BELLWRAITH'?
+  {label:'DEEP-SEA LEGEND',hint:'FOLLOW 3 ECHO SIGNALS'}:
+  regionField(BIOMES.find(b=>b.name===zoneNotice.name)?.start||0,0,210);
  ctx.font='9px "Press Start 2P",monospace';ctx.fillStyle='#fff3a9';
  ctx.fillText(mechanic.label+' • '+mechanic.hint,W/2,center+72,393);
  ctx.restore();
