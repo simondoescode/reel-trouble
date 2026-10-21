@@ -123,6 +123,6 @@ test('captain has occasional dialogue and a tap-to-chat action on title screen',
 
 test('offline PWA includes boat cosmetics source',()=>{
  assert.match(sw,/src\/boat-customisation\.js/);
- assert.match(sw,/const CACHE='reel-trouble-offline-v[1-9]\\d*';/);
+ assert.match(sw,/const CACHE='reel-trouble-offline-v[1-9]\d*';/);
  assert.match(sw,/k!==CACHE/);
 });
