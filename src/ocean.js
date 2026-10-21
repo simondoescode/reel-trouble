@@ -10,20 +10,20 @@ export const BIOMES=Object.freeze([
  {id:'unmarked',name:'THE UNMARKED',start:20100,colors:['#0b1630','#0a1226','#080f20','#060b18'],motif:'unknown'}
 ]);
 export const SPECIES = Object.freeze([
- {name:'Guppy',value:10,color:'#ffc247',size:13,behavior:'cruise',speed:13},
- {name:'Mackerel',value:18,color:'#22dce4',size:16,behavior:'cruise',speed:20},
- {name:'Snapper',value:28,color:'#ff657a',size:18,behavior:'zigzag',speed:17},
- {name:'Moonfish',value:42,color:'#b48aff',size:21,behavior:'drift',speed:11},
- {name:'Sunfish',value:65,color:'#d4ff69',size:24,behavior:'drift',speed:12},
- {name:'Hushwisp',value:95,color:'#a7fff4',size:22,behavior:'glow',speed:15},
- {name:'Clownfish',value:22,color:'#ff963a',size:15,behavior:'zigzag',speed:23},
- {name:'Pufferfish',value:46,color:'#fff279',size:22,behavior:'drift',speed:8},
- {name:'Sardine',value:12,color:'#88f6e6',size:11,behavior:'school',speed:25},
- {name:'Lionfish',value:74,color:'#ff8c7f',size:20,behavior:'drift',speed:10},
- {name:'Tuna',value:88,color:'#58e6ea',size:24,behavior:'dash',speed:30},
- {name:'Riftglimmer',value:110,color:'#7dffca',size:17,behavior:'glow',speed:17},
- {name:'Blackglass Lurker',value:170,color:'#c69cff',size:24,behavior:'lure',speed:9},
- {name:'Golden Fish',value:500,color:'#ffe35b',size:18,behavior:'dash',speed:40,rare:true},
+ {name:'Guppy',value:10,color:'#ffc247',size:22,behavior:'cruise',speed:13},
+ {name:'Mackerel',value:18,color:'#22dce4',size:24,behavior:'cruise',speed:20},
+ {name:'Snapper',value:28,color:'#ff657a',size:25,behavior:'zigzag',speed:17},
+ {name:'Moonfish',value:42,color:'#b48aff',size:27,behavior:'drift',speed:11},
+ {name:'Sunfish',value:65,color:'#d4ff69',size:29,behavior:'drift',speed:12},
+ {name:'Hushwisp',value:95,color:'#a7fff4',size:27,behavior:'glow',speed:15},
+ {name:'Clownfish',value:22,color:'#ff963a',size:23,behavior:'zigzag',speed:23},
+ {name:'Pufferfish',value:46,color:'#fff279',size:27,behavior:'drift',speed:8},
+ {name:'Sardine',value:12,color:'#88f6e6',size:21,behavior:'school',speed:25},
+ {name:'Lionfish',value:74,color:'#ff8c7f',size:26,behavior:'drift',speed:10},
+ {name:'Tuna',value:88,color:'#58e6ea',size:30,behavior:'dash',speed:30},
+ {name:'Riftglimmer',value:110,color:'#7dffca',size:24,behavior:'glow',speed:17},
+ {name:'Blackglass Lurker',value:170,color:'#c69cff',size:29,behavior:'lure',speed:9},
+ {name:'Golden Fish',value:500,color:'#ffe35b',size:26,behavior:'dash',speed:40,rare:true},
 
  {name:'Reef Shark',value:210,color:'#91b7d1',size:36,behavior:'patrol',speed:24,hp:2},
  {name:'Swordfish',value:260,color:'#84d9ff',size:34,behavior:'dash',speed:33,hp:2},
@@ -159,6 +159,13 @@ export function advanceHazard(h,dt){
  h.x+=Math.sin(h.phase*.55)*h.drift*step;
  h.x=Math.max(36,Math.min(384,h.x));
  return h;
+}
+// Share the sprite-sized overlap check between descent and ascent.
+export function overlapsFish(f,hookX,hookDepth,reachX=12,reachY=17){
+ const spec=SPECIES[f.kind];
+ if(!spec||f.caught)return false;
+ return Math.abs(f.d+(f.swimY||0)-hookDepth)<reachY &&
+  Math.abs(f.x-hookX)<reachX+spec.size*.52;
 }
 export function overlapsHazard(h,hookX,hookDepth){
  return Math.abs(h.d+Math.sin(h.phase)*9-hookDepth)<24&&Math.abs(h.x-hookX)<h.radius+12;
