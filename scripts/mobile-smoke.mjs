@@ -100,6 +100,49 @@ try{
    assert.equal(second.dayAttempts,2);
    assert.ok(second.dailyBest>=daily.best);
    await page.screenshot({path:`${photos}/daily-retry-${v.width}x${v.height}.png`});
+   // Deep-scene integration: use the real live game update loop but jump over
+   // the long, unrelated dive so every echo and relic is exercised in CI.
+   await page.evaluate(()=>{
+    const save=JSON.parse(localStorage.getItem('reel-trouble-save-v1'));
+    save.upgrades.line=4;save.upgrades.light=2;
+    localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));
+   });
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.locator('body.game-ready').waitFor({timeout:15000});
+   await tap(page,210,585); // Real CAST LINE button
+   assert.equal((await snap(page)).state,'descent');
+   await page.evaluate(()=>window.__reelPlaytest.stageDeepScene('relic',0));
+   await advance(page,.06);
+   assert.equal((await snap(page)).legendRelics,1,'Tide Compass should persist after physical pickup');
+   await page.evaluate(()=>window.__reelPlaytest.stageDeepScene('echo',-1));
+   await advance(page,.06);
+   assert.equal((await snap(page)).legendSeen,true,'entering the warning region reveals the legend');
+   for(let gate=0;gate<3;gate++){
+    await page.evaluate(gate=>window.__reelPlaytest.stageDeepScene('echo',gate),gate);
+    if(gate===2){
+     await page.screenshot({path:`${photos}/bellwraith-${v.width}x${v.height}.png`});
+    }
+    await advance(page,.06);
+    assert.equal((await snap(page)).legendSeals,gate+1,'each echo gate must score a signal');
+    if(gate===1){
+     await page.evaluate(()=>window.__reelPlaytest.stageDeepScene('relic',1));
+     await advance(page,.06);
+     assert.equal((await snap(page)).legendRelics,2,'Echo Pearl should remain in the saved journal');
+    }
+   }
+   const beaten=await snap(page);
+   assert.equal(beaten.legendDefeated,true,'three signals must clear Bellwraith');
+   assert.equal(beaten.legendWins,1);
+   assert.ok(beaten.roundEarnings>=960,'first legend clear must award its actual payout');
+   const legend=await page.evaluate(()=>JSON.parse(localStorage.getItem('reel-trouble-legend-v1')));
+   assert.equal(legend.defeated,true);
+   assert.deepEqual(legend.relics.sort(),['echo-pearl','tide-compass']);
+   const complete=await advance(page,55);
+   assert.equal(complete.state,'results');
+   await page.screenshot({path:`${photos}/legend-clear-${v.width}x${v.height}.png`});
+   console.log('Deep encounter integration:',JSON.stringify({win:complete.legendWins,
+    seals:complete.legendSeals,relics:complete.legendRelics,payout:complete.roundEarnings}));
+
   }
   assert.deepEqual(errors,[],'uncaught browser errors in '+v.width+'x'+v.height);
   await context.close();
