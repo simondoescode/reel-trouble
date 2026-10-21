@@ -102,7 +102,7 @@ export function generateOceanChunk(index,seed=1,maxDepth=Infinity){
   const d=(chunk===0?642:925)+(rand()-.5)*36;
   if(d>=305&&d<upper-32){
    const dir=rand()<.5?-1:1,kind=8;
-   fish.push({id:chunk*100+90,x:150+rand()*120,d,kind,dir,speed:25,
+   fish.push({id:chunk*100+90,x:151+rand()*118,d,kind,dir,speed:4,
     phase:rand()*Math.PI*2,swimY:0,caught:false,bypassed:false,school:'shelf-crossing'});
   }
  }
