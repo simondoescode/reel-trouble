@@ -234,3 +234,11 @@ A lightweight loading overlay is visible until the canvas completes its first re
 - DIVE / REEL / SHOOT / RESULTS have short translucent captions that **never** pause steering, physics or timers. Reduced Effects disables the cue overlay.
 - The seven depth regions each have an effect: Sunskip's quick central current, Bluewander cross-current, Kelp Knuckles outer drag, The Hush sonar pulses, Lantern Rift's moving glow/catch lane, Blackglass timed pressure surges, and The Unmarked reversing drift. The region announcement explains the mechanic.
 - Optional **Daily Dive** via More → Captain's Cabin uses a shared UTC-date seed, a share code, and device-local daily attempt and personal-best records. This is not an online leaderboard or a standardized-equipment tournament. Campaign saves still use `reel-trouble-save-v1`; daily records use a separate `reel-trouble-daily-v1` entry.
+
+## Mobile playtest and pacing gate
+
+The mobile playtest uses automated Chromium touch emulation at 360×780, 393×852 and 412×915 (2× device pixels). It exercises the actual portrait canvas coordinates, menu navigation, a Daily Dive, pause/resume, full dive-to-results and shared-seed retry. Result and menu screenshots are saved as GitHub Actions artifacts. It is an emulated phone test, **not** a physical handset test.
+
+`npm run mobile:smoke` starts the Vite dev server, uses Playwright Chromium and validates the app. Install the browser once with `npx playwright install chromium`. The localhost-only `window.__reelPlaytest` helper advances the genuine gameplay update loop deterministically and exposes read-only diagnostics. Production GitHub Pages does not provide this helper.
+
+`npm run check` also simulates 100 deterministic starter casts at 30–20 updates per second and reports depth outcomes for multiple steering patterns.

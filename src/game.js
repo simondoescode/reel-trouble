@@ -694,6 +694,7 @@ function beginCast(daily=false){
  sound.play('splash');rumble.play('cast');
  nearMissIds=new Set();activeRegionField=null;castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const worldSeed=dailyRun?dailySeed(dailyDay):Math.floor(Math.random()*0xffffffff);
+ castSeed=worldSeed;
  oceanStream=createOceanStream(maxDepth,worldSeed);
  discoveryStream=createDiscoveryStream(maxDepth,worldSeed);
  ({fish:fishes,hazards}=oceanStream.near(depth));hazardSlow=0;
@@ -806,6 +807,7 @@ function shootAt(x,y){
   sound.play('miss');rumble.play('shot');
  }
 }
+let castSeed=0;
 let oceanStream=null,discoveryStream=null;
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
 function endRound(){if(state!=='shoot')return;settleExpedition();state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);
@@ -2350,6 +2352,31 @@ function frame(t){
  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+// Localhost-only playtest bridge. This never ships as a remote control on Pages.
+// It exercises the actual update loop and exposes read-only state snapshots.
+if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){
+ const snapshot=()=>({
+  state,paused,age,depth,deepestCast,maxDepth,castSeed,hookX,targetX,
+  caught:caught.length,visibleFish:fishes.filter(f=>!f.caught).length,
+  shots:fired,landed,escaped,roundEarnings,hasTransition:Boolean(sceneTransition),
+  dailyRun,dailyDay,dailyBest:dailyRecord.best,dayAttempts:dailyRecord.dives,
+  cacheReady:document.body.classList.contains('game-ready')
+ });
+ Object.defineProperty(window,'__reelPlaytest',{value:Object.freeze({
+  snapshot,
+  advance(seconds){
+   if(!Number.isFinite(seconds)||seconds<0||seconds>120)throw new RangeError('Invalid playtest duration');
+   let left=seconds;
+   while(left>0.00001){
+    const step=Math.min(.05,left);
+    if(!paused)update(step);
+    left-=step;
+   }
+   render();
+   return snapshot();
+  }
+ }),configurable:false});
+}
 function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
 function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
