@@ -2378,7 +2378,7 @@ if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){
  }),configurable:false});
 }
 function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
-function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();return true;}}return false;}
+function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();render();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
  if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
  if(state==='shop'&&shopView==='boat'&&!shopInspect){const q=pos(e);if(q.y>=BOAT_YARD_TOP&&q.y<=BOAT_YARD_BOTTOM){boatYardDrag={startY:q.y,startScroll:boatYardScroll[boatYardTab],moved:false};return;}}
