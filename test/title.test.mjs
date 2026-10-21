@@ -22,7 +22,8 @@ test('parallax fish and bubbles live behind all white menu controls',()=>{
  assert.match(life,/lowFx\?9:20/);
  assert.ok(menu.indexOf('titleBackdrop(t);titleSeaLife(t);')<menu.indexOf("button('CAST LINE'"));
  assert.match(menu,/titleActionGlow\(t,50,544,320,83\)/);
- assert.match(menu,/button\('INSTALL APP'/);
+ assert.match(menu,/button\('DAILY DIVE'/);
+ assert.match(game,/function installScene\(/);
  assert.match(menu,/ctx\.drawImage\(titleLogo/);
  assert.match(menu,/text\('BEST \$'/);
 });

@@ -39,7 +39,8 @@ test('there is one main menu entry for secondary screens',()=>{
  assert.doesNotMatch(title,/button\('☰'/);
  assert.match(title,/progress\.discovered/);
  const cabin=scene('function moreMenu(){','function results(){');
- for(const label of ['EXPEDITIONS','FISH BOOK','SETTINGS','INSTALL APP']) assert.ok(cabin.includes(label),label);
+ for(const label of ['EXPEDITIONS','FISH BOOK','SETTINGS','DAILY DIVE']) assert.ok(cabin.includes(label),label);
+ assert.match(game,/button\('INSTALL \/ HELP'/);
 });
 
 test('shop preserves categories, scrolling, purchase flow and legible price labels',()=>{

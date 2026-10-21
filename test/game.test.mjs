@@ -223,7 +223,7 @@ test('modern arcade title and phase transitions remain hooked to actual gameplay
 test('pacing is gentler and phase transitions do not interrupt the round',()=>{
  const game=read('src/game.js');
  assert.match(game,/function stageCue\(kind\)\{sceneTransition=startStage\(kind,lowFx\)/);
- assert.match(game,/depth\+= \(91\+save\.upgrades\.line\*3\)\*dt/);
+ assert.match(game,/depth\+=\(91\+save\.upgrades\.line\*3\)\*activeRegionField\.diveRate\*dt/);
  assert.match(game,/depth<540\?null/);
  assert.match(game,/shootTime=16/);
  assert.match(game,/hazardSlow>0\?125:205/);
@@ -243,7 +243,7 @@ test('gear shop offers persistent lines, distinct guns and one-use blast charges
  assert.match(game,/chargeArmed=save.charges>0/);
  assert.match(game,/save.charges=Math.max\(0,save.charges-1\)/);
  assert.match(game,/collided.bypassed=true/);
- assert.match(game,/!f.bypassed/);
+ assert.match(read('src/ocean.js'),/if\(!meta\|\|f\.caught\|\|f\.bypassed\)return false/);
  assert.match(game,/function buyCharge\(/);
  for(const name of ['QUICKSHOT','SCATTERGUN','TWIN SCATTER','NEON BLASTER','STORM CANNON'])
   assert.ok(guns.includes(name),name);
@@ -397,7 +397,7 @@ test('fishing does not award phantom catches and displays actual hook reach',()=
  const ascent=game.slice(game.indexOf('function startAscent('),game.indexOf('function catchFish('));
  assert.match(ascent,/if\(hitFish\)catchFish\(hitFish\)/);
  assert.doesNotMatch(ascent,/nearest|fishes\.filter/,'the line limit must not catch an offscreen fish');
- assert.match(game,/fishes\.find\(f=>!f\.bypassed&&overlapsFish\(f,hookX,depth,12,17\)\)/);
+ assert.match(game,/fishes\.find\(f=>descentCollides\(f,hookX,depth,previousDepth\)\)/);
  assert.match(game,/if\(overlapsFish\(f,hookX,depth,radius,27\)\)catchFish\(f\)/);
  assert.match(game,/hookReach\(hookX,hy\)/);
  assert.match(game,/radius=\[64,115,175,240,315,390\]\[level\]/);
