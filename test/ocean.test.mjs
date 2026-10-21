@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {SPECIES,BIOMES,DEPTH_SCALE,CHUNK_DEPTH,biomeAtDepth,oceanPalette,oceanVisibility,
- chooseSpecies,spawnOcean,generateOceanChunk,createOceanStream,advanceFish,advanceHazard,overlapsHazard} from '../src/ocean.js';
+ chooseSpecies,spawnOcean,generateOceanChunk,createOceanStream,advanceFish,advanceHazard,overlapsHazard,overlapsFish} from '../src/ocean.js';
 
 test('seven original regions use metre-based boundaries and never hit a rendering cap',()=>{
  assert.equal(BIOMES.length,7);
@@ -64,4 +64,22 @@ test('fish movement, hazards and jellyfish collisions still work',()=>{
  assert.equal(overlapsHazard(hazard,210,600),true);
  assert.equal(overlapsHazard(hazard,330,600),false);
  advanceHazard(hazard,.05);assert.ok(Number.isFinite(hazard.x));
+});
+
+test('small fish stay recognisable at handheld resolutions with stable species IDs',()=>{
+ const undersized=['Guppy','Mackerel','Snapper','Clownfish','Sardine','Riftglimmer','Golden Fish'];
+ assert.equal(SPECIES.length,20);
+ for(const name of undersized){
+  const f=SPECIES.find(species=>species.name===name);
+  assert.ok(f&&f.size>=21,`${name} is still too small on phones`);
+ }
+});
+test('fish only collide when inside the hook reach',()=>{
+ const fish={id:1,x:210,d:600,kind:8,swimY:0,caught:false};
+ assert.equal(overlapsFish(fish,210,600,12,17),true);
+ assert.equal(overlapsFish(fish,310,600,12,17),false);
+ assert.equal(overlapsFish(fish,210,640,12,17),false);
+ assert.equal(overlapsFish({...fish,caught:true},210,600,12,17),false);
+ assert.equal(overlapsFish({...fish,swimY:22},210,600,12,17),false);
+ assert.equal(overlapsFish(fish,250,600,35,27),true);
 });
