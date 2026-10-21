@@ -402,3 +402,14 @@ test('fishing does not award phantom catches and displays actual hook reach',()=
  assert.match(game,/hookReach\(hookX,hy\)/);
  assert.match(game,/radius=\[64,115,175,240,315,390\]\[level\]/);
 });
+
+test('main menu displays the current package version in an unobtrusive footer',()=>{
+ const game=read('src/game.js');
+ const pkg=JSON.parse(read('package.json'));
+ const match=game.match(/const GAME_VERSION='([^']+)'/);
+ assert.ok(match,'game must define the release version');
+ assert.equal(match[1],pkg.version,'the menu version must match package.json');
+ const menu=game.slice(game.indexOf('function menu(){'),game.indexOf('function cabinRow('));
+ assert.match(menu,/text\('v'\+GAME_VERSION,W-18,H-13,10/);
+ assert.ok(menu.indexOf("'v'+GAME_VERSION")>menu.indexOf("'BEST $'"),'version belongs beneath the menu stats');
+});
