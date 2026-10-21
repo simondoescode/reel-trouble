@@ -13,6 +13,8 @@ import { createOceanStream, oceanVisibility, overlapsFish, descentCollides, isNe
 import { drawSeaScape } from './seascape.js';
 import { isDeepCreature, drawDeepCreature } from './deep-creatures.js';
 import { createDiscoveryStream, drawDiscovery } from './discoveries.js';
+import {LEGEND_KEY,BELLWRAITH,normalizeLegend,createBellwraith,encounterEvents,awardLegend,
+ createRelicTrail,claimRelics,drawBellwraith,drawEchoGate,drawOceanRelic} from './legendary.js';
 import { createCollection, normalizeCollection, recordCatch, recordShot, grantAchievements, collectionProgress, fishRarity, fishHabitat, ACHIEVEMENTS } from './collection.js';
 import { setupPwa, canInstall, isInstalled, requestInstall, installGuide, serviceWorkerStatus, refreshGameFiles } from './pwa.js';
 import { weaponForLevel, pickShotTargets, nextCombo, shotPayout } from './shooting.js';
@@ -22,7 +24,7 @@ import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } f
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5, LINE_MAXLVL=14, LIGHT_MAXLVL=5;
 // Keep in sync with package.json; the release-version test enforces this.
-const GAME_VERSION='0.2.1';
+const GAME_VERSION='0.3.0';
 const canvas=document.getElementById('game'), display=canvas.getContext('2d',{alpha:false});
 // Render glyphs at their real logical size: the old 210x390 buffer rasterised
 // 12-16px labels at only 6-8 physical pixels before blowing them back up.
@@ -162,6 +164,9 @@ let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionScroll={fish:0,badges:0},collectionDrag=null,selectedFish=0;
 let sceneTransition=null;
 let dailyRun=false,dailyDay='',dailyRecord=readDaily(),dailyNewBest=false,nearMissIds=new Set(),activeRegionField=null;
+let legendRecord=loadLegend(),legendEncounter=null,relicTrail=[],legendWinThisCast=false,legendRewardThisCast=0;
+function loadLegend(){try{return normalizeLegend(JSON.parse(localStorage.getItem(LEGEND_KEY)||'null'));}catch(_){return normalizeLegend(null);}}
+function persistLegend(){try{localStorage.setItem(LEGEND_KEY,JSON.stringify(legendRecord));}catch(_){}}
 function readDaily(){try{return normalizeDaily(JSON.parse(localStorage.getItem(DAILY_KEY)||'null'));}catch(_){return normalizeDaily(null);}}
 function beginDailyDive(){beginCast(true);}
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0,missionRewardThisCast=0,missionsCompletedThisCast=0;
@@ -694,7 +699,9 @@ function beginCast(daily=false){
  sound.play('splash');rumble.play('cast');
  nearMissIds=new Set();activeRegionField=null;castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const worldSeed=dailyRun?dailySeed(dailyDay):Math.floor(Math.random()*0xffffffff);
- castSeed=worldSeed;
+ castSeed=worldSeed;legendWinThisCast=false;legendRewardThisCast=0;
+ legendEncounter=createBellwraith(worldSeed);
+ relicTrail=createRelicTrail(worldSeed);
  oceanStream=createOceanStream(maxDepth,worldSeed);
  discoveryStream=createDiscoveryStream(maxDepth,worldSeed);
  ({fish:fishes,hazards}=oceanStream.near(depth));hazardSlow=0;
@@ -958,9 +965,38 @@ function update(dt){
   sceneFlash=.17;shake=lowFx?0:3;
   sound.play('miss');rumble.play('sting');
  };
+ const previousDepth=depth;
  if(state==='descent'){
-  const previousDepth=depth;
   depth+=(91+save.upgrades.line*3)*activeRegionField.diveRate*dt;
+  for(const event of encounterEvents(legendEncounter,previousDepth,depth,hookX)){
+   if(event.type==='reveal'){
+    legendRecord.seen=true;legendRecord.attempts++;persistLegend();
+    message='THE BELLWRAITH STIRS • FOLLOW 3 ECHOES';messageTimer=4.4;
+    zoneNotice={name:'THE BELLWRAITH',range:'FOLLOW THE SIGNALS',started:clock};
+    sound.play('reel');rumble.play('sting');sceneFlash=.23;
+   }else if(event.type==='seal'){
+    const hits=legendEncounter.gates.filter(g=>g.hit).length;
+    floatLabel('ECHO SEAL '+hits+'/3',hookX,SEA+depth-cameraY-55,C.mint);
+    burst(hookX,SEA+depth-cameraY,C.teal,18);
+    sound.play('catch');rumble.play('catch');
+    message='ECHO '+hits+'/3 • KEEP FOLLOWING';messageTimer=2.3;
+   }else if(event.type==='miss'){
+    floatLabel('ECHO MISSED!',hookX,SEA+depth-cameraY-54,C.pink);
+    sound.play('miss');rumble.play('sting');
+    message='SIGNAL LOST • SEEK THE NEXT';messageTimer=2.5;
+   }else if(event.type==='victory'){
+    const win=awardLegend(legendRecord);
+    legendRecord=win.progress;persistLegend();
+    legendWinThisCast=true;legendRewardThisCast=win.reward;
+    awardBonus(win.reward);
+    floatLabel('BELLWRAITH +$'+win.reward,210,SEA+depth-cameraY-75,C.yellow);
+    message=win.first?'LEGEND REVEALED!':'BELLWRAITH OUTWITTED!';
+    messageTimer=4.5;sceneFlash=.56;shake=lowFx?0:8;
+    sound.play('finisher');rumble.play('legendary');
+   }else if(event.type==='escape'){
+    message='THE BELLWRAITH FADES INTO THE DARK';messageTimer=3.4;
+   }
+  }
   const collided=depth<540?null:fishes.find(f=>descentCollides(f,hookX,depth,previousDepth));
   if(!collided&&depth>=540)for(const f of fishes){
    if(!nearMissIds.has(f.id)&&isNearMiss(f,hookX,depth,previousDepth)){
@@ -988,6 +1024,15 @@ function update(dt){
   const radius=24+save.upgrades.net*13+activeRegionField.catchBoost;
  for(const f of fishes)if(overlapsFish(f,hookX,depth,radius,27))catchFish(f);
  if(depth<=0){depth=0;beginShoot();}
+ }
+ // Hidden relics reward steering to their positions, not simply reaching depth.
+ for(const item of claimRelics(relicTrail,previousDepth,depth,hookX,legendRecord.relics)){
+  legendRecord.relics.push(item.id);persistLegend();
+  discoveriesThisCast++;awardBonus(item.reward);
+  floatLabel('FOUND '+item.name+' +$'+item.reward,hookX,SEA+depth-cameraY-34,C.yellow);
+  message='SKIPPER WILL WANT TO SEE THIS';messageTimer=3.6;
+  burst(hookX,SEA+depth-cameraY,item.color,24);
+  sound.play('upgrade');rumble.play('legendary');
  }
  // Ease the world camera without artificial region-boundary snapping.
  cameraY+=(clamp(depth-230,0,maxDepth+100)-cameraY)*clamp(dt*6.5,0,1);
