@@ -6,7 +6,7 @@ import { createArcadeAudio } from './audio.js';
 import { createExpedition, normalizeExpedition, recordExpeditionDive, expeditionStatus, completeExpeditions, EXPEDITIONS } from './expeditions.js';
 import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
-import { createOceanStream, oceanVisibility } from './ocean.js';
+import { createOceanStream, oceanVisibility, overlapsFish } from './ocean.js';
 import { drawSeaScape } from './seascape.js';
 import { isDeepCreature, drawDeepCreature } from './deep-creatures.js';
 import { createDiscoveryStream, drawDiscovery } from './discoveries.js';
@@ -597,6 +597,14 @@ function hook(x,y){
  ctx.restore();
  paintShopItem(ctx,'net',x,y+7,.2,save.upgrades.net,clock,true);
 }
+function hookReach(x,y){
+ if(state!=='ascent')return;
+ const reach=24+save.upgrades.net*13;
+ ctx.save();
+ ctx.strokeStyle='#a3fff0a0';ctx.lineWidth=2;ctx.setLineDash([4,7]);
+ ctx.beginPath();ctx.ellipse(x,y+6,reach,26,0,Math.PI,2*Math.PI);ctx.stroke();
+ ctx.restore();
+}
 function bgUndersea(camera){
  const surf=SEA-camera;
  // Continuous depth-aware gradient. World-depth samples smoothly cross biomes
@@ -683,7 +691,7 @@ const worldSeed=Math.floor(Math.random()*0xffffffff);
 function startAscent(hitFish,stung=false){if(state!=='descent')return;
  deepestCast=Math.max(deepestCast,depth);
  state='ascent';age=0;message='REEL THEM IN!';messageTimer=1.9;if(hitFish)catchFish(hitFish);
- else if(!caught.length&&!stung){const nearest=fishes.filter(f=>!f.caught).sort((a,b)=>Math.abs(a.d-depth)-Math.abs(b.d-depth))[0];if(nearest)catchFish(nearest);}
+ // Reaching the line limit never awards an off-screen fish.
  sound.play('reel');sceneFlash=.16;stageCue('reel');}
 function catchFish(f){
  if(f.caught)return;f.caught=true;
@@ -809,9 +817,10 @@ function buyLight(){
 function deepDarkness(y){
  const opacity=1-oceanVisibility(depth);
  if(!opacity)return;
- const level=save.upgrades.light,radius=[0,105,165,240,315,390][level],d=shadeCtx;
+ // Nearby contact stays visible; bought lights still illuminate far more water.
+ const level=save.upgrades.light,radius=[64,115,175,240,315,390][level],d=shadeCtx;
  d.clearRect(0,0,W,H);d.fillStyle='rgba(0,3,14,'+opacity+')';d.fillRect(0,0,W,H);
- if(level){
+ if(radius){
   d.globalCompositeOperation='destination-out';
   const glow=d.createRadialGradient(hookX,y,12,hookX,y,radius);
   glow.addColorStop(0,'rgba(0,0,0,1)');glow.addColorStop(.45,'rgba(0,0,0,.96)');
@@ -930,7 +939,7 @@ function update(dt){
  };
  if(state==='descent'){
  depth+= (91+save.upgrades.line*3)*dt;
- const collided=depth<540?null:fishes.find(f=>!f.caught&&!f.bypassed&&Math.abs(f.d+(f.swimY||0)-depth)<17&&Math.abs(f.x-hookX)<(12+species[f.kind].size*.52));
+ const collided=depth<540?null:fishes.find(f=>!f.bypassed&&overlapsFish(f,hookX,depth,12,17));
  if(collided&&chargeArmed){
   chargeArmed=false;save.charges=Math.max(0,save.charges-1);persist();
   // Clear the fish from the collision path without adding it to the catch.
@@ -948,7 +957,7 @@ function update(dt){
  depth-=(hazardSlow>0?125:205)*dt;
  if(touchingHazard){triggerHazard();hazardSlow=1.2;}
  const radius=24+save.upgrades.net*13;
- for(const f of fishes)if(!f.caught&&Math.abs(f.d+(f.swimY||0)-depth)<27&&Math.abs(f.x-hookX)<radius+species[f.kind].size*.5)catchFish(f);
+ for(const f of fishes)if(overlapsFish(f,hookX,depth,radius,27))catchFish(f);
  if(depth<=0){depth=0;beginShoot();}
  }
  // Ease the world camera without artificial region-boundary snapping.
@@ -1146,6 +1155,7 @@ function gameplay(){const camera=cameraY;
   const y=SEA+item.d-camera;
   if(y>-72&&y<H+72)drawDiscovery(ctx,item,y,waveT,{lowFx});
  }
+ hookReach(hookX,hy);
  for(const f of fishes){
   if(f.caught)continue;
   const fy=SEA+f.d-camera;if(fy<-48||fy>H+48)continue;
