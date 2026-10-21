@@ -97,8 +97,8 @@ export function generateOceanChunk(index,seed=1,maxDepth=Infinity){
   const kind=chooseSpecies(d,rand),meta=SPECIES[kind],dir=rand()<.5?-1:1;
   // Migrating schools favour central water but can always be steered around.
   // Keep the opening protected and all fish visible before they reach the hook.
-  const migrating=chunk<2&&d>=510&&d<1100&&rand()<.48;
-  const x=migrating?150+rand()*120:40+rand()*340;
+  const migrating=chunk<2&&d>=510&&d<1100&&rand()<.82;
+  const x=migrating?169+rand()*82:40+rand()*340;
   fish.push({id:chunk*100+i,x,d,kind,dir,speed:meta.speed*(.84+rand()*.32),
    phase:rand()*Math.PI*2,swimY:0,caught:false,bypassed:false,school:chunk});
  }
