@@ -413,3 +413,9 @@ test('main menu displays the current package version in an unobtrusive footer',(
  assert.match(menu,/text\('v'\+GAME_VERSION,W-18,H-13,10/);
  assert.ok(menu.indexOf("'v'+GAME_VERSION")>menu.indexOf("'BEST $'"),'version belongs beneath the menu stats');
 });
+
+test('rapid touch navigation refreshes the active screen hit regions immediately',()=>{
+ const game=read('src/game.js');
+ assert.match(game,/function activate\(x,y\)\{[^\n]*h\.action\(\);render\(\);return true;/);
+ assert.match(game,/if\(!activate\(pointer\.x,pointer\.y\)\)targetX=pointer\.x/);
+});

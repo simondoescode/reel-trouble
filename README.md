@@ -242,3 +242,9 @@ The mobile playtest uses automated Chromium touch emulation at 360×780, 393×85
 `npm run mobile:smoke` starts the Vite dev server, uses Playwright Chromium and validates the app. Install the browser once with `npx playwright install chromium`. The localhost-only `window.__reelPlaytest` helper advances the genuine gameplay update loop deterministically and exposes read-only diagnostics. Production GitHub Pages does not provide this helper.
 
 `npm run check` also simulates 100 deterministic starter casts at 30–20 updates per second and reports depth outcomes for multiple steering patterns.
+
+## v0.2.1 — Mobile playtest polish
+
+Playwright touch tests revealed and helped fix two real input bugs: the on-screen pause button was inaccessible during descent/ascent, and fast consecutive screen taps could hit old menu controls. Interactive hit regions now update after every button action; free-space touches still steer the hook. Disabled rumble does not call the vibration API before user interaction, and near-miss cash is awarded only once the initial protected depth ends.
+
+Automated mobile testing runs as a separate GitHub Actions job, with full progression screenshots across three portrait phone sizes. PWA cache revision 35 forces re-installation of the updated shell without removing stored progress.

@@ -22,7 +22,7 @@ import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } f
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5, LINE_MAXLVL=14, LIGHT_MAXLVL=5;
 // Keep in sync with package.json; the release-version test enforces this.
-const GAME_VERSION='0.2.0';
+const GAME_VERSION='0.2.1';
 const canvas=document.getElementById('game'), display=canvas.getContext('2d',{alpha:false});
 // Render glyphs at their real logical size: the old 210x390 buffer rasterised
 // 12-16px labels at only 6-8 physical pixels before blowing them back up.
