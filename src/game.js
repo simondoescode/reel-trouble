@@ -183,6 +183,9 @@ function captainSay(line,duration=5){
  captainLine=line;captainLineUntil=clock+duration;captainLineNext=clock+21+captainLineIndex%3*3;
 }
 function captainQuip(){
+ if(legendRecord.defeated&&captainLineIndex%4===0)return 'You outwitted the Bellwraith. It still owes me a bell!';
+ if(legendRecord.seen&&!legendRecord.defeated&&captainLineIndex%4===0)return 'Three echoes, one sea ghost. Follow the light, mate!';
+ if(save.upgrades.line>=3&&!legendRecord.seen&&captainLineIndex%4===0)return 'The Hush has a bell that no sailor should ring.';
  const quotes=[
   'A good day to catch bad decisions!',
   'Mind the hooks. I only have two hands.',
@@ -1262,6 +1265,21 @@ for(const h of hazards){
   ctx.restore();
  }
  deepDarkness(hy);
+ // A deep-water legend is readable through darkness; normal sea life stays dim.
+ if(legendEncounter){
+  const bossY=SEA+BELLWRAITH.start+345-camera;
+  if(bossY>-130&&bossY<H+125&&!legendEncounter.success)
+   drawBellwraith(ctx,310+Math.sin(clock*.8)*8,bossY,clock,{lowFx,defeated:legendRecord.defeated});
+  for(const gate of legendEncounter.gates){
+   const y=SEA+gate.d-camera;
+   if(y>-65&&y<H+65)drawEchoGate(ctx,gate,y,clock,{lowFx});
+  }
+ }
+ for(const item of relicTrail){
+  if(legendRecord.relics.includes(item.id))continue;
+  const y=SEA+item.d-camera;
+  if(y>-70&&y<H+70)drawOceanRelic(ctx,item,y,clock);
+ }
   sideDepthGauge();
  depthReadout();
  if(chargeArmed&&state==='descent')arcadePill('BLAST READY',242,154,162,C.yellow);
@@ -1270,7 +1288,7 @@ for(const h of hazards){
  // The concise HUD and edge ruler carry the persistent information.
  if(messageTimer>0&&!(zoneNotice&&clock-zoneNotice.started<3)){roundRect(67,164,286,42,0,'#07243df5','#86fff2',2);text(message,210,185,16,C.cream,'center',950,0,269);}
  zoneAnnouncement();
- bottomHint(hazardSlow>0?'JELLYFISH! SLOW REEL':state==='descent'&&field&&depth>490?field.label+' • '+field.hint:(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
+ bottomHint(legendEncounter?.revealed&&!legendEncounter.finished&&state==='descent'?'BELLWRAITH • LINE UP WITH 3 ECHOES':hazardSlow>0?'JELLYFISH! SLOW REEL':state==='descent'&&field&&depth>490?field.label+' • '+field.hint:(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
  button('II',357,112,51,46,()=>pauseGame('MANUAL'),C.cream);
 }
 function drawBulletTrail(x1,y1,x2,y2,alpha,color,tier=0){
@@ -1601,7 +1619,8 @@ function results(){
  arcadePill('RUN COMPLETE',115,51,190,C.yellow);
  text('NICE CATCH!',210,123,43,C.white,'center',1000,-.8);
  text(dailyRun?'DAILY CHALLENGE • '+dailyDay:'BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
- if(dailyRun)text((dailyNewBest?'NEW PERSONAL BEST • ':'SHARED SEED • ')+dailyCode(dailyDay),210,195,12,C.yellow,'center',900,0,380);
+ if(legendWinThisCast)text('BELLWRAITH CLEARED +$'+legendRewardThisCast,210,195,15,C.yellow,'center',900,0,380);
+ else if(dailyRun)text((dailyNewBest?'NEW PERSONAL BEST • ':'SHARED SEED • ')+dailyCode(dailyDay),210,195,12,C.yellow,'center',900,0,380);
  else if(missionsCompletedThisCast)text('MISSION CLEARED +$'+missionRewardThisCast,210,195,17,C.yellow,'center',900,0,354);
  else if(discoveriesThisCast)text('OCEAN SECRETS FOUND: '+discoveriesThisCast,210,195,17,C.yellow,'center',900,0,354);
  else if(newFishThisCast||newBadgesThisCast)
@@ -1623,7 +1642,7 @@ function results(){
  text('x'+Math.max(1,bestRoundCombo),343,439,18,C.white,'right',900,0,75);
  text(dailyRun?'DAILY BEST':'DEEPEST DIVE',77,479,16,C.white,'left',900,0,185);
  text(dailyRun?'$'+dailyRecord.best:meter(deepestCast),343,479,18,C.white,'right',900,0,85);
- if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast&&!legendWinThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
  pixelPlate(91,508,238,43,'#10364a','#47e5d7',7);
  text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
  titleActionGlow(clock,64,567,292,62);
@@ -1656,6 +1675,9 @@ function enterShop(){
  skipperSpeak(find?"Oi! Something odd washed up. Tap the find by the counter.":skipperGreeting(),find?'curious':'neutral');
 }
 function skipperGreeting(){
+ if(legendRecord.defeated)return "Three bells silenced, eh? That's the Bellwraith's sigil. Best keep it!";
+ if(legendRecord.seen)return "I saw those three echoes too. Steer through every one, or it slips away!";
+ if(save.upgrades.line>=3)return "My old charts mark three echoes below 1,230m. Never rang 'em myself.";
  const dives=save.total||0,deep=save.best||0;
  if(save.upgrades.light===0&&save.upgrades.line>=2)return "Past the reef? Buy a lamp. The deep don't forgive.";
  if(dives>5000)return "Back again, legend? Something down there remembers ye.";
@@ -1681,7 +1703,9 @@ function skipperReply(category,success){
   charge:["One bang to save your skin. Use it wisely.","The fish won't appreciate that. Nor will the harbourmaster.","Explosives? I never sold ye explosives."]
  };
  const arr=lines[category]||lines.line;
- skipperSpeak(arr[(save.upgrades.line+save.upgrades.net+save.upgrades.gun+save.charges)%arr.length]);
+ if(category==='line'&&save.upgrades.line===4&&!legendRecord.seen)
+  skipperSpeak("That's your Hush Runner! Three echoes below 1,230m. Follow all three, mate.",'curious');
+ else skipperSpeak(arr[(save.upgrades.line+save.upgrades.net+save.upgrades.gun+save.charges)%arr.length]);
 }
 function shopInk(value,x,y,size=18,color='#f8e5bd',align='left',width=380){
  // The font is 400 weight. Ellipsise when necessary; never crush pixel glyphs.
@@ -2108,12 +2132,17 @@ function expeditionBoard(){
  text('REWARD  $'+job.reward,210,454,21,'#3f5845','center',900,0,329);
  ctx.fillStyle='#b99b74';ctx.fillRect(53,486,314,2);
  text('A WORD FROM SKIPPER',210,512,14,'#624729','center',900,0,340);
- storyCopy(job.story,210,545,320,16,'#332b25',22,2);
+ storyCopy(legendRecord.seen
+  ?legendRecord.defeated?"So ye met the Bellwraith. Got its echo sigil, didn't ye?":"Three sonar bells mark its hiding place. Steer into each echo."
+  :job.story,210,545,320,16,'#332b25',22,2);
  text('CHAPTER '+Math.min(status.chapter,EXPEDITIONS.length)+' / '+EXPEDITIONS.length,210,609,15,'#59402a','center',900,0,340);
  const recent=EXPEDITIONS[Math.max(0,Math.min(EXPEDITIONS.length-1,status.chapter-1))];
  const next=EXPEDITIONS[Math.min(EXPEDITIONS.length-1,status.chapter+1)];
  text('✓ '+(status.chapter?recent.title:'FIRST MISSION AWAITS'),210,641,12,'#345e48','center',900,0,330);
- text(status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,210,686,12,C.white,'center',900,0,370);
+ text(legendRecord.defeated?'BELLWRAITH COMPLETE • '+legendRecord.relics.length+'/2 RELICS':
+  legendRecord.seen?'BELLWRAITH • FOLLOW 3 SIGNALS':
+  status.chapter>=EXPEDITIONS.length?'ENDLESS BOUNTIES UNLOCKED':'NEXT: '+next.title,
+  210,686,12,C.white,'center',900,0,370);
  button('← BACK',70,718,280,53,()=>{state=expeditionReturn;age=0;},C.yellow);
 }
 const COLLECTION_LIST_TOP=228,COLLECTION_LIST_BOTTOM=695,COLLECTION_CARD_TOP=232,COLLECTION_ROW=105;
