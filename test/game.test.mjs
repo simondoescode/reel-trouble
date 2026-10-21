@@ -391,3 +391,14 @@ test('game HUD status strips are flush with the top canvas edge',()=>{
  assert.doesNotMatch(depth,/const y=12,h=39/);
  assert.doesNotMatch(top,/roundRect\(14,19,W-28,55/);
 });
+
+test('fishing does not award phantom catches and displays actual hook reach',()=>{
+ const game=read('src/game.js');
+ const ascent=game.slice(game.indexOf('function startAscent('),game.indexOf('function catchFish('));
+ assert.match(ascent,/if\(hitFish\)catchFish\(hitFish\)/);
+ assert.doesNotMatch(ascent,/nearest|fishes\.filter/,'the line limit must not catch an offscreen fish');
+ assert.match(game,/fishes\.find\(f=>!f\.bypassed&&overlapsFish\(f,hookX,depth,12,17\)\)/);
+ assert.match(game,/if\(overlapsFish\(f,hookX,depth,radius,27\)\)catchFish\(f\)/);
+ assert.match(game,/hookReach\(hookX,hy\)/);
+ assert.match(game,/radius=\[64,115,175,240,315,390\]\[level\]/);
+});
