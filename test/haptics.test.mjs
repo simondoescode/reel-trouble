@@ -63,3 +63,12 @@ test('invalid patterns and API exceptions fail without crashing',()=>{
  assert.doesNotThrow(()=>broken.stop());
  assert.equal(broken.play('not-a-pattern'),false);
 });
+
+test('initially disabling rumble does not vibrate before a browser gesture',()=>{
+ const received=[];
+ const rumble=createRumble({vibrate:pattern=>{received.push(pattern);return true;},now:()=>1000});
+ rumble.setEnabled(false);
+ assert.deepEqual(received,[]);
+ rumble.stop();
+ assert.deepEqual(received,[]);
+});

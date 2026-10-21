@@ -962,7 +962,7 @@ function update(dt){
   const previousDepth=depth;
   depth+=(91+save.upgrades.line*3)*activeRegionField.diveRate*dt;
   const collided=depth<540?null:fishes.find(f=>descentCollides(f,hookX,depth,previousDepth));
-  if(!collided)for(const f of fishes){
+  if(!collided&&depth>=540)for(const f of fishes){
    if(!nearMissIds.has(f.id)&&isNearMiss(f,hookX,depth,previousDepth)){
     nearMissIds.add(f.id);awardBonus(5);
     floatLabel('CLOSE CALL +$5',hookX,SEA+depth-cameraY-33,C.yellow);

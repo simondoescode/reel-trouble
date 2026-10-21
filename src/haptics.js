@@ -15,10 +15,11 @@ export function createRumble({vibrate,now=()=>Date.now(),suppressed=()=>false,mi
  const browser=typeof navigator==='undefined'?null:navigator;
  const pulse=typeof vibrate==='function'?vibrate:
   typeof browser?.vibrate==='function'?browser.vibrate.bind(browser):null;
- let enabled=true,lastAt=-Infinity;
+ let enabled=true,lastAt=-Infinity,active=false;
  function stop(){
-  if(!pulse)return;
+  if(!pulse||!active)return;
   try{pulse(0);}catch(_){}
+  active=false;
  }
  return {
   supported(){return Boolean(pulse);},
@@ -33,7 +34,7 @@ export function createRumble({vibrate,now=()=>Date.now(),suppressed=()=>false,mi
    try{
     const result=pulse([...pattern]);
     if(result===false)return false;
-    lastAt=at;
+    lastAt=at;active=true;
     return true;
    }catch(_){return false;}
   }

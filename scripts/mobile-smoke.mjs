@@ -67,6 +67,9 @@ try{
   const moved=await advance(page,2);
   assert.equal(moved.state,'descent');
   assert.ok(moved.depth>100,'descent should move without waiting on overlay');
+  await tap(page,100,510);
+  const steer=await advance(page,.6);
+  assert.ok(steer.hookX<moved.hookX-25,'touch steering must move the hook left');
   // Pause and resume by tapping the on-canvas buttons.
   await tap(page,381,135);
   const paused=await snap(page);
