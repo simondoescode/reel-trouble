@@ -213,7 +213,7 @@ test('modern arcade title and phase transitions remain hooked to actual gameplay
  assert.match(game,/stageCue\('shoot'\)/);
  assert.match(game,/stageCue\('results'\)/);
  assert.match(game,/sceneTransition\.elapsed\+=realDt/);
- assert.match(game,/if\(state!=='shoot'\|\|endDelay>0\|\|sceneTransition\)return/);
+ assert.match(game,/if\(state!=='shoot'\|\|endDelay>0\)return/);
  assert.match(game,/drawStageTransition\(\);/);
  assert.match(game,/arcadePill\('RUN COMPLETE'/);
  assert.match(game,/easeOutCubic\(Math\.min\(1,age\/\.95\)\)/);
@@ -222,7 +222,7 @@ test('modern arcade title and phase transitions remain hooked to actual gameplay
 
 test('pacing is gentler and phase transitions do not interrupt the round',()=>{
  const game=read('src/game.js');
- assert.match(game,/function stageCue\(_kind\)\{sceneTransition=null/);
+ assert.match(game,/function stageCue\(kind\)\{sceneTransition=startStage\(kind,lowFx\)/);
  assert.match(game,/depth\+= \(91\+save\.upgrades\.line\*3\)\*dt/);
  assert.match(game,/depth<540\?null/);
  assert.match(game,/shootTime=16/);

@@ -1,5 +1,5 @@
 // Static, repo-scoped offline shell. Works with Vite hashed assets and raw branch publishing.
-const CACHE='reel-trouble-offline-v33';
+const CACHE='reel-trouble-offline-v34';
 const ROOT=self.registration.scope;
 const base=(path)=>new URL(path,ROOT).href;
 const core=['./','./index.html','./manifest.webmanifest','./assets/title-logo.webp','./icons/favicon.ico','./icons/favicon.png','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png'];
@@ -12,7 +12,7 @@ self.addEventListener('install',event=>{
   const urls=[...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))(?:\?[^"]*)?"/g)]
     .map(match=>new URL(match[1],ROOT))
     .filter(url=>url.origin===self.location.origin && url.href.startsWith(ROOT));
-  const raw=['./src/game.js','./src/boat-customisation.js','./src/shop-art.js','./src/shop-item-assets.js','./src/shop-secrets.js','./src/styles.css','./src/tilt.js','./src/shooting.js','./src/airborne.js','./src/arcade-ui.js','./src/audio.js','./src/haptics.js','./src/ocean.js','./src/seascape.js','./src/deep-creatures.js','./src/discoveries.js','./src/collection.js','./src/expeditions.js','./src/pwa.js'];
+  const raw=['./src/game.js','./src/boat-customisation.js','./src/shop-art.js','./src/shop-item-assets.js','./src/shop-secrets.js','./src/styles.css','./src/tilt.js','./src/shooting.js','./src/airborne.js','./src/arcade-ui.js','./src/audio.js','./src/haptics.js','./src/ocean.js','./src/seascape.js','./src/deep-creatures.js','./src/fish-art.js','./src/region-mechanics.js','./src/daily-challenge.js','./src/discoveries.js','./src/collection.js','./src/expeditions.js','./src/pwa.js'];
   // Installability: preload hashed Vite output when online; keep raw branch fallback.
   await Promise.allSettled([...new Set([...urls.map(u=>u.href),...raw.map(base)])].map(url=>cache.add(url)));
   await self.skipWaiting();

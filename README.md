@@ -226,3 +226,11 @@ A faulty light-upgrade edit produced an unterminated JavaScript string and appen
 ### First-frame and offline-cache recovery
 
 A lightweight loading overlay is visible until the canvas completes its first render. If the game fails to start or remains blank for over six seconds, a **Refresh game files** button appears. This unregisters the Reel Trouble service worker, deletes only game-specific offline caches, and reloads the page without deleting your saved coins, upgrades or collection. Offline cache v16 fetches the repaired game shell.
+
+## v0.2 — Feel-Good Update
+
+- Ocean density now 3–5 fish per chunk instead of 4–6. A smaller swept hitbox makes diving fairer, and a close pass earns a $5 once-per-fish near-miss reward. Ascent keeps the generous hook reach; the protected first 180m remains.
+- Eleven individual hand-pixelled surface fish silhouettes, distinct from the existing speciality deep and giant artwork. No species IDs are renumbered.
+- DIVE / REEL / SHOOT / RESULTS have short translucent captions that **never** pause steering, physics or timers. Reduced Effects disables the cue overlay.
+- The seven depth regions each have an effect: Sunskip's quick central current, Bluewander cross-current, Kelp Knuckles outer drag, The Hush sonar pulses, Lantern Rift's moving glow/catch lane, Blackglass timed pressure surges, and The Unmarked reversing drift. The region announcement explains the mechanic.
+- Optional **Daily Dive** via More → Captain's Cabin uses a shared UTC-date seed, a share code, and device-local daily attempt and personal-best records. This is not an online leaderboard or a standardized-equipment tournament. Campaign saves still use `reel-trouble-save-v1`; daily records use a separate `reel-trouble-daily-v1` entry.

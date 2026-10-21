@@ -88,7 +88,7 @@ export function generateOceanChunk(index,seed=1,maxDepth=Infinity){
  const rand=seededRandom(((seed>>>0)^Math.imul(chunk+1,0x9e3779b1))>>>0);
  const lower=chunk*CHUNK_DEPTH,upper=Math.min(lower+CHUNK_DEPTH,maxDepth),fish=[],hazards=[];
  if(upper<=lower)return {index:chunk,fish,hazards};
- const count=4+Math.floor(rand()*3);
+ const count=3+Math.floor(rand()*3); // Create readable dodge lanes.
  for(let i=0;i<count;i++){
   const d=Math.max(305,lower+58+(i+.5)*(CHUNK_DEPTH-116)/count+(rand()-.5)*44);
   if(d<305||d>=upper-32)continue;
@@ -159,6 +159,17 @@ export function advanceHazard(h,dt){
  h.x+=Math.sin(h.phase*.55)*h.drift*step;
  h.x=Math.max(36,Math.min(384,h.x));
  return h;
+}
+// More forgiving, swept descent collision without weakening the upward catch rig.
+export function descentCollides(f,x,depth,previousDepth=depth){
+ const meta=SPECIES[f.kind];if(!meta||f.caught||f.bypassed)return false;
+ const y=f.d+(f.swimY||0),lo=Math.min(depth,previousDepth)-12,hi=Math.max(depth,previousDepth)+12;
+ return y>=lo&&y<=hi&&Math.abs(f.x-x)<9+meta.size*.38;
+}
+export function isNearMiss(f,x,depth,previousDepth=depth){
+ const meta=SPECIES[f.kind];if(!meta||f.caught||f.bypassed||descentCollides(f,x,depth,previousDepth))return false;
+ const y=f.d+(f.swimY||0),lo=Math.min(depth,previousDepth),hi=Math.max(depth,previousDepth);
+ return y>=lo&&y<=hi&&Math.abs(f.x-x)<31+meta.size*.38;
 }
 // Share the sprite-sized overlap check between descent and ascent.
 export function overlapsFish(f,hookX,hookDepth,reachX=12,reachY=17){
