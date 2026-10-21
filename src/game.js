@@ -1,4 +1,7 @@
 import { tiltAxis, tiltVelocity } from './tilt.js';
+import {drawUniqueFish} from './fish-art.js';
+import {regionField} from './region-mechanics.js';
+import {DAILY_KEY,utcDay,dailySeed,dailyCode,normalizeDaily,recordDaily} from './daily-challenge.js';
 import { BOAT_HULLS, BOAT_FLAGS, boatOptions, normalizeBoatStyle, boatPurchase } from './boat-customisation.js';
 import { paintShopBackdrop, paintSkipper, paintShopItem } from './shop-art.js';
 import { SHOP_SECRETS, unlockedShopSecrets, nextShopSecret } from './shop-secrets.js';
@@ -6,7 +9,7 @@ import { createArcadeAudio } from './audio.js';
 import { createExpedition, normalizeExpedition, recordExpeditionDive, expeditionStatus, completeExpeditions, EXPEDITIONS } from './expeditions.js';
 import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
-import { createOceanStream, oceanVisibility, overlapsFish } from './ocean.js';
+import { createOceanStream, oceanVisibility, overlapsFish, descentCollides, isNearMiss } from './ocean.js';
 import { drawSeaScape } from './seascape.js';
 import { isDeepCreature, drawDeepCreature } from './deep-creatures.js';
 import { createDiscoveryStream, drawDiscovery } from './discoveries.js';
@@ -19,7 +22,7 @@ import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } f
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5, LINE_MAXLVL=14, LIGHT_MAXLVL=5;
 // Keep in sync with package.json; the release-version test enforces this.
-const GAME_VERSION='0.1.0';
+const GAME_VERSION='0.2.0';
 const canvas=document.getElementById('game'), display=canvas.getContext('2d',{alpha:false});
 // Render glyphs at their real logical size: the old 210x390 buffer rasterised
 // 12-16px labels at only 6-8 physical pixels before blowing them back up.
@@ -158,6 +161,9 @@ let captainLine='',captainLineUntil=0,captainLineNext=5,captainLineIndex=0;
 let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionScroll={fish:0,badges:0},collectionDrag=null,selectedFish=0;
 let sceneTransition=null;
+let dailyRun=false,dailyDay='',dailyRecord=readDaily(),dailyNewBest=false,nearMissIds=new Set(),activeRegionField=null;
+function readDaily(){try{return normalizeDaily(JSON.parse(localStorage.getItem(DAILY_KEY)||'null'));}catch(_){return normalizeDaily(null);}}
+function beginDailyDive(){beginCast(true);}
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0,missionRewardThisCast=0,missionsCompletedThisCast=0;
 let deepestCast=0,discoveriesThisCast=0,lastBiomeId='sunskip',cameraY=0,zoneNotice=null;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
@@ -215,7 +221,7 @@ function updateAchievements(){
 function openCollection(tab='fish'){collectionTab=tab;collectionScroll={fish:0,badges:0};collectionDrag=null;sceneTransition=null;state='collection';age=0;}
 let expeditionReturn='more';
 function openExpeditions(){expeditionReturn=state;sceneTransition=null;state='expeditions';age=0;}
-function stageCue(_kind){sceneTransition=null;} // Go straight into each phase: no full-screen interruptions.
+function stageCue(kind){sceneTransition=startStage(kind,lowFx);} // Non-blocking phase cue.
 function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
 const rand=(a,b)=>a+Math.random()*(b-a);
 const irand=(a,b)=>Math.floor(rand(a,b+1));
@@ -410,6 +416,7 @@ function fish(x,y,kind=0,dir=1,scale=1,phase=0){
   drawDeepCreature(ctx,{x,y,kind,dir,scale,phase,size:species[kind].size,lowFx});
   return;
  }
+ if(drawUniqueFish(ctx,{x,y,kind,dir,scale,phase,size:species[kind].size,palette:fishPalette[kind],lowFx}))return;
  const r=species[kind].size*scale,step=r/8,palette=fishPalette[kind];
  const tail=Math.sin(phase*2.5)>0?1:-1,fin=Math.sin(phase*1.8)>0?1:-1;
  ctx.save();ctx.translate(Math.round(x),Math.round(y+Math.sin(phase)*2));ctx.scale(dir,1);
@@ -680,16 +687,17 @@ function maxLineDepth(level){
  return Math.round(3*(350+150*l+38*l*l+3*l*l*l));
 }
 function meter(n){return `${Math.round(n/DEPTH_PIXELS_PER_METRE)}m`;}
-function beginCast(){
+function beginCast(daily=false){
+ dailyRun=daily===true;dailyDay=dailyRun?utcDay():'';dailyNewBest=false;dailyRecord=readDaily();
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
-const worldSeed=Math.floor(Math.random()*0xffffffff);
+ nearMissIds=new Set();activeRegionField=null;castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+const worldSeed=dailyRun?dailySeed(dailyDay):Math.floor(Math.random()*0xffffffff);
  oceanStream=createOceanStream(maxDepth,worldSeed);
  discoveryStream=createDiscoveryStream(maxDepth,worldSeed);
  ({fish:fishes,hazards}=oceanStream.near(depth));hazardSlow=0;
- message='DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
+ message=dailyRun?'DAILY '+dailyCode(dailyDay).slice(0,8):'DIVE DEEP • DODGE FISH';messageTimer=2.4;stageCue('dive');}
 function startAscent(hitFish,stung=false){if(state!=='descent')return;
  deepestCast=Math.max(deepestCast,depth);
  state='ascent';age=0;message='REEL THEM IN!';messageTimer=1.9;if(hitFish)catchFish(hitFish);
@@ -733,7 +741,7 @@ function beginShoot(){
  rumble.play('cast');sceneFlash=.23;sound.play('splash');
 }
 function shootAt(x,y){
- if(state!=='shoot'||endDelay>0||sceneTransition)return;
+ if(state!=='shoot'||endDelay>0)return;
  const gun=weaponForLevel(save.upgrades.gun);
  fired++;recoil=1;muzzleFlash=.16;sound.play('shot',{pitch:gun.tier});
  pointer={x,y};
@@ -800,7 +808,13 @@ function shootAt(x,y){
 }
 let oceanStream=null,discoveryStream=null;
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
-function endRound(){if(state!=='shoot')return;settleExpedition();state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);persist();sound.play('results');stageCue('results');}
+function endRound(){if(state!=='shoot')return;settleExpedition();state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);
+ if(dailyRun){
+  const scored=recordDaily(dailyRecord,roundEarnings,dailyDay);
+  dailyRecord=scored.result;dailyNewBest=scored.newBest;
+  try{localStorage.setItem(DAILY_KEY,JSON.stringify(dailyRecord));}catch(_){}
+ }
+ persist();sound.play('results');stageCue('results');}
 function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=(type==='line'?LINE_MAXLVL:MAXLVL)||save.cash<cfg.cost){skipperReply(type,false);return;}
  save.cash-=cfg.cost;save.upgrades[type]++;skipperReply(type,true);persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 const LINE_NAMES=['SKIPPER STRING','SHELFWALKER','BLUEWANDER','KELP CUTTER','HUSH RUNNER','RIFT RIDER','DEEP REACH','BLACKGLASS','VOID RUNNER','GHOST THREAD','UNMARKED','DARK DRIFTER','DEEP SPOOL','STARLESS','ENDLESS REEL'];
@@ -820,7 +834,7 @@ function deepDarkness(y){
  const opacity=1-oceanVisibility(depth);
  if(!opacity)return;
  // Nearby contact stays visible; bought lights still illuminate far more water.
- const level=save.upgrades.light,radius=[64,115,175,240,315,390][level],d=shadeCtx;
+ const level=save.upgrades.light,radius=[64,115,175,240,315,390][level]+(activeRegionField?.visionBoost||0),d=shadeCtx;
  d.clearRect(0,0,W,H);d.fillStyle='rgba(0,3,14,'+opacity+')';d.fillRect(0,0,W,H);
  if(radius){
   d.globalCompositeOperation='destination-out';
@@ -903,11 +917,10 @@ function update(dt){
  }
  sound.update(realDt,state,document.hidden);
  payoutPulse=Math.max(0,payoutPulse-realDt*2.2);
- // The brief stage card freezes all gameplay timers and fish motion.
+ // Non-blocking captions: never pause fish, timers or input.
  if(sceneTransition){
   sceneTransition.elapsed+=realDt;
   if(sceneTransition.elapsed>=sceneTransition.duration)sceneTransition=null;
-  return;
  }
  clock+=realDt;if(!lowFx)waveT+=dt;age+=realDt;
  updateCaptainQuips();
@@ -924,7 +937,11 @@ function update(dt){
  if(!pointerDown&&sensorFresh())targetX+=tiltVelocity(tiltValue,tiltNeutral)*dt;
  if(keys.has('ArrowLeft')||keys.has('a'))targetX-=270*dt;
  if(keys.has('ArrowRight')||keys.has('d'))targetX+=270*dt;
- targetX=clamp(targetX,24,W-24);hookX+=(targetX-hookX)*clamp((pointerDown?14:9)*dt,0,1);
+ activeRegionField=regionField(depth,age,hookX);
+ if(!pointerDown)targetX+=activeRegionField.drift*dt;
+ targetX=clamp(targetX,24,W-24);
+ hookX+=(targetX-hookX)*clamp((pointerDown?14:9)*activeRegionField.steerRate*dt,0,1);
+ if(pointerDown)hookX=clamp(hookX+activeRegionField.drift*dt*.7,24,W-24);
  if(oceanStream)({fish:fishes,hazards}=oceanStream.near(depth));
  for(const f of fishes)advanceFish(f,dt);
  for(const h of hazards)advanceHazard(h,dt);
@@ -940,8 +957,16 @@ function update(dt){
   sound.play('miss');rumble.play('sting');
  };
  if(state==='descent'){
- depth+= (91+save.upgrades.line*3)*dt;
- const collided=depth<540?null:fishes.find(f=>!f.bypassed&&overlapsFish(f,hookX,depth,12,17));
+  const previousDepth=depth;
+  depth+=(91+save.upgrades.line*3)*activeRegionField.diveRate*dt;
+  const collided=depth<540?null:fishes.find(f=>descentCollides(f,hookX,depth,previousDepth));
+  if(!collided)for(const f of fishes){
+   if(!nearMissIds.has(f.id)&&isNearMiss(f,hookX,depth,previousDepth)){
+    nearMissIds.add(f.id);awardBonus(5);
+    floatLabel('CLOSE CALL +$5',hookX,SEA+depth-cameraY-33,C.yellow);
+    sound.play('catch');break;
+   }
+  }
  if(collided&&chargeArmed){
   chargeArmed=false;save.charges=Math.max(0,save.charges-1);persist();
   // Clear the fish from the collision path without adding it to the catch.
@@ -958,7 +983,7 @@ function update(dt){
  }else{
  depth-=(hazardSlow>0?125:205)*dt;
  if(touchingHazard){triggerHazard();hazardSlow=1.2;}
- const radius=24+save.upgrades.net*13;
+  const radius=24+save.upgrades.net*13+activeRegionField.catchBoost;
  for(const f of fishes)if(overlapsFish(f,hookX,depth,radius,27))catchFish(f);
  if(depth<=0){depth=0;beginShoot();}
  }
