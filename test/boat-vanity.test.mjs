@@ -94,7 +94,7 @@ test('boat yard offers previews, scrolling and explicit buy-or-equip confirmatio
  assert.match(detail,/result==='funds'/);
  assert.match(detail,/if\(equipped\)/);
  assert.match(game,/if\(item\.kind==='boat'\)\{boatInspectOverlay\(\);return;\}/);
- assert.match(game,/shopButton\('BOAT YARD',215,660/);
+ assert.match(game,/shopButton\('BOAT YARD',146,660/);
 });
 
 test('boat yard touch drag, wheel and keys preserve tap-to-inspect',()=>{
