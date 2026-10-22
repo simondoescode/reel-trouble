@@ -434,3 +434,21 @@ test('v0.3 legendary side quest uses independent saves and never reorders fish',
  assert.match(legend,/reel-trouble-legend-v1/);
  assert.match(game,/reel-trouble-save-v1/);
 });
+
+test('v0.4 fittings preserve the collection, old save shape and cosmetic boat options',()=>{
+ const game=read('src/game.js'),tech=read('src/tech-equipment.js'),sw=read('sw.js');
+ for(const symbol of ['equipment:normalizeEquipment(d.equipment)','function techWorkbench()','function techScrollTo(',
+  "shopView==='tech'","buyTech(save,item.id)","function fireSonar()",
+  'activateSonar(save.equipment,clock,sonarLast,state)','function drawSonarPing()',
+  'if(clock<sonarUntil)drawSonarPing()','else if(collided&&chargeArmed)',
+  'ghostArmed=false;collided.bypassed=true','techEffects(save.equipment).reel',
+  'techEffects(save.equipment).catch','techEffects(save.equipment).steer',
+  'techEffects(save.equipment).current','function boatYard()']){
+  assert.ok(game.includes(symbol),'Missing v0.4 mechanic: '+symbol);
+ }
+ assert.match(game,/techDrag=\{startY:/);
+ assert.match(game,/reel-trouble-save-v1/);
+ assert.match(game,/function boat\(/);
+ assert.match(tech,/drawTechIcon/);
+ assert.match(sw,/src\/tech-equipment\.js/);
+});
