@@ -126,9 +126,7 @@ try{
    assert.ok((await snap(page)).techScroll>100,'outfitter must scroll');
    await page.screenshot({path:`${photos}/outfitter-scrolled-${v.width}x${v.height}.png`});
    await tap(page,210,130); // Shop counter
-   await tap(page,205,735); // Back to results
-   assert.equal((await snap(page)).state,'results');
-   await tap(page,210,735); // Main menu
+   await tap(page,205,735); // Back to water (menu after a full reload)
    assert.equal((await snap(page)).state,'menu');
    await tap(page,210,585); // Start a real cast
    assert.equal((await snap(page)).state,'descent');
