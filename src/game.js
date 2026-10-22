@@ -1262,6 +1262,26 @@ function sideDepthGauge(){
  ctx.fillText(meter(depth),x-16,markerY-15);
  ctx.restore();
 }
+function drawSonarPing(){
+ const remaining=sonarUntil-clock;
+ if(remaining<=0)return;
+ const progress=1-remaining/SONAR_DURATION;
+ ctx.save();
+ const radius=30+progress*475;
+ ctx.strokeStyle='#8cfff0';ctx.lineWidth=2;ctx.globalAlpha=.53*(1-progress);
+ ctx.beginPath();ctx.arc(hookX,SEA+depth-cameraY,radius,0,Math.PI*2);ctx.stroke();
+ ctx.globalAlpha=.9;
+ const mark=(x,y,color)=>{
+  if(y<18||y>H-12)return;
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.strokeRect(Math.round(x-14),Math.round(y-14),28,28);
+  ctx.fillStyle=color;ctx.fillRect(Math.round(x-2),Math.round(y-2),4,4);
+ };
+ for(const fish of fishes)if(!fish.caught)mark(fish.x,SEA+fish.d+(fish.swimY||0)-cameraY,'#a3f9f3');
+ for(const h of hazards)mark(h.x,SEA+h.d-cameraY,'#ffb9cf');
+ for(const gate of legendEncounter?.gates||[])if(!gate.done)mark(gate.x,SEA+gate.d-cameraY,'#fff1a1');
+ for(const item of relicTrail)if(!item.claimed&&!legendRecord.relics.includes(item.id))mark(item.x,SEA+item.d-cameraY,item.color);
+ ctx.restore();
+}
 function gameplay(){const camera=cameraY;
  bgUndersea(camera);const surf=SEA-camera;
  const field=activeRegionField;
@@ -1301,6 +1321,7 @@ for(const h of hazards){
   ctx.restore();
  }
  deepDarkness(hy);
+ if(clock<sonarUntil)drawSonarPing();
  // A deep-water legend is readable through darkness; normal sea life stays dim.
  if(legendEncounter){
   const bossY=SEA+BELLWRAITH.start+345-camera;
@@ -1325,6 +1346,10 @@ for(const h of hazards){
  if(messageTimer>0&&!(zoneNotice&&clock-zoneNotice.started<3)){roundRect(67,164,286,42,0,'#07243df5','#86fff2',2);text(message,210,185,16,C.cream,'center',950,0,269);}
  zoneAnnouncement();
  bottomHint(legendEncounter?.revealed&&!legendEncounter.finished&&state==='descent'?'BELLWRAITH • LINE UP WITH 3 ECHOES':hazardSlow>0?'JELLYFISH! SLOW REEL':state==='descent'&&field&&depth>490?field.label+' • '+field.hint:(sensorFresh()?'TILT':'DRAG')+' TO STEER • '+(state==='descent'?'AVOID FISH':'CATCH FISH'));
+ if(techEffects(save.equipment).sonar){
+  const seconds=sonarSecondsRemaining(save.equipment,clock,sonarLast);
+  button(seconds===0?'SONAR PING':'SONAR '+Math.ceil(seconds)+'s',12,112,150,46,fireSonar,seconds===0?C.teal:C.cream);
+ }
  button('II',357,112,51,46,()=>pauseGame('MANUAL'),C.cream);
 }
 function drawBulletTrail(x1,y1,x2,y2,alpha,color,tier=0){
@@ -2523,6 +2548,8 @@ if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){
   legendSeen:legendRecord.seen,legendDefeated:legendRecord.defeated,
   legendWins:legendRecord.wins,legendSeals:legendEncounter?.gates.filter(g=>g.hit).length||0,
   legendRelics:legendRecord.relics.length,
+  equipment:normalizeEquipment(save.equipment),sonarLast,sonarActive:clock<sonarUntil,
+  ghostArmed,sonarCooldown:sonarSecondsRemaining(save.equipment,clock,sonarLast),
   cacheReady:document.body.classList.contains('game-ready')
  });
  Object.defineProperty(window,'__reelPlaytest',{value:Object.freeze({
@@ -2566,23 +2593,36 @@ if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){
 function pos(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,0,W),y:clamp((e.clientY-r.top)*H/r.height,0,H)};}
 function activate(x,y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){h.action();render();return true;}}return false;}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+ if(state==='shop'&&shopView==='tech'&&!shopInspect){
+  const q=pos(e);if(q.y>=TECH_TOP&&q.y<=TECH_BOTTOM){techDrag={startY:q.y,startScroll:techScroll,moved:false};return;}
+ }
  if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){shopDrag={startY:q.y,startScroll:shopScroll[shopTab],moved:false};return;}}
  if(state==='shop'&&shopView==='boat'&&!shopInspect){const q=pos(e);if(q.y>=BOAT_YARD_TOP&&q.y<=BOAT_YARD_BOTTOM){boatYardDrag={startY:q.y,startScroll:boatYardScroll[boatYardTab],moved:false};return;}}
  if(state==='collection'){const q=pos(e),[a,b]=collectionListBounds();if(q.y>=a&&q.y<=b){sound.unlock();collectionDrag={startY:q.y,startScroll:collectionScroll[collectionTab],moved:false};return;}}
  sound.unlock();pointerDown=true;pointer=pos(e);if(paused){activate(pointer.x,pointer.y);return;}if(state==='descent'||state==='ascent'){if(!activate(pointer.x,pointer.y))targetX=pointer.x;else pointerDown=false;}else if(state==='shoot'){if(!activate(pointer.x,pointer.y))shootAt(pointer.x,pointer.y);}else{activate(pointer.x,pointer.y);}});
 canvas.addEventListener('pointermove',e=>{if(paused)return;pointer=pos(e);
+ if(techDrag){
+  const dy=pointer.y-techDrag.startY;
+  if(Math.abs(dy)>7)techDrag.moved=true;
+  if(techDrag.moved)techScrollTo(techDrag.startScroll-dy);
+  return;
+ }
  if(shopDrag){const dy=pointer.y-shopDrag.startY;if(Math.abs(dy)>7)shopDrag.moved=true;if(shopDrag.moved)shopScrollTo(shopDrag.startScroll-dy);return;}
  if(boatYardDrag){const dy=pointer.y-boatYardDrag.startY;if(Math.abs(dy)>7)boatYardDrag.moved=true;if(boatYardDrag.moved)boatYardScrollTo(boatYardDrag.startScroll-dy);return;}
  if(collectionDrag){const dy=pointer.y-collectionDrag.startY;if(Math.abs(dy)>7)collectionDrag.moved=true;if(collectionDrag.moved)collectionScrollTo(collectionDrag.startScroll-dy);return;}
  if(pointerDown&&(state==='descent'||state==='ascent'))targetX=pointer.x;});
 canvas.addEventListener('pointerup',e=>{
+ if(techDrag){const moved=techDrag.moved;techDrag=null;if(!moved)activate(pos(e).x,pos(e).y);}
  if(shopDrag){const dragged=shopDrag.moved;shopDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
  if(boatYardDrag){const dragged=boatYardDrag.moved;boatYardDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
  if(collectionDrag){const dragged=collectionDrag.moved;collectionDrag=null;if(!dragged)activate(pos(e).x,pos(e).y);}
  pointerDown=false;
 });
-canvas.addEventListener('pointercancel',()=>{shopDrag=null;boatYardDrag=null;collectionDrag=null;pointerDown=false;});
+canvas.addEventListener('pointercancel',()=>{techDrag=null;shopDrag=null;boatYardDrag=null;collectionDrag=null;pointerDown=false;});
 canvas.addEventListener('wheel',e=>{
+ if(state==='shop'&&shopView==='tech'&&!shopInspect){
+  const q=pos(e);if(q.y>=TECH_TOP&&q.y<=TECH_BOTTOM){e.preventDefault();techScrollTo(techScroll+e.deltaY);}
+ }
  if(state==='shop'&&shopView==='catalog'&&!shopInspect){const q=pos(e),[a,b]=shopListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();shopScrollTo(shopScroll[shopTab]+e.deltaY);}}
  if(state==='shop'&&shopView==='boat'&&!shopInspect){const q=pos(e);if(q.y>=BOAT_YARD_TOP&&q.y<=BOAT_YARD_BOTTOM){e.preventDefault();const factor=e.deltaMode===1?26:e.deltaMode===2?BOAT_YARD_BOTTOM-BOAT_YARD_TOP:1;boatYardScrollTo(boatYardScroll[boatYardTab]+e.deltaY*factor);}}
  if(state==='collection'){const q=pos(e),[a,b]=collectionListBounds();if(q.y>=a&&q.y<=b){e.preventDefault();const factor=e.deltaMode===1?26:e.deltaMode===2?b-a:1;collectionScrollTo(collectionScroll[collectionTab]+e.deltaY*factor);}}
