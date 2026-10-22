@@ -171,7 +171,7 @@ function fireSonar(){
 let boatYardTab='hull',boatYardScroll={hull:0,flag:0},boatYardDrag=null;
 let captainLine='',captainLineUntil=0,captainLineNext=5,captainLineIndex=0;
 let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
-let techScroll=0,techDrag=null;
+let techScroll=0,techDrag=null,techNotice='',techNoticeUntil=0;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionScroll={fish:0,badges:0},collectionDrag=null,selectedFish=0;
 let sceneTransition=null;
 let dailyRun=false,dailyDay='',dailyRecord=readDaily(),dailyNewBest=false,nearMissIds=new Set(),activeRegionField=null;
@@ -1869,8 +1869,9 @@ function shopCounter(){
  shopCategoryCard('nets','HOOKS',215,460);
  shopCategoryCard('guns','WEAPONS',13,558);
  shopCategoryCard('gadgets','SUPPLIES',215,558);
- shopButton('BOUNTY',13,660,192,43,()=>{shopInspect={kind:'bounty',openedAt:clock};});
- shopButton('BOAT YARD',215,660,192,43,()=>{shopView='boat';boatYardTab='hull';boatYardScrollTo(0);skipperSpeak('New coats of paint and flags! All style, no speed.');});
+ shopButton('BOUNTY',13,660,124,43,()=>{shopInspect={kind:'bounty',openedAt:clock};});
+ shopButton('BOAT YARD',146,660,125,43,()=>{shopView='boat';boatYardTab='hull';boatYardScrollTo(0);skipperSpeak('New coats of paint and flags! All style, no speed.');});
+ shopButton('NEW TECH',280,660,127,43,()=>{shopView='tech';techScroll=0;techDrag=null;skipperSpeak('My latest fittings. They actually do something!','curious');});
  shopStoryButton();
  shopButton('← BACK TO WATER',13,715,394,49,()=>{
   state=castNumber&&save.total?'results':'menu';age=0;
@@ -2145,9 +2146,58 @@ function boatYard(){
  shopButton('← BACK TO WATER',13,717,394,48,()=>{state=castNumber&&save.total?'results':'menu';age=0;boatYardDrag=null;});
 }
 
+// Functional fittings are independent of cosmetic styles and levelled hook sizes.
+const TECH_TOP=238,TECH_BOTTOM=694,TECH_ROW=96;
+const techOptions=[{id:'standard',name:'BARE HOOK',slot:'hook',detail:'ORIGINAL RIG • ALWAYS FREE',price:0},...TECH_ITEMS];
+function techMaxScroll(){return Math.max(0,techOptions.length*TECH_ROW-(TECH_BOTTOM-TECH_TOP));}
+function techScrollTo(value){techScroll=clamp(value,0,techMaxScroll());}
+function techWorkbench(){
+ shopInterior();
+ shopButton('← SHOP COUNTER',13,101,394,48,()=>{shopView='counter';techDrag=null;});
+ shopInk('THE OUTFITTER',210,176,24,'#ffe3ad','center',385);
+ shopInk('TAP TO BUY OR EQUIP • SWIPE TO SCROLL',210,207,11,'#fff0c2','center',386);
+ const kit=normalizeEquipment(save.equipment),top=TECH_TOP,bottom=TECH_BOTTOM;
+ ctx.save();ctx.beginPath();ctx.rect(14,top,391,bottom-top);ctx.clip();
+ for(let i=Math.max(0,Math.floor(techScroll/TECH_ROW));i<techOptions.length&&i<=Math.ceil((techScroll+bottom-top)/TECH_ROW);i++){
+  const item=techOptions[i],y=top+i*TECH_ROW-techScroll;
+  const owned=item.id==='standard'||kit.owned.includes(item.id);
+  const equipped=item.slot==='hook'&&kit.hook===item.id;
+  const status=equipped?'EQUIPPED':owned?(item.slot==='hook'?'TAP TO EQUIP':'INSTALLED'):'BUY $'+item.price;
+  pixelPlate(20,y+3,375,89,equipped?'#f6e5be':owned?'#d7e5d7':'#c3b1a0',
+   equipped?'#efcb78':owned?'#85ae96':'#a08b77',6,false);
+  drawTechIcon(ctx,item.id,70,y+47,2,lowFx?0:clock);
+  shopInk(item.name,113,y+24,15,'#382a20','left',262);
+  shopInk(item.detail,113,y+49,11,'#735a47','left',260);
+  shopInk(status,113,y+76,11,owned?'#397457':'#684b36','left',190);
+  if(!owned)shopInk('$'+item.price,374,y+76,12,'#785137','right',89);
+  const ht=Math.max(top,y+3),hb=Math.min(bottom,y+92);
+  if(hb>ht)hits.push({x:20,y:ht,w:375,h:hb-ht,action:()=>{
+   const result=buyTech(save,item.id);
+   if(result==='funds')techNotice='NOT ENOUGH COINS • KEEP FISHING';
+   else if(result==='invalid')techNotice='CANNOT EQUIP THAT FITTING';
+   else if(result==='equipped')techNotice='HOOK CHANGED • READY FOR NEXT DIVE';
+   else if(result==='owned')techNotice='ALREADY INSTALLED';
+   else{
+    techNotice=item.id==='sonar'?'ECHO FINDER • PING WHILE DIVING':
+     item.slot==='boat'?'FITTED TO THE BOAT':'EQUIPPED ON THE HOOK';
+    sound.play('upgrade');rumble.play('upgrade');
+   }
+   if(result!=='invalid'&&result!=='funds')persist();
+   techNoticeUntil=clock+4;
+  }});
+ }
+ ctx.restore();
+ const max=techMaxScroll(),height=bottom-top,thumb=Math.max(28,height*height/(techOptions.length*TECH_ROW));
+ ctx.fillStyle='#493b35';ctx.fillRect(399,top,4,height);
+ ctx.fillStyle='#ffe0a1';ctx.fillRect(397,top+(height-thumb)*techScroll/Math.max(1,max),7,thumb);
+ if(clock<techNoticeUntil)shopInk(techNotice,210,701,12,'#fff2c7','center',393);
+ else shopInk('WALLET $'+save.cash+' • '+kit.owned.length+' FITTINGS',210,701,12,'#fff2c7','center',385);
+ shopButton('← BACK TO WATER',13,717,394,48,()=>{state=castNumber&&save.total?'results':'menu';age=0;});
+}
 function shop(){
  if(shopView==='counter')shopCounter();
  else if(shopView==='boat')boatYard();
+ else if(shopView==='tech')techWorkbench();
  else shopCatalogue();
  if(shopInspect)shopInspectOverlay();
 }
