@@ -4,6 +4,8 @@ import {regionField} from './region-mechanics.js';
 import {DAILY_KEY,utcDay,dailySeed,dailyCode,normalizeDaily,recordDaily} from './daily-challenge.js';
 import { BOAT_HULLS, BOAT_FLAGS, boatOptions, normalizeBoatStyle, boatPurchase } from './boat-customisation.js';
 import { paintShopBackdrop, paintSkipper, paintShopItem } from './shop-art.js';
+import {TECH_ITEMS,normalizeEquipment,techEffects,buyTech,activateSonar,sonarSecondsRemaining,
+ drawTechIcon,SONAR_DURATION} from './tech-equipment.js';
 import { SHOP_SECRETS, unlockedShopSecrets, nextShopSecret } from './shop-secrets.js';
 import { createArcadeAudio } from './audio.js';
 import { createExpedition, normalizeExpedition, recordExpeditionDive, expeditionStatus, completeExpeditions, EXPEDITIONS } from './expeditions.js';
@@ -24,7 +26,7 @@ import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } f
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5, LINE_MAXLVL=14, LIGHT_MAXLVL=5;
 // Keep in sync with package.json; the release-version test enforces this.
-const GAME_VERSION='0.3.0';
+const GAME_VERSION='0.4.0';
 const canvas=document.getElementById('game'), display=canvas.getContext('2d',{alpha:false});
 // Render glyphs at their real logical size: the old 210x390 buffer rasterised
 // 12-16px labels at only 6-8 physical pixels before blowing them back up.
@@ -40,9 +42,9 @@ display.imageSmoothingEnabled=true; // Smooth final presentation, not font raste
 // Saturated colours remain in the art and outlines. UI labels are solid white.
 const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#ffffff',white:'#ffffff',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#ffffff',ink:'#071b31'};
 
-const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,boatStyle:normalizeBoatStyle(),collection:createCollection(),expedition:createExpedition()};
+const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,boatStyle:normalizeBoatStyle(),equipment:normalizeEquipment(),collection:createCollection(),expedition:createExpedition()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
-return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},boatStyle:normalizeBoatStyle(d.boatStyle),collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
+return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},boatStyle:normalizeBoatStyle(d.boatStyle),equipment:normalizeEquipment(d.equipment),collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -157,10 +159,19 @@ function pauseGame(reason='MANUAL'){
 }
 function resumeGame(){paused=false;pauseReason='';last=0;pointerDown=false;sound.pause(false);sound.unlock();}
 function menuFromPause(){paused=false;pauseReason='';state='menu';age=0;last=0;sceneTransition=null;sound.pause(false);rumble.stop();}
-let shopTab='lines',shopView='counter',chargeArmed=false;
+let shopTab='lines',shopView='counter',chargeArmed=false,ghostArmed=false;
+let sonarLast=-Infinity,sonarUntil=-Infinity;
+function fireSonar(){
+ const pulse=activateSonar(save.equipment,clock,sonarLast,state);
+ if(!pulse)return;
+ sonarLast=pulse.lastUse;sonarUntil=pulse.until;
+ message='ECHO FINDER • TARGETS REVEALED';messageTimer=1.5;
+ sceneFlash=Math.max(sceneFlash,.08);sound.play('upgrade');rumble.play('preview');
+}
 let boatYardTab='hull',boatYardScroll={hull:0,flag:0},boatYardDrag=null;
 let captainLine='',captainLineUntil=0,captainLineNext=5,captainLineIndex=0;
 let shopScroll={lines:0,nets:0,guns:0,gadgets:0},shopDrag=null;
+let techScroll=0,techDrag=null;
 let splashes=[],ripples=[],sceneFlash=0,collectionTab='fish',collectionScroll={fish:0,badges:0},collectionDrag=null,selectedFish=0;
 let sceneTransition=null;
 let dailyRun=false,dailyDay='',dailyRecord=readDaily(),dailyNewBest=false,nearMissIds=new Set(),activeRegionField=null;
@@ -508,6 +519,7 @@ function boat(x,seaY,style=save.boatStyle){
  // animated captain and optional player-owned paintwork/pennant.
  const paint=BOAT_HULLS.find(item=>item.id===style?.hull)||BOAT_HULLS[0];
  const flag=BOAT_FLAGS.find(item=>item.id===style?.flag)||BOAT_FLAGS[0];
+ const fittings=techEffects(save.equipment);
  ctx.save();
  ctx.translate(Math.round(x),Math.round(seaY+(lowFx?0:Math.sin(waveT*2)*2)));
  const rect=(c,x,y,w,h)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
@@ -600,6 +612,19 @@ function boat(x,seaY,style=save.boatStyle){
  rect('#fff0b2',67,-54,2,12);
  rect('#fff0b2',70,-60,2,7);
  rect('#0e3548',71,-56,2,7);
+ // Purchased functional deck fittings are visible alongside cosmetic paint.
+ if(fittings.sonar){
+  rect('#173449',-53,-84,6,31);rect('#d9fff3',-61,-87,22,7);
+  rect('#49d7ce',-56,-90,12,4);
+ }
+ if(fittings.current<1){
+  rect('#76e1d0',-87,-2,12,8);rect('#203e4f',-84,5,7,15);
+  rect('#b6fff2',77,-4,10,10);
+ }
+ if(fittings.reel>1){
+  rect('#152d41',46,-29,26,16);rect('#e2b96c',49,-26,20,11);
+  rect('#244958',54,-23,9,6);rect('#fff1bc',64,-34,5,11);
+ }
  // Occasional textured spray, kept below the deck and in the existing palette.
  const wake=lowFx?0:Math.round(Math.sin(waveT*3)*2);
  rect('#d9fff0',-89,10+wake,14,3);rect('#d9fff0',76,8-wake,15,3);
@@ -613,10 +638,11 @@ function hook(x,y){
  ctx.fillStyle='#fff3da';ctx.fillRect(-1,-24,3,21);
  ctx.restore();
  paintShopItem(ctx,'net',x,y+7,.2,save.upgrades.net,clock,true);
+ if(save.equipment?.hook!=='standard')drawTechIcon(ctx,save.equipment.hook,x+13,y+5,1,clock);
 }
 function hookReach(x,y){
  if(state!=='ascent')return;
- const reach=24+save.upgrades.net*13;
+ const reach=24+save.upgrades.net*13+techEffects(save.equipment).catch;
  ctx.save();
  ctx.strokeStyle='#a3fff0a0';ctx.lineWidth=2;ctx.setLineDash([4,7]);
  ctx.beginPath();ctx.ellipse(x,y+6,reach,26,0,Math.PI,2*Math.PI);ctx.stroke();
@@ -700,7 +726,8 @@ function beginCast(daily=false){
  paused=false;pauseReason='';sound.pause(false);
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
- nearMissIds=new Set();activeRegionField=null;castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ nearMissIds=new Set();activeRegionField=null;
+ sonarLast=-Infinity;sonarUntil=-Infinity;ghostArmed=techEffects(save.equipment).guard;castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const worldSeed=dailyRun?dailySeed(dailyDay):Math.floor(Math.random()*0xffffffff);
  castSeed=worldSeed;legendWinThisCast=false;legendRewardThisCast=0;
  legendEncounter=createBellwraith(worldSeed);
@@ -950,10 +977,10 @@ function update(dt){
  if(keys.has('ArrowLeft')||keys.has('a'))targetX-=270*dt;
  if(keys.has('ArrowRight')||keys.has('d'))targetX+=270*dt;
  activeRegionField=regionField(depth,age,hookX);
- if(!pointerDown)targetX+=activeRegionField.drift*dt;
+ if(!pointerDown)targetX+=activeRegionField.drift*techEffects(save.equipment).current*dt;
  targetX=clamp(targetX,24,W-24);
- hookX+=(targetX-hookX)*clamp((pointerDown?14:9)*activeRegionField.steerRate*dt,0,1);
- if(pointerDown)hookX=clamp(hookX+activeRegionField.drift*dt*.7,24,W-24);
+ hookX+=(targetX-hookX)*clamp((pointerDown?14:9)*activeRegionField.steerRate*techEffects(save.equipment).steer*dt,0,1);
+ if(pointerDown)hookX=clamp(hookX+activeRegionField.drift*techEffects(save.equipment).current*dt*.7,24,W-24);
  if(oceanStream)({fish:fishes,hazards}=oceanStream.near(depth));
  for(const f of fishes)advanceFish(f,dt);
  for(const h of hazards)advanceHazard(h,dt);
@@ -1008,7 +1035,14 @@ function update(dt){
     sound.play('catch');break;
    }
   }
- if(collided&&chargeArmed){
+ if(collided&&ghostArmed){
+  ghostArmed=false;collided.bypassed=true;
+  const y=SEA+depth-cameraY;
+  burst(hookX,y,'#d4a9ff',24);floatLabel('GHOST TIP SAVED!',hookX,y-42,C.pink);
+  message='GHOST TIP • ONE SAVE USED';messageTimer=2.2;
+  sound.play('upgrade');rumble.play('legendary');
+ }
+ else if(collided&&chargeArmed){
   chargeArmed=false;save.charges=Math.max(0,save.charges-1);persist();
   // Clear the fish from the collision path without adding it to the catch.
   collided.bypassed=true;
@@ -1022,9 +1056,9 @@ function update(dt){
  else if(touchingHazard){triggerHazard();startAscent(null,true);}
  else if(depth>=maxDepth){depth=maxDepth;startAscent(null);}
  }else{
- depth-=(hazardSlow>0?125:205)*dt;
- if(touchingHazard){triggerHazard();hazardSlow=1.2;}
-  const radius=24+save.upgrades.net*13+activeRegionField.catchBoost;
+ depth-=(hazardSlow>0?125:205)*techEffects(save.equipment).reel*dt;
+ if(touchingHazard){triggerHazard();hazardSlow=1.2*techEffects(save.equipment).jellySlow;}
+  const radius=24+save.upgrades.net*13+activeRegionField.catchBoost+techEffects(save.equipment).catch;
  for(const f of fishes)if(overlapsFish(f,hookX,depth,radius,27))catchFish(f);
  if(depth<=0){depth=0;beginShoot();}
  }
