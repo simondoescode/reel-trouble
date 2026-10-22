@@ -2548,6 +2548,9 @@ if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){
   legendSeen:legendRecord.seen,legendDefeated:legendRecord.defeated,
   legendWins:legendRecord.wins,legendSeals:legendEncounter?.gates.filter(g=>g.hit).length||0,
   legendRelics:legendRecord.relics.length,
+  equipment:normalizeEquipment(save.equipment),shopView,techScroll,cash:save.cash,
+  sonarLast,sonarActive:clock<sonarUntil,sonarCooldown:sonarSecondsRemaining(save.equipment,clock,sonarLast),
+  ghostArmed,
   equipment:normalizeEquipment(save.equipment),sonarLast,sonarActive:clock<sonarUntil,
   ghostArmed,sonarCooldown:sonarSecondsRemaining(save.equipment,clock,sonarLast),
   cacheReady:document.body.classList.contains('game-ready')
