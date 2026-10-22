@@ -100,6 +100,46 @@ try{
    assert.equal(second.dayAttempts,2);
    assert.ok(second.dailyBest>=daily.best);
    await page.screenshot({path:`${photos}/daily-retry-${v.width}x${v.height}.png`});
+   // Test v0.4 equipment with actual touch shopping and a live sonar press.
+   await page.evaluate(()=>{
+    const save=JSON.parse(localStorage.getItem('reel-trouble-save-v1'));
+    save.cash=6500;localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));
+   });
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.locator('body.game-ready').waitFor({timeout:15000});
+   await tap(page,150,675); // Gear Shop
+   assert.equal((await snap(page)).state,'shop');
+   await tap(page,340,681); // NEW TECH
+   assert.equal((await snap(page)).shopView,'tech');
+   await page.screenshot({path:`${photos}/outfitter-${v.width}x${v.height}.png`});
+   await tap(page,200,375); // Echo Finder
+   assert.ok((await snap(page)).equipment.owned.includes('sonar'));
+   await tap(page,200,475); // Current Fins
+   assert.equal((await snap(page)).equipment.hook,'fins');
+   await tap(page,200,570); // Wide Arc
+   assert.equal((await snap(page)).equipment.hook,'arc');
+   const box=await page.locator('#game').boundingBox(),cx=box.x+box.width/2;
+   await page.mouse.move(cx,box.y+box.height*640/780);
+   await page.mouse.down();
+   await page.mouse.move(cx,box.y+box.height*345/780,{steps:10});
+   await page.mouse.up();
+   assert.ok((await snap(page)).techScroll>100,'outfitter must scroll');
+   await page.screenshot({path:`${photos}/outfitter-scrolled-${v.width}x${v.height}.png`});
+   await tap(page,210,130); // Shop counter
+   await tap(page,205,735); // Back to results
+   assert.equal((await snap(page)).state,'results');
+   await tap(page,210,735); // Main menu
+   assert.equal((await snap(page)).state,'menu');
+   await tap(page,210,585); // Start a real cast
+   assert.equal((await snap(page)).state,'descent');
+   await tap(page,85,134); // Sonar Ping
+   const ping=await snap(page);
+   assert.equal(ping.sonarActive,true);
+   assert.ok(ping.sonarCooldown>17);
+   await tap(page,85,134); // No cooldown reset
+   assert.equal((await snap(page)).sonarLast,ping.sonarLast);
+   await page.screenshot({path:`${photos}/sonar-active-${v.width}x${v.height}.png`});
+
    // Deep-scene integration: use the real live game update loop but jump over
    // the long, unrelated dive so every echo and relic is exercised in CI.
    await page.evaluate(()=>{
