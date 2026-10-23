@@ -452,3 +452,16 @@ test('v0.4 fittings preserve the collection, old save shape and cosmetic boat op
  assert.match(tech,/drawTechIcon/);
  assert.match(sw,/src\/tech-equipment\.js/);
 });
+
+test('v0.5 Captain records and skill trials are connected to the real game',()=>{
+ const game=read('src/game.js'),career=read('src/career.js');
+ for(const phrase of ['career:normalizeCareer(d.career)','function settleCareer()',
+  'function reelGate(','reelProof(level','canUpgradeReel(level','reelPrice(lvl)',
+  'settleExpedition();settleCareer();', "state==='records'",'function captainRecords()',
+  'careerMedalsThisCast.length',"CAPTAIN'S RECORDS",'gear.requiresProof']){
+  assert.ok(game.includes(phrase),'Missing progression: '+phrase);
+ }
+ assert.match(read('sw.js'),/src\/career\.js/);
+ assert.match(career,/CAREER_MEDALS/);
+ assert.match(game,/reel-trouble-save-v1/);
+});
