@@ -9,6 +9,7 @@ import {TECH_ITEMS,normalizeEquipment,techEffects,buyTech,activateSonar,sonarSec
 import { SHOP_SECRETS, unlockedShopSecrets, nextShopSecret } from './shop-secrets.js';
 import { createArcadeAudio } from './audio.js';
 import { createExpedition, normalizeExpedition, recordExpeditionDive, expeditionStatus, completeExpeditions, EXPEDITIONS } from './expeditions.js';
+import {normalizeCareer,recordCareer,captainRank,reelPrice,reelProof,canUpgradeReel,CAREER_MEDALS} from './career.js';
 import { createRumble } from './haptics.js';
 import { SPECIES as species, BIOMES, biomeAtDepth, oceanPalette, spawnOcean, advanceFish, advanceHazard, overlapsHazard } from './ocean.js';
 import { createOceanStream, oceanVisibility, overlapsFish, descentCollides, isNearMiss } from './ocean.js';
@@ -26,7 +27,7 @@ import { ARCADE_STAGES, STAGE_DURATION, easeOutCubic, stageFrame, startStage } f
 'use strict';
 const W=420,H=780,SEA=192, MAXLVL=5, LINE_MAXLVL=14, LIGHT_MAXLVL=5;
 // Keep in sync with package.json; the release-version test enforces this.
-const GAME_VERSION='0.4.0';
+const GAME_VERSION='0.5.0';
 const canvas=document.getElementById('game'), display=canvas.getContext('2d',{alpha:false});
 // Render glyphs at their real logical size: the old 210x390 buffer rasterised
 // 12-16px labels at only 6-8 physical pixels before blowing them back up.
@@ -42,9 +43,9 @@ display.imageSmoothingEnabled=true; // Smooth final presentation, not font raste
 // Saturated colours remain in the art and outlines. UI labels are solid white.
 const C={navy:'#081a32',deep:'#094567',ocean:'#19aed1',teal:'#27f4dd',mint:'#d6fff4',cream:'#ffffff',white:'#ffffff',yellow:'#ffed76',coral:'#ff667f',pink:'#ff9be7',muted:'#ffffff',ink:'#071b31'};
 
-const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,boatStyle:normalizeBoatStyle(),equipment:normalizeEquipment(),collection:createCollection(),expedition:createExpedition()};
+const initial={cash:0,total:0,best:0,upgrades:{line:0,net:0,gun:0,light:0},charges:0,boatStyle:normalizeBoatStyle(),equipment:normalizeEquipment(),collection:createCollection(),expedition:createExpedition(),career:normalizeCareer()};
 function loadSave(){try{const d=JSON.parse(localStorage.getItem('reel-trouble-save-v1')||localStorage.getItem('deep-end-save-v1'));if(!d||!d.upgrades)return structuredClone(initial);
-return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},boatStyle:normalizeBoatStyle(d.boatStyle),equipment:normalizeEquipment(d.equipment),collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition)};
+return {cash:Math.max(0,Number(d.cash)||0),total:Math.max(0,Number(d.total)||0),best:Math.max(0,Number(d.best)||0),charges:clamp(Number(d.charges)||0,0,3),upgrades:{line:clamp(Number(d.upgrades.line)||0,0,LINE_MAXLVL),net:clamp(Number(d.upgrades.net)||0,0,MAXLVL),gun:clamp(Number(d.upgrades.gun)||0,0,MAXLVL),light:clamp(Number(d.upgrades.light)||0,0,LIGHT_MAXLVL)},boatStyle:normalizeBoatStyle(d.boatStyle),equipment:normalizeEquipment(d.equipment),collection:normalizeCollection(d.collection),expedition:normalizeExpedition(d.expedition),career:normalizeCareer(d.career)};
 }catch(_){return structuredClone(initial);}}
 // Ask touch-screen players which steering method to use on first launch.
 const mobileInput = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -181,6 +182,7 @@ function persistLegend(){try{localStorage.setItem(LEGEND_KEY,JSON.stringify(lege
 function readDaily(){try{return normalizeDaily(JSON.parse(localStorage.getItem(DAILY_KEY)||'null'));}catch(_){return normalizeDaily(null);}}
 function beginDailyDive(){beginCast(true);}
 let newFishThisCast=0,newBadgesThisCast=0,bonusThisCast=0,missionRewardThisCast=0,missionsCompletedThisCast=0;
+let careerMedalsThisCast=[],careerRewardThisCast=0,cleanDive=true;
 let deepestCast=0,discoveriesThisCast=0,lastBiomeId='sunskip',cameraY=0,zoneNotice=null;
 let save=loadSave(), state=mobileInput&&(inputChoice===null||(inputChoice==='tilt'&&permissionPrompt))?'settings':'menu', age=0, clock=0, depth=0, maxDepth=720, hookX=W/2,targetX=W/2, fishes=[], hazards=[], hazardSlow=0, caught=[], airborne=[], particles=[], labels=[], hits=[], roundEarnings=0, fired=0, shootTime=0, castNumber=0, message='', messageTimer=0, pointerDown=false, pointer={x:W/2,y:H/2}, keys=new Set(), waveT=0, shake=0;
 function persist(){try{localStorage.setItem('reel-trouble-save-v1',JSON.stringify(save));}catch(_){}}
@@ -190,6 +192,23 @@ function expeditionStats(){
   line:save.upgrades.line,earned:save.total};
 }
 function currentJob(){return expeditionStatus(save.expedition,expeditionStats());}
+function depthRecord(){return Math.max(save.expedition.deepest,save.career.deepest);}
+function careerRank(){return captainRank(depthRecord(),collectionProgress(save.collection).shot,legendRecord.wins);}
+function reelGate(level=save.upgrades.line){
+ const threshold=reelProof(level,Math.round(maxLineDepth(level)/DEPTH_PIXELS_PER_METRE));
+ return {threshold,met:canUpgradeReel(level,depthRecord(),Math.round(maxLineDepth(level)/DEPTH_PIXELS_PER_METRE))};
+}
+function settleCareer(){
+ const scored=recordCareer(save.career,{deepest:Math.round(deepestCast/DEPTH_PIXELS_PER_METRE),
+  landed,combo:bestRoundCombo,payout:roundEarnings,clean:cleanDive},{
+  goldenShot:save.collection.fish[13]?.shot||0,legendWins:legendRecord.wins
+ });
+ save.career=scored.career;careerMedalsThisCast=scored.unlocked;careerRewardThisCast=scored.reward;
+ if(scored.reward){
+  save.cash+=scored.reward;save.total+=scored.reward;roundEarnings+=scored.reward;
+  sound.play('upgrade');rumble.play('upgrade');
+ }
+}
 function captainSay(line,duration=5){
  captainLine=line;captainLineUntil=clock+duration;captainLineNext=clock+21+captainLineIndex%3*3;
 }
@@ -727,7 +746,7 @@ function beginCast(daily=false){
  splashes=[];ripples=[];emitSplash(210,SEA+5,'#d8ffff',1.6);sceneFlash=.23;
  sound.play('splash');rumble.play('cast');
  nearMissIds=new Set();activeRegionField=null;
- sonarLast=-Infinity;sonarUntil=-Infinity;ghostArmed=techEffects(save.equipment).guard;castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
+ sonarLast=-Infinity;sonarUntil=-Infinity;ghostArmed=techEffects(save.equipment).guard;cleanDive=true;careerMedalsThisCast=[];careerRewardThisCast=0;castNumber++;state='descent';age=0;roundEarnings=0;discoveriesThisCast=0;lastBiomeId='sunskip';zoneNotice=null;cameraY=0;newFishThisCast=0;newBadgesThisCast=0;bonusThisCast=0;missionRewardThisCast=0;missionsCompletedThisCast=0;fired=0;combo=0;bestRoundCombo=0;lastComboHit=-Infinity;landed=0;escaped=0;finisherSlow=0;hitFreeze=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];recoil=0;muzzleFlash=0;maxDepth=maxLineDepth(save.upgrades.line);depth=0;deepestCast=0;chargeArmed=save.charges>0;hookX=210;targetX=210;fishes=[];caught=[];airborne=[];particles=[];labels=[];
 const worldSeed=dailyRun?dailySeed(dailyDay):Math.floor(Math.random()*0xffffffff);
  castSeed=worldSeed;legendWinThisCast=false;legendRewardThisCast=0;
  legendEncounter=createBellwraith(worldSeed);
@@ -847,21 +866,26 @@ function shootAt(x,y){
 let castSeed=0;
 let oceanStream=null,discoveryStream=null;
 let endDelay=0;function setTimeoutSafe(_fn,seconds){endDelay=Math.max(endDelay,seconds/1000);}
-function endRound(){if(state!=='shoot')return;settleExpedition();state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);
+function endRound(){if(state!=='shoot')return;settleExpedition();settleCareer();state='results';age=0;endDelay=0;shotEffects=[];impactRings=[];impactGhosts=[];coinBursts=[];finisherSlow=0;hitFreeze=0;recoil=0;muzzleFlash=0;particles=[];labels=[];save.best=Math.max(save.best,roundEarnings);
  if(dailyRun){
   const scored=recordDaily(dailyRecord,roundEarnings,dailyDay);
   dailyRecord=scored.result;dailyNewBest=scored.newBest;
   try{localStorage.setItem(DAILY_KEY,JSON.stringify(dailyRecord));}catch(_){}
  }
  persist();sound.play('results');stageCue('results');}
-function purchase(type){const cfg=upgradeConfig(type);if(cfg.level>=(type==='line'?LINE_MAXLVL:MAXLVL)||save.cash<cfg.cost){skipperReply(type,false);return;}
+function purchase(type){const cfg=upgradeConfig(type);
+ if(type==='line'&&!reelGate().met){
+  skipperSpeak('Master this reel first. Reach '+reelGate().threshold+'m before buying deeper line.','grumpy');
+  return;
+ }
+ if(cfg.level>=(type==='line'?LINE_MAXLVL:MAXLVL)||save.cash<cfg.cost){skipperReply(type,false);return;}
  save.cash-=cfg.cost;save.upgrades[type]++;skipperReply(type,true);persist();burst(210,350,C.yellow,18);sound.play('upgrade');rumble.play('upgrade');}
 const LINE_NAMES=['SKIPPER STRING','SHELFWALKER','BLUEWANDER','KELP CUTTER','HUSH RUNNER','RIFT RIDER','DEEP REACH','BLACKGLASS','VOID RUNNER','GHOST THREAD','UNMARKED','DARK DRIFTER','DEEP SPOOL','STARLESS','ENDLESS REEL'];
 const GUN_NAMES=['POP GUN','QUICKSHOT','SCATTERGUN','TWIN SCATTER','NEON BLASTER','STORM CANNON'];
 function upgradeConfig(type){
  const base={line:65,net:90,gun:85},lvl=save.upgrades[type];
  return {title:{line:'FISHING LINES',net:'FISHING HOOKS',gun:'GUN COLLECTION'}[type],
- level:lvl,cost:Math.round(base[type]*Math.pow(type==='line'?1.52:1.75,lvl)),
+ level:lvl,cost:type==='line'?reelPrice(lvl):Math.round(base[type]*Math.pow(1.75,lvl)),
  desc:{line:'MORE DEPTH WITH EVERY REEL',net:'Wider rigs catch more fish',gun:'AIM BOOST | NEW GUNS L2/L4'}[type]};
 }
 function buyLight(){
@@ -1028,6 +1052,7 @@ function update(dt){
    }
   }
   const collided=depth<540?null:fishes.find(f=>descentCollides(f,hookX,depth,previousDepth));
+   if(collided||touchingHazard)cleanDive=false;
   if(!collided&&depth>=540)for(const f of fishes){
    if(!nearMissIds.has(f.id)&&isNearMiss(f,hookX,depth,previousDepth)){
     nearMissIds.add(f.id);awardBonus(5);
@@ -1946,14 +1971,16 @@ function shopTierList(type,top,bottom){
   // the price to unlock that tier, rather than an undefined final-tier price.
   const priceTier=current?tier:Math.max(0,tier-1);
   const cost=rowType==='charge'?110:rowType==='light'?LAMP_COSTS[priceTier]:
-   Math.round(({line:65,net:90,gun:85}[rowType])*Math.pow(rowType==='line'?1.52:1.75,priceTier));
+   rowType==='line'?reelPrice(priceTier):
+   Math.round(({net:90,gun:85}[rowType])*Math.pow(1.75,priceTier));
   const affordable=save.cash>=cost;
+  const requiresProof=rowType==='line'&&current&&!reelGate().met&&tier<LINE_MAXLVL;
   pixelPlate(21,y+4,368,96,current?'#f6e4bd':owned?'#dce7d8':'#c9beb0',current?'#ffda87':owned?'#74a58c':'#8e8278',5,false);
   ctx.fillStyle=current?'#d8a65b':owned?'#5d9d85':'#8e8278';ctx.fillRect(21,y+15,4,74);
   paintShopItem(ctx,rowType,63,y+52,.58,rowType==='charge'?0:tier,clock,lowFx);
   shopInk(name,109,y+28,15,'#342720','left',261);
   shopInk(detail,109,y+54,12,'#785d48','left',265);
-  const status=rowType==='charge'?save.charges+'/3 IN BAG':owned?'OWNED':current?'EQUIPPED':'LOCKED';
+  const status=rowType==='charge'?save.charges+'/3 IN BAG':owned?'OWNED':requiresProof?'REACH '+reelGate().threshold+'M':current?'EQUIPPED':'LOCKED';
   shopInk(status,109,y+80,11,current?'#44775b':'#685c50','left',140);
   let price=owned?'':rowType==='charge'&&save.charges>=3?'MAXED':
    rowType!=='charge'&&current&&tier===max?'MAXED':
@@ -2020,7 +2047,8 @@ function inspectGearInfo(type){
  type==='net'?'CATCH RADIUS '+(24+13*lvl)+'px':
  type==='gun'?weaponForLevel(lvl).maxHits+' FISH PER SHOT':
  type==='light'?'LIGHT LEVEL '+lvl+' / '+LIGHT_MAXLVL:'CHARGES '+lvl+' / 3';
- return {type,lvl,full:lvl>=limit,cost,name:names[lvl]||type.toUpperCase(),description,benefit};
+ return {type,lvl,full:lvl>=limit,cost,name:names[lvl]||type.toUpperCase(),description,benefit,
+  requiresProof:type==='line'&&!reelGate().met,proofMetres:type==='line'?reelGate().threshold:0};
 }
 function buyInspectedGear(type){
  if(type==='charge'){
@@ -2101,14 +2129,16 @@ function shopInspectOverlay(){
    const rows=shopWrap(gear.description,316,15,2);
    for(let i=0;i<rows.length;i++)shopInk(rows[i],210,532+i*25,15,'#694e39','center',319);
    if(locked)shopInk('BUY THE PREVIOUS UPGRADE FIRST',210,602,13,'#82624a','center',331);
+   else if(gear.requiresProof)shopInk('REACH '+gear.proofMetres+'M WITH THIS REEL',210,602,13,'#82624a','center',331);
    else if(owned)shopInk('ALREADY IN YOUR COLLECTION',210,602,13,'#82624a','center',331);
    else shopInk(gear.full?'FULLY UPGRADED':'NEXT UPGRADE $'+gear.cost,210,601,15,'#6b4c31','center',326);
    shopButton('← BACK',35,628,140,55,()=>{shopInspect=null;});
    if(!owned){
-    const canBuy=!locked&&!gear.full&&save.cash>=gear.cost;
-    shopButton(locked?'LOCKED':gear.full?'MAXED':canBuy?'BUY $'+gear.cost:'NEED $'+gear.cost,
+    const canBuy=!locked&&!gear.full&&!gear.requiresProof&&save.cash>=gear.cost;
+    shopButton(locked?'LOCKED':gear.full?'MAXED':gear.requiresProof?'DEPTH LOCK':canBuy?'BUY $'+gear.cost:'NEED $'+gear.cost,
      185,628,199,55,()=>{
       if(locked){skipperSpeak('Earn the earlier upgrades first. One step at a time.');return;}
+      if(gear.requiresProof){skipperSpeak('Show me yer depth record first, mate.','grumpy');return;}
       if(gear.full)return;
       if(save.cash<gear.cost){skipperReply(gear.type,false);return;}
       buyInspectedGear(gear.type);
