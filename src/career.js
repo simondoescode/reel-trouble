@@ -45,7 +45,7 @@ export function reelPrice(level){
 export function reelProof(level,previousLineMetres){
  const l=safeInt(level);
  if(l===0)return 0;
- const ratio=Math.min(.84,.70+Math.min(7,l-1)*.02);
+ const ratio=Math.min(.84,.72+Math.min(6,l-1)*.02);
  return Math.ceil(safeInt(previousLineMetres)*ratio);
 }
 export function canUpgradeReel(level,deepest,previousLineMetres){
