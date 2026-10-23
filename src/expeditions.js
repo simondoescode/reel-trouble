@@ -23,9 +23,10 @@ export function expeditionStatus(raw,stats={}){
  const p=normalizeExpedition(raw),m=EXPEDITIONS[p.chapter];
  if(m)return {...m,progress:Math.min(m.target,count(stats[m.metric])),goal:m.target,
   label:'CHAPTER '+String(p.chapter+1).padStart(2,'0')+' / '+EXPEDITIONS.length,completed:p.chapter};
- return {id:'bounty',title:"SKIPPER'S BOUNTY",task:'LAND 12 MORE FISH',metric:'caught',
-  progress:Math.min(12,Math.max(0,count(stats.caught)-p.bountyStart)),goal:12,
-  reward:300+Math.min(20,p.bountyCount)*50,completed:EXPEDITIONS.length,
+ const goal=12+Math.min(48,p.bountyCount*6);
+ return {id:'bounty',title:"SKIPPER'S BOUNTY",task:'LAND '+goal+' MORE FISH',metric:'caught',
+  progress:Math.min(goal,Math.max(0,count(stats.caught)-p.bountyStart)),goal,
+  reward:300+Math.min(12,p.bountyCount)*35,completed:EXPEDITIONS.length,
   story:"No retirement for legends, matey. Another haul!",label:'BOUNTY #'+(p.bountyCount+1)};
 }
 export function completeExpeditions(raw,stats={}){
@@ -35,7 +36,7 @@ export function completeExpeditions(raw,stats={}){
   done.push(m);p.chapter++;
  }
  if(wasStory&&p.chapter===EXPEDITIONS.length)p.bountyStart=count(stats.caught);
- else if(!wasStory&&count(stats.caught)-p.bountyStart>=12){
+ else if(!wasStory&&count(stats.caught)-p.bountyStart>=12+Math.min(48,p.bountyCount*6)){
   done.push(expeditionStatus(p,stats));p.bountyStart=count(stats.caught);p.bountyCount++;
  }
  return {progress:p,completed:done,reward:done.reduce((n,m)=>n+m.reward,0)};
