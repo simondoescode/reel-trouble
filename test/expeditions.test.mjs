@@ -26,3 +26,18 @@ test('bounties require catches since the previous claimed bounty',()=>{
  assert.equal(completeExpeditions(next.progress,{...stats,caught:52}).reward,0);
  assert.equal(expeditionStatus(next.progress,{...stats,caught:58}).progress,6);
 });
+
+test('repeat bounties become progressively harder but preserve old counters',()=>{
+ const stats={caught:100,discovered:20,deepest:4000,line:12,shots:100};
+ const start=completeExpeditions(createExpedition(),stats).progress;
+ const first=completeExpeditions(start,{...stats,caught:112});
+ assert.equal(first.reward,300);assert.equal(first.progress.bountyCount,1);
+ const step=expeditionStatus(first.progress,{...stats,caught:128});
+ assert.equal(step.goal,18);assert.equal(step.progress,16);
+ const notYet=completeExpeditions(first.progress,{...stats,caught:129});
+ assert.equal(notYet.reward,0);
+ const next=completeExpeditions(first.progress,{...stats,caught:130});
+ assert.equal(next.reward,335);
+ assert.equal(next.progress.bountyCount,2);
+ assert.equal(expeditionStatus(next.progress,{...stats,caught:150}).goal,24);
+});
