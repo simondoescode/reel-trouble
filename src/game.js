@@ -1688,9 +1688,49 @@ function moreMenu(){
  cabinRow('03','SETTINGS','Controls, sound and display',421,()=>{state='settings';age=0;},C.pink);
  const today=normalizeDaily(dailyRecord);
  button('DAILY DIVE'+(today.dives?' • RETRY':''),56,539,308,60,beginDailyDive,C.yellow);
- text('SHARED OCEAN • '+(today.dives?'BEST $'+today.best:'NEW CHALLENGE'),210,620,11,C.white,'center',900,0,384);
- text('PROGRESS SAVES AUTOMATICALLY',210,637,12,C.white,'center',900,0,360);
+ button("CAPTAIN'S RECORDS",56,615,308,53,()=>{state='records';age=0;},C.teal);
  button('← BACK TO FISHING',52,679,316,68,()=>{state='menu';age=0;},C.yellow);
+}
+function captainRecords(){
+ titleBackdrop(lowFx?0:clock*.26);
+ const rank=careerRank(),progress=collectionProgress(save.collection),career=save.career;
+ text("CAPTAIN'S RECORDS",210,77,28,C.white,'center',950,0,390);
+ text('NOTHING WORTH HAVING COMES EASY',210,111,12,C.yellow,'center',900,0,380);
+ pixelPlate(26,132,368,112,'#0b2b42','#75dacb',9);
+ text('CAREER RANK '+(rank.tier+1)+' / 6',210,158,14,C.mint,'center',950,0,342);
+ text(rank.title,210,191,22,C.yellow,'center',950,0,346);
+ if(rank.next){
+  const todo=rank.remaining;
+  text('NEXT: '+rank.next.name,210,214,12,C.white,'center',950,0,338);
+  text('NEED '+todo.depth+'M • '+todo.shots+' SHOTS'+(todo.legend?' • BELLWRAITH':''),210,234,11,C.white,'center',900,0,354);
+ }else text('THE DEEP KNOWS YOUR NAME',210,223,13,C.white,'center',900,0,350);
+ pixelPlate(26,254,368,171,'#0b2a40','#386e81',8);
+ const statRows=[
+  ['BEST DEPTH',depthRecord()+'m'],['BEST HAUL',career.bestHaul+' FISH'],
+  ['BEST COMBO','x'+Math.max(career.bestCombo,progress.bestCombo)],['BEST RUN','$'+Math.max(career.bestPayout,save.best)]
+ ];
+ for(let i=0;i<statRows.length;i++){
+  const x=i%2?218:41,y=279+Math.floor(i/2)*69;
+  text(statRows[i][0],x,y,12,C.mint,'left',900,0,156);
+  text(statRows[i][1],x,y+29,18,C.white,'left',950,0,163);
+ }
+ const gate=reelGate();
+ text(save.upgrades.line>=LINE_MAXLVL?'MAXIMUM REEL UNLOCKED':gate.met?'NEXT REEL: DEPTH PROOF CLEARED':
+  'REEL TRIAL: '+depthRecord()+' / '+gate.threshold+'M',
+  210,450,13,gate.met?C.teal:C.yellow,'center',900,0,385);
+ text('BELLWRAITH '+legendRecord.wins+' WINS  •  GOLDEN '+(save.collection.fish[13]?.shot||0)+' SHOT',
+  210,476,12,C.white,'center',900,0,388);
+ text('MASTERY MEDALS  '+career.medals.length+' / '+CAREER_MEDALS.length,
+  210,507,17,C.yellow,'center',950,0,390);
+ for(let i=0;i<CAREER_MEDALS.length;i++){
+  const badge=CAREER_MEDALS[i],won=career.medals.includes(badge.id),
+   x=i%2?216:22,y=524+Math.floor(i/2)*59;
+  pixelPlate(x,y,182,54,won?'#275744':'#162f44',won?'#f1ce78':'#477485',5,false);
+  text(won?'★':'◇',x+22,y+26,20,won?C.yellow:'#82b2bb','center',950,0,30);
+  text(badge.name,x+44,y+18,11,C.white,'left',900,0,131);
+  text(won?'EARNED • $'+badge.reward:badge.hint,x+44,y+39,10,won?C.yellow:'#c7e2e4','left',850,0,134);
+ }
+ button("← CAPTAIN'S CABIN",62,714,296,53,()=>{state='more';age=0;},C.yellow);
 }
 function results(){
  titleBackdrop(clock*.38);
@@ -1705,7 +1745,8 @@ function results(){
  arcadePill('RUN COMPLETE',115,51,190,C.yellow);
  text('NICE CATCH!',210,123,43,C.white,'center',1000,-.8);
  text(dailyRun?'DAILY CHALLENGE • '+dailyDay:'BACK ON DRY LAND',210,167,17,C.white,'center',900,0,343);
- if(legendWinThisCast)text('BELLWRAITH CLEARED +$'+legendRewardThisCast,210,195,15,C.yellow,'center',900,0,380);
+ if(careerMedalsThisCast.length)text('NEW MEDAL! +$'+careerRewardThisCast,210,195,16,C.yellow,'center',900,0,380);
+ else if(legendWinThisCast)text('BELLWRAITH CLEARED +$'+legendRewardThisCast,210,195,15,C.yellow,'center',900,0,380);
  else if(dailyRun)text((dailyNewBest?'NEW PERSONAL BEST • ':'SHARED SEED • ')+dailyCode(dailyDay),210,195,12,C.yellow,'center',900,0,380);
  else if(missionsCompletedThisCast)text('MISSION CLEARED +$'+missionRewardThisCast,210,195,17,C.yellow,'center',900,0,354);
  else if(discoveriesThisCast)text('OCEAN SECRETS FOUND: '+discoveriesThisCast,210,195,17,C.yellow,'center',900,0,354);
@@ -1728,7 +1769,7 @@ function results(){
  text('x'+Math.max(1,bestRoundCombo),343,439,18,C.white,'right',900,0,75);
  text(dailyRun?'DAILY BEST':'DEEPEST DIVE',77,479,16,C.white,'left',900,0,185);
  text(dailyRun?'$'+dailyRecord.best:meter(deepestCast),343,479,18,C.white,'right',900,0,85);
- if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast&&!legendWinThisCast)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
+ if(escaped&&!newFishThisCast&&!newBadgesThisCast&&!missionsCompletedThisCast&&!legendWinThisCast&&!careerMedalsThisCast.length)text(escaped+' FISH RETURNED TO SEA',210,195,16,C.white,'center',900);
  pixelPlate(91,508,238,43,'#10364a','#47e5d7',7);
  text('WALLET  $'+save.cash,210,530,19,C.white,'center',900,0,219);
  titleActionGlow(clock,64,567,292,62);
@@ -2543,7 +2584,7 @@ function drawStageTransition(){
 
 function render(){hits=[];ctx.setTransform(1,0,0,1,0,0);
  ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));
- if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='expeditions')expeditionBoard();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
+ if(state==='menu')menu();else if(state==='install')installScene();else if(state==='descent'||state==='ascent')gameplay();else if(state==='shoot')shootScene();else if(state==='results')results();else if(state==='shop')shop();else if(state==='more')moreMenu();else if(state==='collection')collection();else if(state==='expeditions')expeditionBoard();else if(state==='records')captainRecords();else if(state==='fishDetail')fishDetail();else if(state==='settings')settings();
  overlayParticles();drawSplashEffects(lastFrameDt);
  if(sceneFlash>0&&!lowFx){
    ctx.fillStyle='rgba(255,248,208,'+(Math.min(.23,sceneFlash))+')';
@@ -2578,6 +2619,7 @@ if(location.hostname==='localhost'||location.hostname==='127.0.0.1'){
   legendSeen:legendRecord.seen,legendDefeated:legendRecord.defeated,
   legendWins:legendRecord.wins,legendSeals:legendEncounter?.gates.filter(g=>g.hit).length||0,
   legendRelics:legendRecord.relics.length,
+  rank:careerRank().title,career:normalizeCareer(save.career),reelTrial:reelGate(),
   equipment:normalizeEquipment(save.equipment),shopView,techScroll,cash:save.cash,
   sonarLast,sonarActive:clock<sonarUntil,sonarCooldown:sonarSecondsRemaining(save.equipment,clock,sonarLast),
   ghostArmed,
