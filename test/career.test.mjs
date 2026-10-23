@@ -5,7 +5,7 @@ import {CAREER_TIERS,CAREER_MEDALS,normalizeCareer,captainRank,reelPrice,reelPro
 
 test('reel upgrades require previous-line mastery without trapping the beginner',()=>{
  assert.equal(reelProof(0,350),0);
- assert.ok(reelProof(1,541)>=370);
+ assert.equal(reelProof(1,541),390);
  assert.equal(canUpgradeReel(1,360,541),false);
  assert.equal(canUpgradeReel(1,400,541),true);
  assert.equal(canUpgradeReel(0,0,350),true);
