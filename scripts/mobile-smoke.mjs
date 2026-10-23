@@ -60,6 +60,14 @@ try{
   // All routes are tapped on the real canvas, not invoked directly.
   await tap(page,315,675); // MORE
   assert.equal((await snap(page)).state,'more','More should respond to touch');
+  await tap(page,210,646); // Captain's Records
+  const records=await snap(page);
+  assert.equal(records.state,'records','career records must open by touch');
+  assert.equal(records.rank,'DOCK ROOKIE');
+  assert.equal(records.career.medals.length,0);
+  await page.screenshot({path:`${photos}/career-records-${v.width}x${v.height}.png`});
+  await tap(page,210,740); // Back to Captain's Cabin
+  assert.equal((await snap(page)).state,'more');
   await tap(page,210,568); // DAILY DIVE
   const start=await snap(page);
   assert.equal(start.state,'descent','Daily Dive should start immediately');
