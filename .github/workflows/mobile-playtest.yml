@@ -1,7 +1,7 @@
 name: Mobile gameplay playtest
 on:
   push:
-    branches: [main, mobile-playtest-v02, v0.3-deep-encounter, v0.4-equipment]
+    branches: [main, mobile-playtest-v02, v0.3-deep-encounter, v0.4-equipment, v0.5-captains-records]
   pull_request:
 permissions:
   contents: read
